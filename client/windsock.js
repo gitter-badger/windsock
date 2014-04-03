@@ -115,7 +115,7 @@
 
                 for(var key in list){
 
-                    if(fn.apply(context, [key, list[key], list, exit].concat(args)) == exit) return;
+                    if(fn.apply(context, [list[key], key, list, exit].concat(args)) == exit) return;
 
                 }
 
@@ -155,28 +155,13 @@
 
         },
 
-        set: function(target, prop, descriptor){
+        set: function(obj, props){
 
-            return Object.defineProperty(target, prop, descriptor);
+            var descriptor = Array.prototype.slice.call(arguments, 2);
 
-        },
+            if(descriptor.length) return Object.defineProperty(obj, props, descriptor[0]);
 
-        hide: function(target, props, descriptor){
-
-            descriptor = descriptor || Object.create(null);
-
-            Util.each(props, function(prop, val){
-
-                Util.set(target, prop, Util.extend({
-
-                    value: val,
-                    enumerable: false
-
-                }, descriptor));
-
-            });
-
-            return target;
+            return Object.defineProperties(obj, props);
 
         },
 
@@ -196,6 +181,7 @@
 
         },
 
+        //props is a object.defineProp descriptor
         inherit: function(construct, superConstruct, props){
 
             //Sets the prototype of the construct to a new object created from super.
@@ -225,6 +211,32 @@
             });
 
             return obj;
+
+        },
+
+        //Matches a query object key/values and returns a shallow list of matching results.
+        //uses in for properties which includes inherited but not non enumerable props
+        match: function(list, query){
+
+            var matched = true;
+
+            Util.each(query, function(val, key){
+
+                if(list[key] !== val) matched = false;
+
+            });
+
+            return matched;
+
+        },
+
+        bind: function(fn, context){
+
+            return function(){
+
+                return fn.apply(context, Array.prototype.slice.call(arguments));
+
+            };
 
         },
 
@@ -277,8 +289,9 @@
     var util = require('./util'),
         is = util.is,
         extend = util.extend,
-        each = util.each,
         merge = util.merge,
+        each = util.each,
+        inherit = util.inherit,
         nextTick = util.nextTick;
 
     module.exports = Signals;
@@ -311,6 +324,23 @@
 
     Signal.prototype._flush = function(){};
 
+    Signal.extend = function(obj, fn){
+
+        var signal = function(){
+
+            Signal.call(this);
+            if(fn) fn.apply(this, arguments);
+
+        };
+
+        inherit(signal, Signal);
+
+        extend(signal.prototype, obj);
+
+        return signal;
+
+    };
+
     //similar to a stream
     //returns a function that can be invoked with methods add and remove
     //calling returns a new promise only if async
@@ -319,7 +349,9 @@
 
         var signals = this;
 
-        signals._callbacks = [];
+        signals._callbacks = Array.prototype.slice.call(arguments, 1);
+
+        if(is(signals._callbacks[0], 'array')) signals._callback = signals._callback[0];
 
         signals._index = 0;
 
@@ -330,6 +362,7 @@
 
         }, options);
 
+        //return an extended closure
         return extend(function(){
 
             if(!signals._callbacks.length) return {then:function(fn){nextTick(fn);}};
@@ -377,15 +410,13 @@
 
                     if(signals._config.flowing) done();
 
-                    return nextSignal;
+                    //return value only matters for sync callbacks
+                    return signals;
 
                     //to support a returned promise
                     //signals._callbacks[signals._index]._signal.apply(signals._callbacks[signals._index], args).then(function(er){ if(!er) done();});
 
                 };
-
-            //promise is always first
-            //args.unshift(promise);
 
             if(!signals._config.flowing) args.push(done);
 
@@ -415,10 +446,18 @@
 
     }
 
-    //removes one signal at a time just to keep it simple for now
+    //removes one or all signals just to keep it simple for now
     Signals.prototype.remove = function(signal){
 
         if(signal){
+
+            if(is(signal, 'number')){
+
+                this._callbacks.splice(signal, 1);
+
+                return this;
+
+            }
 
             if(!(signal instanceof Signal) && !(signal._signal)) throw new Error('remove() requires an instance of Signal');
 
@@ -455,19 +494,45 @@
         each = util.each,
         is = util.is;
 
+    var voidTags = [
+        'area',
+        'base',
+        'br',
+        'col',
+        'command',
+        'embed',
+        'hr',
+        'img',
+        'input',
+        'keygen',
+        'link',
+        'meta',
+        'param',
+        'source',
+        'track',
+        'wbr'
+    ];
+
     module.exports = Parser;
 
     //doesn't support xml namespaces, any type of fuzzy/predictive syntax,
     //error handling, doctypes, optional closures or anything a real parser would
     //defaults to syncronous parsing
-    function Parser(){
+    function Parser(options){
 
         var parser = this;
 
-        //parseHTML signals
-        each(['characters', 'start', 'end', 'done'], function(name){
+        parser.options = util.merge({
 
-            parser.parseHTML[name] = new Signals({async:true, flowing:true});
+            async:false,
+            flowing:true
+
+        }, options);
+
+        //parseHTML signals
+        each(['start', 'content', 'end', 'done'], function(name){
+
+            parser[name] = new Signals(parser.options);
 
         });
 
@@ -487,6 +552,11 @@
 
     }
 
+    //html string loop
+
+    //jsonml loop
+
+    //dom loop
     Parser.prototype.parseDOM = function(node){
 
         if(node.nodeName === 'SCRIPT') return;
@@ -528,7 +598,20 @@
 
     };
 
+    //factory method
+    Parser.build = function(obj, options){
+
+        var parser = function(){};
+        //inherit the different constructor
+        inherit(parser, Parser);
+
+        return new Parser(options);
+
+    };
+
     Parser.prototype.parse = function(obj){
+
+        if(!obj) return;
 
         if(is(obj, 'string')){
 
@@ -550,6 +633,12 @@
 
     };
 
+    Parser.prototype.parseJSONML = function(obj){
+
+        this.content(obj);
+
+    };
+
     //if async returns an empty done promise
     Parser.prototype.parseHTML = function(markup){
 
@@ -565,7 +654,7 @@
             if(nextTagIndex >= 0 ){
 
                 //start element exists in string
-                this.parseHTML.characters(markup.substring(0, nextTagIndex));
+                this.content(markup.substring(0, nextTagIndex));
 
                 //set html string to index of new element to end
                 markup = markup.substring(nextTagIndex);
@@ -573,7 +662,9 @@
                 //grab the start tag
                 var endOfTagIndex = markup.indexOf('>') + 1,
                     startTag = markup.substring(0, endOfTagIndex),
-                    voidTag = (markup[startTag.length - 2] === '/');
+                    parsedTag = parseTag(startTag),
+                    //if not xhtml void tag check tagname for html5 valid void tags
+                    voidTag = (markup[startTag.length - 2] === '/') || isVoid(parsedTag.nodeName);
 
                 if(startTag[1] === '!'){
 
@@ -582,13 +673,13 @@
 
                 }else if(startTag[1] === '/' || voidTag){
 
-                    //void or end tag
-                    this.parseHTML.end(startTag, voidTag);
+                    //void tag or end tag. start is never called for void tags
+                    this.end(parsedTag, voidTag);
 
                 }else{
 
                     //start tag
-                    this.parseHTML.start(startTag);
+                    this.start(parsedTag);
 
                 }
 
@@ -597,7 +688,7 @@
 
             }else{
 
-                this.parseHTML.characters(markup);
+                this.content(markup);
 
                 //reset
                 markup = null;
@@ -607,7 +698,53 @@
         }
 
         //parse.done_flush would be the last
-        return this.parseHTML.done();
+        return this.done();
+
+    };
+
+    function parseTag (tag){
+
+        var node = {
+            nodeName: '',
+            attributes: {}
+        },
+        reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)="([^"]+)")/g;
+
+        var m = tag.match(reg);
+
+        for(var i = 0, l= m.length;i<l;i++){
+
+            var keyVal = m[i].split('=');
+
+            if(i === 0) {
+
+                node.nodeName = keyVal[0].replace('/','').replace('>','').trim();
+
+            }else if(keyVal.length > 1){
+
+                node.attributes[keyVal[0]] = keyVal[1].replace('"','').replace('"','');
+
+            }else{
+
+                node.attributes[keyVal[0]] = null;
+
+            }
+
+        }
+
+        return node;
+
+    };
+
+    function isVoid(tag){
+
+        for(var i = 0, l = voidTags.length; i < l; i++){
+
+            if(voidTags[i] === tag) return true;
+
+        }
+
+        return false;
 
     };
 
@@ -621,104 +758,223 @@
         Signals = require('./signals'),
         is = util.is,
         set = util.set,
+        extend = util.extend,
         traverse = util.traverse,
         each = util.each;
 
-    //observable model
+    function Observer(fn){
 
-    function Data(obj){
+        var observer = new Signals.Signal.extend({
 
-        if(obj._signals) return obj;
+            context: null,
 
-        var ops = {
-            async: false,
-            flowing: true
-        };
+            _signal: function(){
 
-        var accessor = {
-            set: new Signals.Signal(),
-            get: new Signals.Signal()
-        };
-
-        set(obj, 'update', {value: new Signals(ops), enumerable: false});
-
-        accessor.set._signal = function(val, prop, target, oldVal){
-
-            console.log('default set signal called');
-
-            if(!this.value) this.value = oldVal;
-
-            if(is(val, 'array') || is(val, 'Object')){
-
-                this.value = Data(val);
-                return;
+                fn.apply(this.context, arguments);
 
             }
 
-            this.value = val;
+        });
 
-        };
+        return new observer();
 
-        accessor.get._signal = function(val, prop, target){
+    }
 
-            console.log('default get signal called');
+    //subject is a simple signal wrapper
+    function Subject(obj){
 
-        };
+        extend(this, obj);
 
-        accessor.set._flush = function(){
+        this.observers = new Signals({async:false, flowing:true});
 
-            obj.update.apply(this, arguments);
+    }
 
-        };
+    Subject.prototype.add = function(observer){
 
-        traverse(obj, function(){
+        observer.context = this;
 
-            //closure to hold ref to value
-            var target = arguments[2],
-                prop = arguments[0],
-                value = arguments[1];
+        this.observers.add(observer);
 
-            if(is(target, 'array')){
+    };
 
-                prop = arguments[1];
-                value = arguments[0];
+    Subject.prototype.list = function(){
 
-            }
+        return this.observers._callbacks;
 
-            if(!target._signals) set(target, '_signals', {
+    };
 
-                value: Object.create(null),
-                enumerable: false,
-                writable:true
+    Subject.prototype.remove = function(observer){
 
-            });
+        this.observers.remove(observer);
 
-            //hide(target, {_signals:{}}, {writable:true});
+    };
 
-            //create observer signal object
-            target._signals[prop] = Object.create(null);
+    Subject.prototype.emit = function(){
 
-            var g = new Signals(ops);
-                g.add(accessor.get);
-            set(target._signals[prop], 'get', {value: g, enumerable: false});
+        //applying a context to a signal gets overridden
+        this.observers.apply(undefined, arguments);
 
-            var s = new Signals(ops);
-                s.add(accessor.set);
-            set(target._signals[prop], 'set', {value: s, enumerable: false});
+    }
 
-            set(target, prop, {
+    Data.Observer = Observer;
+    Data.Subject = Subject;
 
-                set:function(v){
+    //blegh this isn't working
+    Data.mutate = function(obj, key, fn){
 
-                    //call the signals with params and set value to returned signal value
-                    value = target._signals[prop].set(v, prop, target, value).value;
+        if(!obj._observable) throw new Error('Object is non mutatable. Missing observers.');
+
+        //return by key/index if removed on object/array so we can clean up
+        //instead of manually cleaning this up we could do a traversal and compare...
+        var removeKey = fn(obj[key]);
+        obj[key] = {asd:'asd'};
+        console.log(obj[key].prop);
+
+        if(removeKey) {
+            //remove all observers
+            obj[key]._observable[removeKey].remove();
+            //set subject to undefined
+            obj[key]._observable[removeKey] = undefined;
+        }
+
+        Data(obj[key]);
+
+        obj._observable[key].emit('mutate', key, obj);
+        //obj._observable._parent.emit('mutate', key);
+
+    };
+
+    Data.observe = function(obj, key, fn){
+
+        if(!obj._observable || !obj._observable[key]) throw new Error('Observable key "' + key + '" does not exist');
+
+        obj._observable[key].add(new Observer(fn));
+        //obj._observable._parent.add(new Observer(fn));
+
+    };
+
+    Data.proxy = function(proxy, obj, alias){
+
+        //create an observable object
+        Data(obj);
+
+        //create proxy accessors for literals only
+        each(obj, function(value, key){
+
+            var aliasKey = key;
+
+            //optionally alias proxied key with another
+            if(alias && alias[key]) aliasKey = alias[key];
+
+            set(proxy, aliasKey, {
+
+                set: function(v){
+
+                    obj[key] = v;
 
                 },
 
                 get: function(){
 
-                    target._signals[prop].get(value, prop, target);
-                    return value;
+                    return obj[key];
+
+                }
+
+            });
+
+        });
+
+    };
+
+    //observable model
+    //todo offer optional bubbling to parent
+    function Data(obj){
+
+        traverse(obj, function(){
+
+            //var args = util.orderEach.apply(undefined, arguments);
+
+            var parent = arguments[2],
+                prop = arguments[1],
+                value = arguments[0],
+                observers = [];
+
+            // if(is(parent, 'array')){
+
+            //     prop = arguments[1];
+            //     value = arguments[0];
+
+            // }
+
+            //check if parent already has an _observable prop
+            if(!parent._observable){
+                set(parent, {
+                    _observable: {
+                        writable: true,
+                        enumerable: false,
+                        value: Object.create(null)
+                    }
+                });
+            }
+
+            //already have existing observers
+            if(parent._observable[prop]) {
+
+                observers = observers.concat(parent._observable[prop].list());
+                //console.log(observers.length);
+            }
+
+            //for each prop on parent set value
+            set(parent._observable, prop, {
+                writable: true,
+                enumerable: true,
+                value: new Subject({
+                    value: value,
+                    parent: parent
+                })
+            });
+
+
+            //!reserved word _parent, DO NOT USE OMG
+            // if(!parent._observable._parent){
+            //     set(parent._observable, '_parent', {
+            //         writable: true,
+            //         enumerable: false,
+            //         value: new Subject({
+            //             self: parent
+            //         })
+            //     });
+            // }
+
+            //var observer = new Observer(function(method, property, parentObj){});
+
+            //if(!observers.length) observers.push(observer);
+            //parent._observable[prop].add(observer);
+
+            each(observers, function(obv){
+                parent._observable[prop].add(obv);
+            });
+
+            //because target exists we reset the propertiy value to a descriptor with accessors
+            set(parent, prop, {
+
+                set:function(v){
+
+                    if(is(v, 'array') || is(v, 'object')) Data(v);
+
+                    parent._observable[prop].value = v;
+
+                    //emit for listeners on prop
+                    parent._observable[prop].emit('set', prop, parent);
+                    //parent._observable._parent.emit('set', prop, v);
+
+                },
+
+                get: function(){
+
+                    parent._observable[prop].emit('get', prop, parent);
+
+                    return parent._observable[prop].value;
 
                 }
 
@@ -738,7 +994,317 @@
 
     'use strict';
 
+    var Parser = require('./parser'),
+        Signals = require('./signals'),
+        util = require('./util'),
+        is = util.is,
+        each = util.each,
+        merge = util.merge,
+        extend = util.extend,
+        traverse = util.traverse;
 
+    //jsonml manip and traversal
+    function Markup(obj, options){
+
+        merge(this.options, options);
+
+        this._selection = this._jsonml = [];
+
+        var parser = new Parser(this.options.parser);
+
+        var parseSignal = Signals.Signal.extend({
+
+            markup: this
+
+        }, function(fn){ this._signal = fn; });
+
+        var tagsig = new parseSignal(function(tag, voidTag){
+
+            //called for both start tag and end tag events
+            if(voidTag || typeof voidTag === 'undefined'){
+
+                if(voidTag){
+
+                    this.markup.append(tag);
+
+                }else{
+
+                    this.markup.insert(tag);
+
+                }
+
+            }else{
+
+                // voidtag is defined and false, close and set selection to parent
+                this.markup.parent();
+
+            }
+
+        });
+
+        var endtag
+
+        var contentsig = new parseSignal(function(content){
+
+            if(content.length){
+
+                this.markup.append(content);
+
+            }
+
+        });
+
+        parser.start.add(tagsig);
+        parser.content.add(contentsig);
+        parser.end.add(tagsig);
+
+        parser.parse(obj);
+
+    }
+
+    Markup.prototype.options = {
+
+        parser : {
+
+            async: false,
+            flowing: true
+
+        }
+
+    };
+
+    //jsonml
+    Markup.prototype.each = function(fn){
+
+        var args = Array.prototype.slice(arguments, 1);
+
+        each.apply(this, [this._selection, fn].concat(args));
+
+        return this;
+
+    };
+
+    Markup.prototype.traverse = function(fn, selection){
+
+        selection = selection || this._selection;
+
+        traverse.call(this, selection, fn);
+
+        return this;
+
+    };
+
+    Markup.prototype.append = function(obj){
+
+        this._selection.push(this.convert(obj));
+
+    };
+
+    //wrap for splice, optionally sets selection
+    Markup.prototype.insert = function(obj, i){
+
+        var jsonml = is(obj, 'object') ? this.convert(obj) : obj,
+            index = 0;
+
+        //i should be greater than 1 if selection has attributes
+        if(i && i > 0){
+
+            Array.prototype.splice.call(this._selection, i, 0, jsonml);
+            index = this._selection.length - 1;
+
+        }else{
+
+            index = Array.prototype.push.call(this._selection, jsonml) - 1;
+
+        }
+
+        if(is(jsonml, 'array')) {
+
+            //if an array and not text node set active selection
+            this._selection = this._selection[index];
+
+        }
+
+        return this;
+
+    };
+
+    //for now just simple convert object literal tojsonml
+    Markup.prototype.convert = function(obj){
+
+        if(is(obj, 'string') || is(obj, 'array')) return obj;
+
+        var jsonml = [];
+
+        jsonml[0] = obj.nodeName;
+
+        if(obj.attributes && !util.isEmpty(obj.attributes)) jsonml[1] = obj.attributes;
+
+        // each(obj, function(val, key){
+
+        //     util.set(jsonml, key, {
+        //         value: val,
+        //         writable: true,
+        //         enumerable: false
+        //     });
+
+        // });
+
+        return jsonml;
+
+    };
+
+    //markup.find('tag name')
+    //markup.find('attr name', 'attr value')
+    //markup.find({nodeName: 'h1', class: 'someClass'})
+    //all of these methods return a new instance of markup with exception of
+    //markup.find() sets current selection to entire object
+    //markup.find(int) sets current selection to index
+    Markup.prototype.find = function(query){
+
+        if(is(query, 'number')) {
+            this._selection = this._selection[query];
+            return this;
+        }
+
+        if(!query) {
+            this._selection = this._jsonml;
+            return this;
+        }
+
+        var args = Array.prototype.slice.call(arguments);
+
+        var queryObject = {
+            nodeName:'',
+            attributes: {}
+        };
+
+        if(args.length > 1){
+
+            queryObject.attributes[args[0]] = queryObject.attributes[args[1]];
+
+        }else if(is(query, 'string')){
+
+            //traverse just tag names
+            queryObject.nodeName = query;
+
+        }else if(is(query, 'object')){
+
+            //match all props
+            extend(queryObject, query);
+
+        }
+
+        //['div','asd']
+        //['br']
+        //['asd',['div',{}, 'asd'],'asd',['br']]
+        var match = new Markup();
+
+        this.traverse(function(val, index, node, exit){
+
+            if(index > 0 || is(node, 'object')) return; //skip anything past tagname
+
+            console.log('matching');
+            console.log(node);
+            console.log(queryObject);
+
+            if(queryObject.nodeName.length){
+
+                if(node[0] !== queryObject.nodeName) return;
+
+            }
+
+            if(!util.isEmpty(queryObject.attributes)){
+
+                if(!is(node[1], 'object')) return;
+
+                if(util.match(node[1], queryObject)) {
+
+                    match.append(node);//append parent which might have kids
+                    console.log('match');
+
+                }
+
+            }else{
+
+                match.append(node);
+                console.log('match');
+
+            }
+
+
+        }, this._jsonml);
+
+        if(match._jsonml.length) return match;
+
+        return this;
+
+    };
+
+    Markup.prototype.replace = function(v){
+
+        this._selection = v;
+        return this;
+
+    };
+
+    //returns flat list of children
+    Markup.prototype.children = function(selection, qualifier){
+
+        selection = selection || this._selection;
+
+        qualifier = qualifier || function(){return true;};
+
+        var sweetChidrens = [];
+
+        each(selection, function(child){
+
+            if(is(child, 'array') && qualifier.call(this, child)){
+
+                sweetChidrens.push(child);
+
+            }
+
+        }, this);
+
+        return new Markup(sweetChidrens, this.options);
+
+    };
+
+    //sets selection to parent of selection
+    Markup.prototype.parent = function(){
+
+        this.traverse(function(node, index, parent, exit){
+
+            if(index > 0) return; //skip anything past tagname
+
+            var match = this.children(parent, function(child){
+
+                if(child == this._selection) return true;
+                return false;
+
+            });
+
+            if(match._jsonml.length){
+
+                this._selection = parent;
+                return exit;
+
+            }
+
+        }, this._jsonml);
+
+        return this;
+
+    };
+
+    Markup.prototype.jsonml = function(){
+
+        return this._jsonml;
+
+    };
+
+    module.exports = Markup;
 
 })();
 
@@ -749,60 +1315,77 @@
     var util = require('./util'),
         Data = require('./data'),
         Markup = require('./markup'),
+        is = util.is,
         inherit = util.inherit,
-        extend = util.extend;
+        extend = util.extend,
+        each = util.each,
+        traverse = util.traverse,
+        merge = util.merge;
 
     module.exports = this.windsock = Windsock;
 
     function Windsock(ops){
 
-        ops = ops || Object.create(null);
-
         var windsock = this;
 
-        var data = ops.data || windsock.data || Object.create(null);
+        var options = windsock.options = {
 
-        //make data observable
-        windsock.data = Data(data);
+            data: Object.create(null),
 
-        var markup = ops.markup || '';
+            markup: Object.create(null),
 
-        //windsock.parser = new Parser();
+            bindings: Windsock.bindings,
 
-        //parse markup
-        //windsock.parser.parse(markup).then(windsock.bind);
+            selectors: Windsock.selectors
 
-        //and make it observable
+        };
 
+        Data.proxy(windsock, options);
+
+        Data.observe(options, 'markup', function(method){
+
+            switch(method){
+                case 'set':
+                    //parse new markup
+                    this.value = new Markup(this.value);
+                    //and rebind
+                break;
+            }
+
+        });
+
+        Data.observe(options, 'data', function(method){
+
+            switch(method){
+                case 'set':
+                    //rebind
+                break;
+            }
+
+        });
+
+        if(ops) merge(windsock, ops);
+
+        Windsock.bind(windsock.data, windsock.markup, windsock.bindings);
 
     }
 
-    //default bindings
-    Windsock.prototype.bindings = [{
+    //instead of a keypath, pass the actual object and key
+    Windsock.observe = function(obj, key, fn){
 
-        data: '',
-        markup: '*'
+        Data.observe(obj, key, fn);
 
-    }];
+    };
 
-    Windsock.prototype.selectors = {
+    Windsock.prototype.observe = function(key, fn){
 
-        data: function(queryObject, dataObject){
+        if(this.data[key]) Data.observe(this.data, key, fn);
 
-            if(util.is(queryObject, 'string')){
+    };
 
-                //this is called to match
-                if(dataObject[queryObject]) return dataObject[queryObject];//or true?
+    Windsock.prototype.find = function(query){
 
-            }
-
-        },
-
-        markup: function(queryObject, markupObject){
-
-
-
-        }
+        return this.markup.find(query);
 
     };
 
@@ -819,6 +1402,105 @@
         extend(windsock.prototype, obj);
 
         return windsock;
+
+    };
+
+    //default bindings,
+    //values are passed to selectors to determine matches
+    //if function, its passed the entire object
+    //both must evaluate to true inside selector to have bind method applied
+    Windsock.bindings = [{
+
+        data: function(){return true;},
+        markup: function(){return true;},
+        bind: function(){
+
+            console.log('data changed');
+
+        },
+        manip: function(){
+            //optional manip function for data, would this be useful?
+        }
+
+    }];
+
+    //how to use bindings on object, responsible for looping and returning results
+    Windsock.selector = {
+
+        //this is queryobject
+        data: function(key, val, obj){
+
+            //console.log(this);
+
+            if(is(this, 'string')){
+                //console.log('in hur');
+
+                //this is called to match
+                if(key == this) return true;
+                return false;
+
+            }
+
+        },
+
+        markup: function(node, index, parent){
+
+            if(is(this, 'string')){
+
+                if(node == this) return true;
+                return false;
+
+            }
+
+        }
+
+    };
+
+    Windsock.bind = function(data, markup, bindings){
+
+        each(bindings, function(binding){
+
+            //Windsock.selector.data.apply(binding.data, )
+
+            traverse(data, function(key, value, obj){
+
+                //if binding isnt a selector, pass it and the args to the default selector
+                if(Windsock.selector.data.apply(binding.data, arguments)){
+
+                    console.log('matched data');
+                    //console.log(arguments);
+
+                    traverse(markup, function(val, index, node){
+
+                        if()
+
+                        if(Windsock.selector.markup.apply(binding.markup, arguments)){
+
+                            console.log('matched markup');
+                            //console.log(arguments);
+
+                            //if array
+                            //if binding.bind > default callback for observe
+
+
+                            Windsock.observe(obj, key, function(method){
+                                if(method == 'get') return;
+
+
+                                //and then change dom somehow lolz - will happen if node has dom ref
+                            });
+
+
+
+                        }
+
+                    });
+
+                }
+
+            });
+
+        });
 
     };
 

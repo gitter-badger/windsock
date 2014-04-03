@@ -1,0 +1,28 @@
+{
+  "name": "windsock",
+  "version": "0.0.0",
+  "description": "mvvm lib",
+  "main": "src/windsock.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devDependencies": {
+    "gulp": "",
+    "gulp-util": "",
+    "gulp-mocha": "",
+    "gulp-concat": "",
+    "gulp-rename": "",
+    "gulp-watch":"",
+    "gulp-uglify":""
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bsawyer/windsock.git"
+  },
+  "author": "Ben Sawyer",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bsawyer/windsock/issues"
+  },
+  "homepage": "https://github.com/bsawyer/windsock"
+}
