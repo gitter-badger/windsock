@@ -8,6 +8,7 @@
     var win = this.window,
         nextPaint = this.requestAnimationFrame || this.setTimeout,
         tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : nextPaint;
+        //defer to nextpaint on the client
 
     var Util = {
 
@@ -18,7 +19,7 @@
         },
 
         nextTick: function(callback){
-
+            //defer callback to nextTick in node otherwise requestAnimationFrame in the client
             tick(callback, 0);
 
         },
