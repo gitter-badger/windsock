@@ -117,7 +117,7 @@
     //how to use bindings on object, responsible for looping and returning results
     Windsock.selector = {
 
-        //this is queryobject
+        //this is the queryobject
         data: function(key, val, obj){
 
             //console.log(this);
@@ -162,7 +162,7 @@
 
                     traverse(markup, function(val, index, node){
 
-                        if()
+
 
                         if(Windsock.selector.markup.apply(binding.markup, arguments)){
 
