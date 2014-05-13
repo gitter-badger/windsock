@@ -53,6 +53,7 @@
 
     };
 
+    //global default configuration properties
     var config = {
 
         client: (typeof document !== 'undefined'),
