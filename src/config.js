@@ -1,5 +1,4 @@
 (function(){
-
     //custom client polyfill for commonjs
     //not using strict in order to declare module and require on window
     //the only prerequisit for modules as objects is they need to have an inenumerable _ns

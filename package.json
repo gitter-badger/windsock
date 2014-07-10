@@ -8,12 +8,13 @@
   },
   "devDependencies": {
     "gulp": "",
-    "gulp-util": "",
-    "gulp-mocha": "",
     "gulp-concat": "",
+    "gulp-jsdoc": "^0.1.4",
+    "gulp-mocha": "",
     "gulp-rename": "",
-    "gulp-watch":"",
-    "gulp-uglify":""
+    "gulp-uglify": "",
+    "gulp-util": "",
+    "gulp-watch": ""
   },
   "repository": {
     "type": "git",

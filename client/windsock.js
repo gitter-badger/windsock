@@ -1,5 +1,4 @@
 (function(){
-
     //custom client polyfill for commonjs
     //not using strict in order to declare module and require on window
     //the only prerequisit for modules as objects is they need to have an inenumerable _ns
@@ -53,6 +52,7 @@
 
     };
 
+    //global default configuration properties
     var config = {
 
         client: (typeof document !== 'undefined'),
@@ -81,6 +81,7 @@
     var win = this.window,
         nextPaint = this.requestAnimationFrame || this.setTimeout,
         tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : nextPaint;
+        //defer to nextpaint on the client
 
     var Util = {
 
@@ -91,7 +92,7 @@
         },
 
         nextTick: function(callback){
-
+            //defer callback to nextTick in node otherwise requestAnimationFrame in the client
             tick(callback, 0);
 
         },
@@ -1323,6 +1324,12 @@
         merge = util.merge;
 
     module.exports = this.windsock = Windsock;
+    
+ /**
+  * Windsock
+  * @constructor
+  * @param {object} ops - Object literal of options to be merged.
+ */
 
     function Windsock(ops){
 
@@ -1427,7 +1434,7 @@
     //how to use bindings on object, responsible for looping and returning results
     Windsock.selector = {
 
-        //this is queryobject
+        //this is the queryobject
         data: function(key, val, obj){
 
             //console.log(this);
@@ -1472,7 +1479,7 @@
 
                     traverse(markup, function(val, index, node){
 
-                        if()
+
 
                         if(Windsock.selector.markup.apply(binding.markup, arguments)){
 

@@ -13,6 +13,12 @@
         merge = util.merge;
 
     module.exports = this.windsock = Windsock;
+    
+ /**
+  * Windsock
+  * @constructor
+  * @param {object} ops - Object literal of options to be merged.
+ */
 
     function Windsock(ops){
 

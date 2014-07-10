@@ -4,7 +4,8 @@ var gulp = require('gulp'),
     concat = require('gulp-concat'),
     rename = require('gulp-rename'),
     watch = require('gulp-watch'),
-    uglify = require('gulp-uglify');
+    uglify = require('gulp-uglify')
+    jsdoc = require('gulp-jsdoc');
 
 var paths = {
 
@@ -21,6 +22,13 @@ var paths = {
     ]
 
 };
+
+gulp.task('doc', function(){
+
+    gulp.src('./src/*.js')
+        .pipe(jsdoc('./doc'));
+
+});
 
 gulp.task('build', function() {
 
@@ -46,4 +54,4 @@ gulp.task('test', function(){
 
 });
 
-gulp.task('default', ['build']);
+gulp.task('default', ['doc', 'build']);
