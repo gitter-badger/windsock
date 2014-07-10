@@ -9,6 +9,7 @@
   "devDependencies": {
     "gulp": "",
     "gulp-concat": "",
+    "gulp-docco": "0.0.4",
     "gulp-jsdoc": "^0.1.4",
     "gulp-mocha": "",
     "gulp-rename": "",

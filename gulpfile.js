@@ -5,7 +5,7 @@ var gulp = require('gulp'),
     rename = require('gulp-rename'),
     watch = require('gulp-watch'),
     uglify = require('gulp-uglify')
-    jsdoc = require('gulp-jsdoc');
+    docco = require('gulp-docco');
 
 var paths = {
 
@@ -23,10 +23,11 @@ var paths = {
 
 };
 
-gulp.task('doc', function(){
+gulp.task('docs', function(){
 
-    gulp.src('./src/*.js')
-        .pipe(jsdoc('./doc'));
+    gulp.src('./client/windsock.js')
+        .pipe(docco())
+        .pipe(gulp.dest('./docs'));
 
 });
 
@@ -54,4 +55,4 @@ gulp.task('test', function(){
 
 });
 
-gulp.task('default', ['doc', 'build']);
+gulp.task('default', ['build','docs']);
