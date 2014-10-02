@@ -6,9 +6,7 @@
 
     //grab circular ref to window
     var win = this.window,
-        nextPaint = this.requestAnimationFrame || this.setTimeout,
-        tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : nextPaint;
-        //defer to nextpaint on the client
+        tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : this.setTimeout;
 
     var Util = {
 
