@@ -33,7 +33,16 @@
 
     var bindings = [{
         markup: 'h1',
-        data: 'title'
+        data: 'title',
+        filter: uppercase
+    },{
+        markup:'li',
+        data:'todos',
+        filter:undefined,
+        bind:function(elm, data){
+            elm.class = 'done' + data.done;
+            elm.text = data.content;
+        }
     }];
 
     var ws = new windsock({
