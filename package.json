@@ -1,0 +1,38 @@
+{
+  "name": "windsock",
+  "version": "0.0.0",
+  "description": "MVVM framework",
+  "main": "./src/windsock.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "gulp": "^3.8.6",
+    "gulp-docco": "^0.0.4",
+    "gulp-concat": "^2.3.3",
+    "gulp-jsdoc": "^0.1.4",
+    "gulp-mocha": "^0.5.0",
+    "gulp-rename": "^1.2.0",
+    "gulp-uglify": "^0.3.1",
+    "gulp-util": "^2.2.20",
+    "gulp-watch": "^0.7.0-alpha3",
+    "windsock-observer": "^0.0.0",
+    "windsock-parser": "^0.0.0",
+    "windsock-signals": "^0.0.0",
+    "windsock-util": "^0.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bsawyer/windsock.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bsawyer/windsock/issues"
+  },
+  "homepage": "https://github.com/bsawyer/windsock"
+}
