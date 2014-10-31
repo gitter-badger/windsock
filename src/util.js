@@ -1,0 +1,147 @@
+var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout;
+
+var Util = {
+
+    nextTick: function(fn){
+
+        //defer callback to nextTick in node.js otherwise setTimeout in the client
+        tick(fn, 1);
+
+    },
+
+    each:function(obj, fn){
+
+        var halt = Object.create(null),
+            keys;
+
+        //duck typing ftw
+        if(!obj.length){
+
+            keys = Object.keys(obj);
+
+            for(var i = 0, l = keys.length; i < l; i++){
+
+                if(fn.call(this, obj[keys[i]], keys[i], obj, halt) === halt) return;
+
+            }
+
+            return;
+
+        }
+
+        //cached length is faster
+        for(var i = 0, l = obj.length; i < l; i++){
+
+            if (fn.call(this, obj[i], i, obj, halt) === halt) return;
+
+        }
+
+    },
+
+    //in order synchronous traversal
+    traverse: function(list, fn){
+
+        Util.each.call(this, list, function(result){
+
+            var halt;
+
+            //invoke function on result first
+            halt = fn.apply(this, Array.prototype.slice.call(arguments));
+
+            //traverse results
+            if(Util.is(result, 'object') || Util.is(result, 'array')){
+
+                Util.traverse.call(this, result, fn);
+
+            }
+
+            return halt;
+
+        });
+
+    },
+
+    //adds enumerable properties to object, returns that object
+    extend: function(obj){
+
+        for(var i = 1, l = arguments.length; i < l; i++){
+
+            //Object.keys then loop
+            Util.each(arguments[i], function(value, key){
+
+                obj[key] = value;
+
+            });
+
+        }
+
+        return obj;
+
+    },
+
+    //props is a object.defineProp descriptor
+    inherit: function(construct, superConstruct, props){
+
+        //Sets the prototype of the construct to a new object created from super.
+        //Uses ECMAScript 5 Object.create
+        if(construct.prototype && superConstruct.prototype){
+
+            //Use carefully: v8 creates subclasses everytime the prototype is modified.
+            construct.prototype = Object.create(superConstruct.prototype, props);
+            construct.prototype.constructor = construct;
+
+        }
+
+        return construct;
+
+    },
+
+    match: function(list, query){
+
+        var matched = true;
+
+        Util.each(query, function(val, key){
+
+            if(list[key] !== val) matched = false;
+
+        });
+
+        return matched;
+
+    },
+
+    bind: function(fn, context){
+
+        return function(){
+
+            return fn.apply(context, Array.prototype.slice.call(arguments));
+
+        };
+
+    },
+
+    is: function(obj, type){
+
+        return Object.prototype.toString.call(obj) === '[object ' + Util.upperCase(type) + ']';
+
+    },
+
+    //Uppercase first letter
+    upperCase: function(str){
+
+        return str.replace(/[a-z]/, function(match){return match.toUpperCase()});
+
+    },
+
+    isEmpty: function(obj){
+
+        //converts the operands to numbers then applies strict comparison
+        return Object.keys(obj).length == false;
+
+    },
+
+    noop: function(){}
+
+};
+
+module.exports = Util;

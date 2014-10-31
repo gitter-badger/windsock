@@ -1,4 +1,1 @@
-<p align="center">
-  <img width="88" src="https://raw.githubusercontent.com/bsawyer/windsock-artwork/master/windsock_2x.png">
-</p>
-# windsock.js
+<img width="88" src="https://raw.githubusercontent.com/bsawyer/windsock-artwork/master/windsock_2x.png"> windsock.js [![Build Status](https://travis-ci.org/bsawyer/windsock-observer.svg)](https://travis-ci.org/bsawyer/windsock-observer)
