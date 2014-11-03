@@ -13,11 +13,11 @@ gulp.task('test', function () {
     return gulp.src(['./test/*.js'], { read: false })
         .pipe(coverage.instrument({
             pattern: ['./src/*'],
-            debugDirectory: 'debug'
+            debugDirectory: '.coverdata'
         }))
         .pipe(mocha())
         .pipe(coverage.report({
-            outFile: 'coverage.html'
+            outFile: '.coverdata/coverage.html'
         }));
 });
 
