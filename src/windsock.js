@@ -8,7 +8,20 @@ var util = require('./util'),
     each = util.each,
     is = util.is;
 
+var builder = {
+    html:{
+        start:function(){}
+    }
+};
+
 var parser = new Parser();
+
+each(Parser.signals, function(signal){
+
+    //for each builder add its listener
+    parser[signal].add();
+
+});
 
 function Windsock(options){
 
