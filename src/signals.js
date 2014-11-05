@@ -1,4 +1,4 @@
-var util = require('./util.js'),
+var util = require('./util'),
     each = util.each;
 
 function Signal(fn, context, priority){

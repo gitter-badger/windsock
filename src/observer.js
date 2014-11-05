@@ -5,7 +5,15 @@ var util = require('./util'),
     each = util.each,
     extend = util.extend;
 
-function accessors(value, obj){
+var arrayMethods = [
+        'push',
+        'splice',
+        'pop'
+    ],
+    define = Object.defineProperty,
+    defines = Object.defineProperties;
+
+function accessors(value, key, obj){
     return {
         get: function(){
             return value;
@@ -19,10 +27,11 @@ function accessors(value, obj){
             }
 
             value = val;
-            //console.log('mutated');
+
             obj._observers.dispatch(mutation({
                 method: 'set',
-                value: value
+                value: value,
+                args: key
             }));
         },
         enumerable:true
@@ -44,86 +53,131 @@ function mutation(obj){
     }), obj);
 }
 
-function Observer(){}
+function Observer(watch){
 
-Observer.prototype = {};
+    this.watch = watch;
+    this.observed =  null;
+    this.signal = null;
+
+}
+
+Observer.prototype = {
+
+    observe: function(target){
+
+        this.observed = Observer.observe(target);
+        this.signal = this.observed._observers.add(this.watch, this);
+        return this.observed;
+
+    },
+
+    disconnect: function(){
+
+        this.observed._observers.remove(this.signal);
+
+    }
+
+};
 
 Observer.observable = function(obj){
 
-    Object.defineProperties(obj, {
+    if(!is(obj, 'array') && !is(obj, 'object')){
 
-        add: {
+        throw new Error('failed to make target observable not an array or object');
 
-            value: bind(function(key, value){
+    }
 
-                value = value || key;
+    if(obj._observers) return obj;
 
-                if(is(value, 'array') || is(value, 'object')){
+    if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
-                    value = Observer.observe(value);
+        each(arrayMethods, function(method){
 
-                }
+            define(obj, method, {
 
-                if(is(this, 'array')){
-                    //key is value for arrays
-                    Object.defineProperty(this, this.length - 1, accessors(value, this));
-                    this.push(value);
+                value:bind(function(){
 
-                }else{
+                    var args = Array.prototype.slice.call(arguments),
+                        value;
 
-                    Object.defineProperty(this, key, accessors(value, this));
+                    value = Array.prototype[method].apply(this, Array.prototype.slice.call(arguments));
 
-                }
+                    this._observers.dispatch(mutation({
+                        method: method,
+                        value: value,
+                        args: args
+                    }));
 
-                this._observers.dispatch(mutation({
-                    method: 'add',
-                    value: value
-                }));
+                }, obj),
 
-            }, obj),
+                enumerable:false
 
-            enumerable:false
+            });
 
-        },
+        });
 
-        remove:{
+    }else{
 
-            value: bind(function(key){
+        defines(obj, {
 
-                var removed;
+            add: {
 
-                if(typeof this[key] !== 'undefined'){
+                value: bind(function(key, value){
 
-                    removed = this[key];
+                    if(is(value, 'array') || is(value, 'object')){
 
-                    if(is(this, 'array')){
-
-                        this.splice(key, 1);
-
-                    }else{
-                        //console.log('here');
-                        //console.log(this[key]);
-                        delete this[key];
+                        value = Observer.observe(value);
 
                     }
 
+                    define(this, key, accessors(value, key, this));
+
                     this._observers.dispatch(mutation({
-                        method: 'remove',
-                        value: value
+                        method: 'add',
+                        value: value,
+                        args: Array.prototype.slice.call(arguments)
                     }));
 
-                }
+                }, obj),
 
-            }, obj),
+                enumerable:false
 
-            enumerable:false
+            },
 
-        },
+            remove:{
 
-        _observers: {
-            value: new Signals(),
-            enumerable: false
-        }
+                value: bind(function(key){
+
+                    var removed;
+
+                    if(typeof this[key] !== 'undefined'){
+
+                        removed = this[key];
+
+                        delete this[key];
+
+                        this._observers.dispatch(mutation({
+                            method: 'remove',
+                            value:removed,
+                            args: Array.prototype.slice.call(arguments)
+                        }));
+
+                    }
+
+                }, obj),
+
+                enumerable:false
+
+            }
+
+        });
+
+    }
+
+    define(obj, '_observers', {
+
+        value: new Signals(),
+        enumerable: false
 
     });
 
@@ -131,17 +185,35 @@ Observer.observable = function(obj){
 
 };
 
+//doesn't check for subclassed arrays
 Observer.observe = function(obj){
 
     var object;
 
     if(is(obj, 'object')){
 
+
+
+
         object = Observer.observable(Object.create(Object.prototype));
+
+
+
+        each(obj, function(value, key){
+
+            object.add(key, value);
+
+        });
 
     }else if(is(obj, 'array')){
 
         object = Observer.observable(Object.create(Array.prototype));
+
+        each(obj, function(value, key){
+
+            object.push(value);
+
+        });
 
     }else{
 
@@ -149,14 +221,10 @@ Observer.observe = function(obj){
 
     }
 
-    each(obj, function(value, key){
-
-        object.add(key, value);
-
-    });
-
     return object;
 
 };
+
+Observer.mutation = mutation;
 
 module.exports = Observer;
