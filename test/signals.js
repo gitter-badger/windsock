@@ -62,6 +62,16 @@ describe('Signals', function () {
 
         });
 
+        it('should remove all signals', function(){
+
+            signals.add(function(){});
+            signals.add(function(){});
+            assert.strictEqual(signals._signals.length, 2);
+            signals.remove();
+            assert.strictEqual(signals._signals.length, 0);
+
+        });
+
     });
 
     describe('dispatch(args)', function(){

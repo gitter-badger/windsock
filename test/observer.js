@@ -14,11 +14,15 @@ describe('Observer', function () {
         var mockObject = {
                 hello: 'world',
                 nested: {
-                    obj: 'ect'
+                    obj: 'ect',
+                    another:{
+                        k: 'val'
+                    }
                 },
                 nest:['ed array']
             },
             observer,
+            obj,
             watchCalled = false,
             watchArguments = null,
             watch = function(){
@@ -27,17 +31,57 @@ describe('Observer', function () {
             };
 
         it('should set watch function', function(){
+
             observer = new Observer(watch);
             assert.strictEqual(observer.watch, watch);
+
         });
 
         it('should call watch function with arguments', function(){
+
             watchArguments = null;
             watchCalled = false;
-            var obj = observer.observe(mockObject);
+            obj = observer.observe(mockObject);
             obj.hello = 'mom';
-            console.log(watchArguments);
             assert.strictEqual(watchCalled, true);
+
+        });
+
+        it('should call watch when an array mutation method is called', function(){
+
+            watchArguments = null;
+            watchCalled = false;
+            obj.nest._observers.add(watch, undefined);
+            obj.nest.push('something');
+            assert.strictEqual(watchCalled, true);
+            assert.strictEqual(obj.nest.length, 2);
+
+        });
+
+        it('should change value with set method', function(){
+
+            watchArguments = null;
+            watchCalled = false;
+            obj.nest.set(0, 'modified array value');
+            assert.strictEqual(watchCalled, true);
+            assert.strictEqual(obj.nest[0], 'modified array value');
+            assert.strictEqual(obj.nest.length, 2);
+
+        });
+
+        it('should add watch to object via keypath', function(){
+
+            watchArguments = null;
+            watchCalled = false;
+            obj.watch('nested.another', watch);
+            obj.nested.another.k = 'woo';
+            assert.strictEqual(watchCalled, true);
+
+            watchArguments = null;
+            watchCalled = false;
+            obj.nested.another.add('beep', 'boop');
+            assert.strictEqual(watchCalled, true);
+
         });
 
     });
@@ -131,13 +175,15 @@ describe('Observer', function () {
 
             observed.add('foo', 'bar');
             assert.strictEqual(observed.foo, 'bar');
+            observed.watch(function(){
+            });
 
         });
 
         describe('remove(key)', function(){
 
-            //observed.remove('foo');
-            //assert.strictEqual(typeof observed.foo, 'undefined');
+            observed.remove('foo');
+            assert.strictEqual(typeof observed.foo, 'undefined');
 
         });
 

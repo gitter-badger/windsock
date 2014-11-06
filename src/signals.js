@@ -65,6 +65,11 @@ Signals.prototype = {
 
     remove: function(signal){
 
+        if(!signal){
+            this._signals = [];
+            return;
+        }
+
         //can add the same function with different context or priority
         //so pass signal ref returned by add
         var i = this._signals.indexOf(signal);

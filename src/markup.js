@@ -1,310 +1,200 @@
-var Parser = require('./parser'),
-    Signals = require('./signals'),
-    util = require('./util'),
-    is = util.is,
+var util = require('./util'),
+    Observer = require('./observer'),
     each = util.each,
-    merge = util.merge,
-    extend = util.extend,
-    traverse = util.traverse;
+    is = util.is;
 
-//jsonml manip and traversal
-function Markup(obj, options){
+function attributes(node){
 
-    merge(this.options, options);
-
-    this._selection = this._jsonml = [];
-
-    var parser = new Parser(this.options.parser);
-
-    var parseSignal = Signals.Signal.extend({
-
-        markup: this
-
-    }, function(fn){ this._signal = fn; });
-
-    var tagsig = new parseSignal(function(tag, voidTag){
-
-        //called for both start tag and end tag events
-        if(voidTag || typeof voidTag === 'undefined'){
-
-            if(voidTag){
-
-                this.markup.append(tag);
-
-            }else{
-
-                this.markup.insert(tag);
-
-            }
-
-        }else{
-
-            // voidtag is defined and false, close and set selection to parent
-            this.markup.parent();
-
-        }
-
-    });
-
-    var endtag
-
-    var contentsig = new parseSignal(function(content){
-
-        if(content.length){
-
-            this.markup.append(content);
-
-        }
-
-    });
-
-    parser.start.add(tagsig);
-    parser.content.add(contentsig);
-    parser.end.add(tagsig);
-
-    parser.parse(obj);
+    return is(node[1], 'object') && typeof node[1].length === 'undefined';
 
 }
 
-Markup.prototype.options = {
+function isNode(node){
 
-    parser : {
+    return (is(node, 'string') || typeof node.name !== 'undefined' && node.hasOwnProperty('attributes') && typeof node.children !== 'undefined');
 
-        async: false,
-        flowing: true
+}
 
-    }
+function isFragment(frag){
 
-};
+    return typeof frag.append !== 'undefined' && typeof frag.prepend !== 'undefined';
 
-//jsonml
-Markup.prototype.each = function(fn){
+}
 
-    var args = Array.prototype.slice(arguments, 1);
+function valid(node){
 
-    each.apply(this, [this._selection, fn].concat(args));
+    return (isNode(node) || isFragment(node));
 
-    return this;
+}
 
-};
+function Markup(){
+    
+}
 
-Markup.prototype.traverse = function(fn, selection){
-
-    selection = selection || this._selection;
-
-    traverse.call(this, selection, fn);
-
-    return this;
+Markup.prototype = {
 
 };
 
-Markup.prototype.append = function(obj){
+Markup.node = function(name){
 
-    this._selection.push(this.convert(obj));
+    var node;
 
-};
+    if(typeof name === 'undefined' || !is(name,'string')) throw new Error('failed to create node, name must be a string');
 
-//wrap for splice, optionally sets selection
-Markup.prototype.insert = function(obj, i){
+    node = Observer.observable(Object.create(Array.prototype, {
 
-    var jsonml = is(obj, 'object') ? this.convert(obj) : obj,
-        index = 0;
+        length:{
 
-    //i should be greater than 1 if selection has attributes
-    if(i && i > 0){
+            value: 0,
+            enumerable: false,
+            writable: true
 
-        Array.prototype.splice.call(this._selection, i, 0, jsonml);
-        index = this._selection.length - 1;
+        },
 
-    }else{
+        name: {
 
-        index = Array.prototype.push.call(this._selection, jsonml) - 1;
+            get: function(){
 
-    }
+                return node[0];
 
-    if(is(jsonml, 'array')) {
+            },
 
-        //if an array and not text node set active selection
-        this._selection = this._selection[index];
+            set: function(value){
 
-    }
+                node.set(0, value);
 
-    return this;
+            },
 
-};
+            enumerable: false
 
-//for now just simple convert object literal tojsonml
-Markup.prototype.convert = function(obj){
+        },
 
-    if(is(obj, 'string') || is(obj, 'array')) return obj;
+        attributes:{
+            //value: Observer.observable(Object.create(Object.prototype)),
+            get: function(){
 
-    var jsonml = [];
+                return attributes(node) ? node[1] : undefined;
 
-    jsonml[0] = obj.nodeName;
+            },
 
-    if(obj.attributes && !util.isEmpty(obj.attributes)) jsonml[1] = obj.attributes;
+            set: function(value){
 
-    // each(obj, function(val, key){
+                if(attributes(node)){
 
-    //     util.set(jsonml, key, {
-    //         value: val,
-    //         writable: true,
-    //         enumerable: false
-    //     });
+                    //has attributes
 
-    // });
+                    each(node[1], function(val, key){
 
-    return jsonml;
+                        node[1].remove(key);
 
-};
+                    });
 
-//markup.find('tag name')
-//markup.find('attr name', 'attr value')
-//markup.find({nodeName: 'h1', class: 'someClass'})
-//all of these methods return a new instance of markup with exception of
-//markup.find() sets current selection to entire object
-//markup.find(int) sets current selection to index
-Markup.prototype.find = function(query){
+                    each(value, function(val, key){
 
-    if(is(query, 'number')) {
-        this._selection = this._selection[query];
-        return this;
-    }
+                        node[1].add(key, val);
 
-    if(!query) {
-        this._selection = this._jsonml;
-        return this;
-    }
+                    });
 
-    var args = Array.prototype.slice.call(arguments);
+                }else{
 
-    var queryObject = {
-        nodeName:'',
-        attributes: {}
-    };
+                    node.splice(1, 0, value);
 
-    if(args.length > 1){
+                }
 
-        queryObject.attributes[args[0]] = queryObject.attributes[args[1]];
+            },
 
-    }else if(is(query, 'string')){
+            enumerable: false
 
-        //traverse just tag names
-        queryObject.nodeName = query;
+        },
 
-    }else if(is(query, 'object')){
+        children:{
 
-        //match all props
-        extend(queryObject, query);
+            get: function(){
 
-    }
+                return node.slice(attributes(node) ? 2 : 1);
 
-    //['div','asd']
-    //['br']
-    //['asd',['div',{}, 'asd'],'asd',['br']]
-    var match = new Markup();
+            },
 
-    this.traverse(function(val, index, node, exit){
+            set: function(value){
 
-        if(index > 0 || is(node, 'object')) return; //skip anything past tagname
+                //value is array of children
+                value = Array.prototype.slice.call(value);
 
-        console.log('matching');
-        console.log(node);
-        console.log(queryObject);
+                var i = attributes(node) ? 2 : 1;
 
-        if(queryObject.nodeName.length){
+                value.unshift(i, node.length - 1);
 
-            if(node[0] !== queryObject.nodeName) return;
+                node.splice.apply(undefined, value);
+
+            },
+
+            enumerable: false
 
         }
 
-        if(!util.isEmpty(queryObject.attributes)){
+    }));
 
-            if(!is(node[1], 'object')) return;
+    node.push(name);//kicks off mutation
 
-            if(util.match(node[1], queryObject)) {
+    return node;
 
-                match.append(node);//append parent which might have kids
-                console.log('match');
+};
 
-            }
+Markup.fragment = function(){
 
-        }else{
+    var fragment = Observer.observable(Object.create(Array.prototype, {
 
-            match.append(node);
-            console.log('match');
+        length:{
+
+            value: 0,
+            enumerable: false,
+            writable: true
+
+        },
+
+        append:{
+
+            value: function(){
+
+                each(Array.prototype.slice.call(arguments), function(node){
+
+                    if(valid(node)){
+
+                        fragment.push(node);
+
+                    }
+
+                });
+
+            },
+
+            enumerable: false
+
+        },
+
+        prepend:{
+
+            value: function(){
+
+                each(Array.prototype.slice.call(arguments), function(node){
+
+                    if(valid(node)){
+
+                        fragment.unshift(node);
+
+                    }
+
+                });
+
+            },
+
+            enumerable: false
 
         }
 
+    }));
 
-    }, this._jsonml);
-
-    if(match._jsonml.length) return match;
-
-    return this;
-
-};
-
-Markup.prototype.replace = function(v){
-
-    this._selection = v;
-    return this;
-
-};
-
-//returns flat list of children
-Markup.prototype.children = function(selection, qualifier){
-
-    selection = selection || this._selection;
-
-    qualifier = qualifier || function(){return true;};
-
-    var sweetChidrens = [];
-
-    each(selection, function(child){
-
-        if(is(child, 'array') && qualifier.call(this, child)){
-
-            sweetChidrens.push(child);
-
-        }
-
-    }, this);
-
-    return new Markup(sweetChidrens, this.options);
-
-};
-
-//sets selection to parent of selection
-Markup.prototype.parent = function(){
-
-    this.traverse(function(node, index, parent, exit){
-
-        if(index > 0) return; //skip anything past tagname
-
-        var match = this.children(parent, function(child){
-
-            if(child == this._selection) return true;
-            return false;
-
-        });
-
-        if(match._jsonml.length){
-
-            this._selection = parent;
-            return exit;
-
-        }
-
-    }, this._jsonml);
-
-    return this;
-
-};
-
-Markup.prototype.jsonml = function(){
-
-    return this._jsonml;
+    return fragment;
 
 };
 
