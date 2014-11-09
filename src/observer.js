@@ -16,9 +16,10 @@ var arrayMethods = [
     define = Object.defineProperty,
     defines = Object.defineProperties;
 
+//returns whether or not the target is a candidate for observing
 function observe(target){
 
-    return (is(target, 'array') || is(target, 'object'));
+    return ((is(target, 'array') || is(target, 'object')) && typeof target._observers === 'undefined');
 
 }
 
@@ -43,6 +44,7 @@ function accessors(value, key, obj){
             value = val;
 
             obj._observers.dispatch(mutation({
+                target: obj,
                 method: 'set',
                 value: value,
                 args: key
@@ -61,13 +63,25 @@ function mutation(obj){
 
     return extend(Object.create(null, {
 
+        target: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
         method:{
             value: null,
             writable: true,
             enumerable: true
         },
 
-        value:{
+        value: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        args: {
             value: null,
             writable: true,
             enumerable: true
@@ -104,7 +118,7 @@ Observer.prototype = {
 };
 
 //checks for subclassed arrays by duck typing for length
-Observer.observable = function(obj){
+Observer.observable = function(obj, descriptor){
 
     if(!observe(obj)){
 
@@ -118,6 +132,8 @@ Observer.observable = function(obj){
     if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
         each(arrayMethods, function(method){
+
+            //todo: performance diff between bind and closure for obj
 
             define(obj, method, {
 
@@ -193,6 +209,7 @@ Observer.observable = function(obj){
                     }
 
                     this._observers.dispatch(mutation({
+                        target: this,
                         method: method,
                         value: value,
                         args: args
@@ -229,6 +246,7 @@ Observer.observable = function(obj){
                     define(this, key, accessors(value, key, this));
 
                     this._observers.dispatch(mutation({
+                        target: this,
                         method: 'add',
                         value: value,
                         args: Array.prototype.slice.call(arguments)
@@ -278,7 +296,7 @@ Observer.observable = function(obj){
 
     }
 
-    defines(obj, {
+    defines(obj, extend({
 
         _observers: {
 
@@ -291,6 +309,9 @@ Observer.observable = function(obj){
         watch:{
 
             value: bind(function(path, watch){
+
+                //wrapper function for _observers.add
+                //makes sure the watch function is called with the obj as the context
 
                 if(is(path, 'function')){
 
@@ -331,7 +352,7 @@ Observer.observable = function(obj){
         }
 
 
-    });
+    }, descriptor || Object.create(null)));
 
     return obj;
 

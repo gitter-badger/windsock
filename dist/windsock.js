@@ -30,314 +30,519 @@ function require(path, register){
     return module.exports;
 
 }
-require('markup', function(module){
-var Parser = require('./parser'),
-    Signals = require('./signals'),
-    util = require('./util'),
-    is = util.is,
-    each = util.each,
-    merge = util.merge,
-    extend = util.extend,
-    traverse = util.traverse;
+require('batch', function(module){
+var paint = require('./util').nextPaint;
 
-//jsonml manip and traversal
-function Markup(obj, options){
+function Batch(fn){
 
-    merge(this.options, options);
-
-    this._selection = this._jsonml = [];
-
-    var parser = new Parser(this.options.parser);
-
-    var parseSignal = Signals.Signal.extend({
-
-        markup: this
-
-    }, function(fn){ this._signal = fn; });
-
-    var tagsig = new parseSignal(function(tag, voidTag){
-
-        //called for both start tag and end tag events
-        if(voidTag || typeof voidTag === 'undefined'){
-
-            if(voidTag){
-
-                this.markup.append(tag);
-
-            }else{
-
-                this.markup.insert(tag);
-
-            }
-
-        }else{
-
-            // voidtag is defined and false, close and set selection to parent
-            this.markup.parent();
-
-        }
-
-    });
-
-    var endtag
-
-    var contentsig = new parseSignal(function(content){
-
-        if(content.length){
-
-            this.markup.append(content);
-
-        }
-
-    });
-
-    parser.start.add(tagsig);
-    parser.content.add(contentsig);
-    parser.end.add(tagsig);
-
-    parser.parse(obj);
+    this._done();
+    this.callback = fn;
 
 }
 
-Markup.prototype.options = {
+Batch.prototype = {
 
-    parser : {
+    add: function(fn){
 
-        async: false,
-        flowing: true
+        this.queue.push(fn);
 
-    }
+        if(!this.requested) {
 
-};
-
-//jsonml
-Markup.prototype.each = function(fn){
-
-    var args = Array.prototype.slice(arguments, 1);
-
-    each.apply(this, [this._selection, fn].concat(args));
-
-    return this;
-
-};
-
-Markup.prototype.traverse = function(fn, selection){
-
-    selection = selection || this._selection;
-
-    traverse.call(this, selection, fn);
-
-    return this;
-
-};
-
-Markup.prototype.append = function(obj){
-
-    this._selection.push(this.convert(obj));
-
-};
-
-//wrap for splice, optionally sets selection
-Markup.prototype.insert = function(obj, i){
-
-    var jsonml = is(obj, 'object') ? this.convert(obj) : obj,
-        index = 0;
-
-    //i should be greater than 1 if selection has attributes
-    if(i && i > 0){
-
-        Array.prototype.splice.call(this._selection, i, 0, jsonml);
-        index = this._selection.length - 1;
-
-    }else{
-
-        index = Array.prototype.push.call(this._selection, jsonml) - 1;
-
-    }
-
-    if(is(jsonml, 'array')) {
-
-        //if an array and not text node set active selection
-        this._selection = this._selection[index];
-
-    }
-
-    return this;
-
-};
-
-//for now just simple convert object literal tojsonml
-Markup.prototype.convert = function(obj){
-
-    if(is(obj, 'string') || is(obj, 'array')) return obj;
-
-    var jsonml = [];
-
-    jsonml[0] = obj.nodeName;
-
-    if(obj.attributes && !util.isEmpty(obj.attributes)) jsonml[1] = obj.attributes;
-
-    // each(obj, function(val, key){
-
-    //     util.set(jsonml, key, {
-    //         value: val,
-    //         writable: true,
-    //         enumerable: false
-    //     });
-
-    // });
-
-    return jsonml;
-
-};
-
-//markup.find('tag name')
-//markup.find('attr name', 'attr value')
-//markup.find({nodeName: 'h1', class: 'someClass'})
-//all of these methods return a new instance of markup with exception of
-//markup.find() sets current selection to entire object
-//markup.find(int) sets current selection to index
-Markup.prototype.find = function(query){
-
-    if(is(query, 'number')) {
-        this._selection = this._selection[query];
-        return this;
-    }
-
-    if(!query) {
-        this._selection = this._jsonml;
-        return this;
-    }
-
-    var args = Array.prototype.slice.call(arguments);
-
-    var queryObject = {
-        nodeName:'',
-        attributes: {}
-    };
-
-    if(args.length > 1){
-
-        queryObject.attributes[args[0]] = queryObject.attributes[args[1]];
-
-    }else if(is(query, 'string')){
-
-        //traverse just tag names
-        queryObject.nodeName = query;
-
-    }else if(is(query, 'object')){
-
-        //match all props
-        extend(queryObject, query);
-
-    }
-
-    //['div','asd']
-    //['br']
-    //['asd',['div',{}, 'asd'],'asd',['br']]
-    var match = new Markup();
-
-    this.traverse(function(val, index, node, exit){
-
-        if(index > 0 || is(node, 'object')) return; //skip anything past tagname
-
-        console.log('matching');
-        console.log(node);
-        console.log(queryObject);
-
-        if(queryObject.nodeName.length){
-
-            if(node[0] !== queryObject.nodeName) return;
+            this.id = paint(this._run, this);
+            this.requested = true;
 
         }
 
-        if(!util.isEmpty(queryObject.attributes)){
+    },
 
-            if(!is(node[1], 'object')) return;
+    cancel: function(){
 
-            if(util.match(node[1], queryObject)) {
+        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
+        this._done();
 
-                match.append(node);//append parent which might have kids
-                console.log('match');
+    },
+
+    _run: function(){
+
+        this.running = true;
+
+        for(var i = 0; i < this.queue.length; i++){
+
+            this.queue[i].call(this);
+
+        }
+
+        this._done();
+
+    },
+
+    _done: function(){
+
+        this.queue = [];
+        this.requested = false;
+        this.running = false;
+        this.id = null;
+        if(this.callback) this.callback.call(this);
+
+    }
+
+};
+
+module.exports = Batch;
+
+});
+require('markup', function(module){
+var util = require('./util'),
+    Parser = require('./parser'),
+    Observer = require('./observer'),
+    Batch = require('./batch'),
+    inherit = util.inherit,
+    bind = util.bind,
+    each = util.each,
+    is = util.is;
+
+function hasAttributes(node){
+
+    return is(node[1], 'object') && typeof node[1].length === 'undefined';
+
+}
+
+function hasChildren(node){
+
+    return hasAttributes(node) ? node.length > 2 : node.length > 1;
+
+}
+
+function isNode(node){
+
+    return (is(node, 'string') || typeof node.name !== 'undefined' && node.hasOwnProperty('attributes') && typeof node.children !== 'undefined');
+
+}
+
+function isFragment(frag){
+
+    return typeof frag.append !== 'undefined' && typeof frag.prepend !== 'undefined';
+
+}
+
+function element(){
+
+    var elm;
+
+    return {
+
+        get: function(){
+
+            return elm;
+
+        },
+
+        set: function(value){
+
+            if(value.nodeName){
+
+                elm = value;
+
+            }
+
+        },
+
+        enumerable: false,
+        configurable: true
+
+    };
+
+}
+
+function Markup(){
+
+    var active, parent;
+
+    //keep this value as private to the instance of markup
+    this._fragment = Markup.fragment();
+
+    active = this._fragment;
+
+    //signal callbacks invoked with this constructors instance
+    Parser.call(this, {
+
+        start: function(node){
+
+            var n = Markup.node(node); //returns an observable jsonml compliant node object
+
+            if(node.documentElement) n.documentElement = node.documentElement;
+            //active target is either a fragment or element children which is a fragment
+            //append to fragment or children
+            if(active.children){
+
+                active.children.push(n); //manipulate elements children through method
+
+            }else{
+
+                active.push(n);
+
+            }
+
+            parent = active;
+
+            active = active[active.length - 1];
+
+        },
+
+        content: function(text){
+
+            if(active.children){
+
+                active.children.push(text); //manipulate elements children through method
+
+            }else{
+
+                active.push(text);
+
+            }
+
+        },
+
+        end:function(node, isVoid){
+
+            var n;
+
+            if(isVoid){
+
+                n = Markup.node(node);
+
+                if(node.documentElement) n.documentElement = node.documentElement;
+
+                if(active.children){
+
+                    active.children.push(n); //manipulate elements children through method
+
+                }else{
+
+                    active.push(n);
+
+                }
+
+            }else{
+
+                active = parent;
+
+            }
+
+        }
+
+    });
+
+}
+
+inherit(Markup, Parser);
+
+Markup.prototype.html = function(){
+
+    //converts fragment to html string
+    var parser = new Parser, html = [];
+
+    parser.start.add(function(node){
+
+        html.push('<' + node.name);
+
+        if(node.attributes){
+
+            each(node.attributes, function(key, value){
+
+                if(value) value = '="' + value + '"';
+                html.push(' ' + key + value);
+
+            });
+
+        }
+
+        html.push('>');
+
+    });
+
+    parser.content.add(function(text){
+
+        html.push(text);
+
+    });
+
+    parser.end.add(function(node, isVoid){
+
+        if(isVoid){
+
+            html.push('<' + node.name);
+
+            if(node.attributes){
+
+                each(node.attributes, function(key, value){
+
+                    if(value) value = '="' + value + '"';
+                    html.push(' ' + key + value);
+
+                });
+
+            }
+
+            html.push('/>');
+
+        }else{
+
+            html.push('</' + node.name + '>');
+
+        }
+
+    });
+
+    parser.parse(this._fragment);
+
+    return html.join('');
+
+};
+
+Markup.prototype.json = function(){
+
+    return JSON.stringify(this._fragment);
+
+};
+
+Markup.prototype.fragment = function(){
+
+    //converts fragment to document fragment
+
+};
+
+//returns a new observable node
+//@name STRING as tagname
+//@name OBJECT literal as node.name, node.attributes
+Markup.node = function(name, attr){
+
+    var node;
+
+    if(is(name, 'object')){
+
+        attr = name.attributes;
+        name = name.name;
+
+    }
+
+    if(typeof name === 'undefined' || !is(name, 'string')) throw new Error('failed to create node, name must be a string');
+
+    node = Observer.observable(Object.create(Array.prototype, {
+
+        length:{
+
+            value: 0,
+            enumerable: false,
+            writable: true
+
+        },
+
+        name: {
+
+            get: function(){
+
+                return node[0];
+
+            },
+
+            set: function(value){
+
+                node.set(0, value);
+
+            },
+
+            enumerable: false
+
+        },
+
+        documentElement: element(),
+
+        batch: {
+
+            value: new Batch(function(){
+                console.log('batch complete');
+            }),
+
+            enumerable: false
+
+        },
+
+        //read only property, write with methods
+        attributes: {
+
+            value: Observer.observable(Object.create(Object.prototype)),
+
+            enumerable: false
+
+        },
+
+        //read only property
+        children: {
+
+            value: Markup.fragment(),
+
+            enumerable: false
+
+        },
+
+        //methods
+        remove: function(){
+
+            //removes from parent and from dom
+            //if arguments - find children and invoke remove
+
+        },
+
+        //builds document elements
+        render: function(){}
+
+    }));
+
+    node.push(name);
+
+    if(attr){
+
+        each(attr, function(val, key){
+
+            node.attributes.add(key, val);
+
+        });
+
+    }
+
+    node._observers.add(function(mutation){
+
+        //handle mutation and reflect changes to documentElement
+        console.log(mutation);
+
+        if(this.documentElement){
+
+            this.batch.add(bind(function(){
+
+                //this.documentElement.setAttribute(mutation.args[0], mutation.args[1]);
+
+            }, this));
+
+        }
+
+    }, node, -1); //make sure executes first
+
+    node.attributes._observers.add(function(mutation){
+
+        //this is node
+        //mutation.target is node.attributes
+        //need to know if we add or remove from node on mutation
+        if(Object.keys(mutation.target).length){
+
+            if(this[1] !== mutation.target){
+
+                this.splice(1, 0, mutation.target);
+
+            }else{
+
+                //bubble mutation to parent
+                this._observers.dispatch(mutation);
 
             }
 
         }else{
 
-            match.append(node);
-            console.log('match');
+            this.splice(1, 1);
 
         }
 
+    }, node, -1); //make sure this executes first
 
-    }, this._jsonml);
+    node.children._observers.add(function(mutation){
 
-    if(match._jsonml.length) return match;
+        //intercept splice mutations
+        if(mutation.method === 'splice'){
 
-    return this;
-
-};
-
-Markup.prototype.replace = function(v){
-
-    this._selection = v;
-    return this;
-
-};
-
-//returns flat list of children
-Markup.prototype.children = function(selection, qualifier){
-
-    selection = selection || this._selection;
-
-    qualifier = qualifier || function(){return true;};
-
-    var sweetChidrens = [];
-
-    each(selection, function(child){
-
-        if(is(child, 'array') && qualifier.call(this, child)){
-
-            sweetChidrens.push(child);
+            //args
+            mutation.args[0] = hasAttributes(this) ? mutation.args[0] + 2 : mutation.args[0] + 1;
 
         }
 
-    }, this);
+        this[mutation.method].apply(undefined, mutation.args);
 
-    return new Markup(sweetChidrens, this.options);
+    }, node, -1);
+
+    return node;
 
 };
 
-//sets selection to parent of selection
-Markup.prototype.parent = function(){
+Markup.fragment = function(){
 
-    this.traverse(function(node, index, parent, exit){
+    var fragment = Observer.observable(Object.create(Array.prototype, {
 
-        if(index > 0) return; //skip anything past tagname
+        length:{
 
-        var match = this.children(parent, function(child){
+            value: 0,
+            enumerable: false,
+            writable: true
 
-            if(child == this._selection) return true;
-            return false;
+        },
 
-        });
+        append: {
 
-        if(match._jsonml.length){
+            value: function(){
 
-            this._selection = parent;
-            return exit;
+                fragment.push(Markup.node.apply(undefined, Array.prototype.slice.call(arguments)));
+
+            },
+
+            enumerable: false
+
+        },
+
+        documentFragment:{
+            value:null,
+            enumerable:false
+        },
+
+        render: {
+
+            value:function(){
+                //how to handle rendering if element already exists
+            },
+            enumerable: false
+
+        },
+
+        prepend: {
+
+            value:function(){
+
+                fragment.unshift(Markup.node.apply(undefined, Array.prototype.slice.call(arguments)));
+
+            },
+
+            enumerable: false
+
+        },
+
+        find: {
+
+            value: function(query){
+
+                var match = [];
+
+                fragment.each(function(node){
+
+
+
+                });
+
+            },
+
+            enumerable: false
 
         }
 
-    }, this._jsonml);
+    }));
 
-    return this;
-
-};
-
-Markup.prototype.jsonml = function(){
-
-    return this._jsonml;
+    return fragment;
 
 };
 
@@ -354,20 +559,35 @@ var util = require('./util'),
 
 var arrayMethods = [
         'push',
+        'unshift',
         'splice',
-        'pop'
+        'shift',
+        'pop',
+        'set'
     ],
     define = Object.defineProperty,
     defines = Object.defineProperties;
 
+//returns whether or not the target is a candidate for observing
+function observe(target){
+
+    return ((is(target, 'array') || is(target, 'object')) && typeof target._observers === 'undefined');
+
+}
+
 function accessors(value, key, obj){
+
     return {
+
         get: function(){
+
             return value;
+
         },
+
         set: function(val){
 
-            if(is(val, 'array') || is(val, 'object')){
+            if(observe(val)){
 
                 val = Observer.observe(val);
 
@@ -376,28 +596,51 @@ function accessors(value, key, obj){
             value = val;
 
             obj._observers.dispatch(mutation({
+                target: obj,
                 method: 'set',
                 value: value,
                 args: key
             }));
+
         },
-        enumerable:true
+
+        enumerable: true,
+        configurable: true
+
     };
+
 }
 
 function mutation(obj){
+
     return extend(Object.create(null, {
-        method:{
-            value:null,
-            writable:true,
-            enumerable:true
-        },
-        value:{
+
+        target: {
             value: null,
-            writable:true,
-            enumerable:true
+            writable: true,
+            enumerable: true
+        },
+
+        method:{
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        value: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        args: {
+            value: null,
+            writable: true,
+            enumerable: true
         }
+
     }), obj);
+
 }
 
 function Observer(watch){
@@ -426,19 +669,23 @@ Observer.prototype = {
 
 };
 
-Observer.observable = function(obj){
+//checks for subclassed arrays by duck typing for length
+Observer.observable = function(obj, descriptor){
 
-    if(!is(obj, 'array') && !is(obj, 'object')){
+    if(!observe(obj)){
 
         throw new Error('failed to make target observable not an array or object');
 
     }
 
+    //return obj if already observable
     if(obj._observers) return obj;
 
     if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
         each(arrayMethods, function(method){
+
+            //todo: performance diff between bind and closure for obj
 
             define(obj, method, {
 
@@ -447,9 +694,74 @@ Observer.observable = function(obj){
                     var args = Array.prototype.slice.call(arguments),
                         value;
 
-                    value = Array.prototype[method].apply(this, Array.prototype.slice.call(arguments));
+                    //if the method adds or changes a value, need to check if array or object
+                    switch(method){
+
+                        case 'push':
+                        case 'unshift':
+
+                            each(args, function(arg, i){
+
+                                if(observe(arg)){
+
+                                    args[i] = Observer.observe(arg);
+
+                                }
+
+                            });
+
+                            break;
+
+                        case 'splice':
+
+                            if(args.length > 2){
+
+                                each(args.slice(2), function(arg, i){
+
+                                    if(observe(arg)){
+
+                                        args[i + 2] = Observer.observe(arg);
+
+                                    }
+
+                                });
+
+                            }
+
+                            break;
+
+                        case 'set':
+
+                            if(observe(args[1])){
+
+                                args[1] = Observer.observe(args[1]);
+
+                            }
+
+                            break;
+
+                    }
+
+                    if(method === 'set'){
+
+                        //treat set differently
+                        if(typeof this[args[0]] === 'undefined'){
+
+                            throw new Error('failed to set value at ' + args[0] + ' index does not exist');
+
+                        }
+
+                        this[args[0]] = value = args[1];
+
+
+                    }else{
+
+                        value = Array.prototype[method].apply(this, args);
+
+                    }
 
                     this._observers.dispatch(mutation({
+                        target: this,
                         method: method,
                         value: value,
                         args: args
@@ -471,7 +783,13 @@ Observer.observable = function(obj){
 
                 value: bind(function(key, value){
 
-                    if(is(value, 'array') || is(value, 'object')){
+                    if(typeof this[key] !== 'undefined'){
+
+                        throw new Error('failed to add ' + key + ' already defined');
+
+                    }
+
+                    if(observe(value)){
 
                         value = Observer.observe(value);
 
@@ -480,6 +798,7 @@ Observer.observable = function(obj){
                     define(this, key, accessors(value, key, this));
 
                     this._observers.dispatch(mutation({
+                        target: this,
                         method: 'add',
                         value: value,
                         args: Array.prototype.slice.call(arguments)
@@ -497,19 +816,27 @@ Observer.observable = function(obj){
 
                     var removed;
 
-                    if(typeof this[key] !== 'undefined'){
+                    if(typeof this[key] === 'undefined'){
 
-                        removed = this[key];
-
-                        delete this[key];
-
-                        this._observers.dispatch(mutation({
-                            method: 'remove',
-                            value:removed,
-                            args: Array.prototype.slice.call(arguments)
-                        }));
+                        throw new Error('failed to remove ' + key + ' does not exist');
 
                     }
+
+                    removed = this[key];
+
+                    if(this[key]._observers){
+
+                        this[key]._observers.remove();
+
+                    }
+
+                    delete this[key];
+
+                    this._observers.dispatch(mutation({
+                        method: 'remove',
+                        value:removed,
+                        args: Array.prototype.slice.call(arguments)
+                    }));
 
                 }, obj),
 
@@ -521,30 +848,77 @@ Observer.observable = function(obj){
 
     }
 
-    define(obj, '_observers', {
+    defines(obj, extend({
 
-        value: new Signals(),
-        enumerable: false
+        _observers: {
 
-    });
+            value: new Signals(),
+
+            enumerable: false
+
+        },
+
+        watch:{
+
+            value: bind(function(path, watch){
+
+                //wrapper function for _observers.add
+                //makes sure the watch function is called with the obj as the context
+
+                if(is(path, 'function')){
+
+                    this._observers.add(path, this);
+                    return;
+
+                }
+
+                var resolved = this;
+                //resolve key path
+                each(path.split('.'), function(key, index, list, halt){
+
+                    if(resolved[key]){
+
+                        resolved = resolved[key];
+
+                    }else{
+
+                        resolved = null;
+                        return halt;
+
+                    }
+
+                });
+
+                if(resolved == null || typeof resolved._observers === 'undefined'){
+
+                    throw new Error('failed to watch value, keypath does not exist or is not observable');
+
+                }
+
+                resolved._observers.add(watch, this);
+
+            }, obj),
+
+            enumerable: false
+
+        }
+
+
+    }, descriptor || Object.create(null)));
 
     return obj;
 
 };
 
 //doesn't check for subclassed arrays
+//returns a new observable object with enumerable keys of param
 Observer.observe = function(obj){
 
     var object;
 
     if(is(obj, 'object')){
 
-
-
-
         object = Observer.observable(Object.create(Object.prototype));
-
-
 
         each(obj, function(value, key){
 
@@ -554,7 +928,7 @@ Observer.observe = function(obj){
 
     }else if(is(obj, 'array')){
 
-        object = Observer.observable(Object.create(Array.prototype));
+        object = Observer.observable(Object.create(Array.prototype,  {length:{value:0, enumerable:false, writable:true}}));
 
         each(obj, function(value, key){
 
@@ -564,7 +938,7 @@ Observer.observe = function(obj){
 
     }else{
 
-        throw new Error('param is not of type Object or Array');
+        throw new Error('param is not an Object or Array');
 
     }
 
@@ -580,6 +954,7 @@ module.exports = Observer;
 require('parser', function(module){
 var Signals = require('./signals'),
     util = require('./util'),
+    lowerCase = util.lowerCase,
     extend = util.extend,
     each = util.each,
     is = util.is;
@@ -601,6 +976,10 @@ var voidTags = [
     'source',
     'track',
     'wbr'
+];
+
+var ignoreTags = [
+    'script'
 ];
 
 function parseTag (tag){
@@ -656,7 +1035,17 @@ function isVoid(tag){
 
 function createNode(){
 
-    return Object.create(null, {name:{value:'', enumerable:true, writable:true}});
+    return Object.create(null, {
+
+        name: {
+
+            value: '',
+            enumerable: true,
+            writable: true
+
+        }
+
+    });
 
 }
 
@@ -706,30 +1095,45 @@ Parser.prototype.parse = function(obj){
 
 };
 
-Parser.prototype.parseDOM = function(node){
+Parser.prototype.parseDOM = function(element){
 
-    var self = this;
+    //heavy dom read operations
 
-    if(node.nodeName === 'SCRIPT') return;
+    if(ignoreTags.indexOf(lowerCase(element.nodeName)) !== -1) return;
 
-    var attr = Object.create(null);
+    var node = createNode();
 
-    each(node.attributes, function(attribute, index){
+    node.name = lowerCase(element.nodeName);
 
-        attr[attribute.nodeName] = attribute.nodeValue;
+    node.documentElement = element;
 
-    });
+    if(element.attributes.length){
 
-    if(node.hasChildNodes()){
+        node.attributes = {};
 
-        var childNodes = node.childNodes;
+        each(element.attributes, function(attribute, index){
+
+            node.attributes[attribute.name] = attribute.value;
+
+        });
+
+    }
+
+    if(!isVoid(node.name)) this.start.dispatch(node);
+
+    if(element.hasChildNodes()){
+
+        var childNodes = element.childNodes;
 
         for (var i = 0; i < childNodes.length; i++) {
 
             if(childNodes[i].nodeType == 1){
 
+                this.parseDOM(childNodes[i]);
+
             }else if(childNodes[i].nodeType == 3) {
 
+                this.content.dispatch(childNodes[i].nodeValue);
 
             }
 
@@ -737,13 +1141,17 @@ Parser.prototype.parseDOM = function(node){
 
     }
 
+    if(node.attributes && !isVoid(node.name)) delete node.attributes;
+
+    this.end.dispatch(node, isVoid(node.name));
+
 };
 
 Parser.prototype.parseJSONML = function(jsonml){
 
     var i = 1, node;
 
-    if(is(jsonml[0], 'array')){
+    if((is(jsonml[0], 'array') || is(jsonml[0], 'object')) && typeof jsonml[0].length !== 'undefined'){
 
         this.parseJSONML(jsonml[0]);
 
@@ -788,7 +1196,7 @@ Parser.prototype.parseJSONML = function(jsonml){
 
     if(node.attributes && !isVoid(node.name)) delete node.attributes;
 
-    this.end.dispatch(node);
+    this.end.dispatch(node, isVoid(node.name));
 
 };
 
@@ -882,6 +1290,7 @@ Signal.prototype = {
 
 };
 
+//TODO - make call stack/queue configurable
 function Signals(){
 
     this._signals = [];
@@ -905,6 +1314,7 @@ Signals.prototype = {
     add: function(fn, context, priority){
 
         //signals are one to many, a signal can only belong to one signals class
+        //default order is a stack
         var signal = new Signal(fn, context, priority),
             i = 0;
 
@@ -923,6 +1333,13 @@ Signals.prototype = {
     },
 
     remove: function(signal){
+
+        if(!signal){
+
+            this._signals = [];
+            return;
+            
+        }
 
         //can add the same function with different context or priority
         //so pass signal ref returned by add
@@ -946,14 +1363,21 @@ module.exports = Signals;
 
 });
 require('util', function(module){
-var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout;
+var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
+    paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
 var Util = {
 
-    nextTick: function(fn){
+    nextTick: function(fn, context){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
-        tick(fn, 1);
+        return tick(Util.bind(fn, context), 1);
+
+    },
+
+    nextPaint: function(fn, context){
+
+        return paint(Util.bind(fn, context));
 
     },
 
@@ -963,7 +1387,7 @@ var Util = {
             keys;
 
         //duck typing ftw
-        if(!obj.length){
+        if(typeof obj.length === 'undefined'){
 
             keys = Object.keys(obj);
 
@@ -1077,7 +1501,13 @@ var Util = {
     //Uppercase first letter
     upperCase: function(str){
 
-        return str.replace(/[a-z]/, function(match){return match.toUpperCase()});
+        return str.replace(/[a-z]/, function(match){return match.toUpperCase();});
+
+    },
+
+    lowerCase: function(str){
+
+        return str.replace(/[A-Z]/g, function(match){return match.toLowerCase();});
 
     },
 
@@ -1100,80 +1530,11 @@ var util = require('./util'),
     Signals = require('./signals'),
     Parser = require('./parser'),
     Observer = require('./observer'),
+    Markup = require('./markup'),
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
-
-function Markup(object){
-
-    var markup = Observer.observable(Object.create(Array.prototype));
-
-    Object.defineProperties(markup, {
-
-        node:{
-            value: null,
-            enumerable: false,
-            writable: true
-        },
-
-        name:{
-            get:function(){
-                return markup[0];
-            },
-            set:function(value){
-                if(!markup.length){
-                    markup.add(value);
-                }else{
-                    markup[0] = value;//should kick off dispatch
-                }
-            }
-        },
-
-        attributes:{
-            get:function(){
-                return is(markup[1], 'object') ? markup[1] : null;
-            },
-            set:function(value){
-                if(!markup.length){
-                    throw new Error('failed to set attributes, node name undefined');
-                }
-                if(is(markup[1], 'object')){
-                    markup[1] = value;
-                }else{
-                    //cant use markup.add because it will push value
-                    Array.prototype.splice.call(markup, 1, 0, value);
-                    markup._observers.dispatch(Observer.mutation({
-                        method: 'add',
-                        value: value
-                    }));
-                }
-            },
-            enumerable: false
-        },
-
-        append:{
-            value: function(value){
-                //value must be converted into markup object
-                markup.add(Markup(value));
-            }
-        },
-
-        parser:{
-            value: new Parser(),
-            enumerable:false,
-            writable:true
-        }
-
-    });
-
-    //add events to markup.parser
-
-    if(object) markup.parser.parse(object);
-
-    return markup;
-
-}
 
 function Windsock(options){
 
@@ -1189,13 +1550,15 @@ Windsock.prototype = {
         //returns markup object
 
         //parser must be a part of markup module instance
-        return this.markup = Markup.apply(this, arguments);
+        //return this.markup = Markup.apply(this, arguments);
 
     }
 
 };
 
 Windsock.util = util;
+
+Windsock.markup = Markup;
 
 module.exports = Windsock;
 

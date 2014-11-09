@@ -1,11 +1,21 @@
 var util = require('./util'),
+    Parser = require('./parser'),
     Observer = require('./observer'),
+    Batch = require('./batch'),
+    inherit = util.inherit,
+    bind = util.bind,
     each = util.each,
     is = util.is;
 
-function attributes(node){
+function hasAttributes(node){
 
     return is(node[1], 'object') && typeof node[1].length === 'undefined';
+
+}
+
+function hasChildren(node){
+
+    return hasAttributes(node) ? node.length > 2 : node.length > 1;
 
 }
 
@@ -21,25 +31,208 @@ function isFragment(frag){
 
 }
 
-function valid(node){
+function element(){
 
-    return (isNode(node) || isFragment(node));
+    var elm;
+
+    return {
+
+        get: function(){
+
+            return elm;
+
+        },
+
+        set: function(value){
+
+            if(value.nodeName){
+
+                elm = value;
+
+            }
+
+        },
+
+        enumerable: false,
+        configurable: true
+
+    };
 
 }
 
 function Markup(){
-    
+
+    var active, parent;
+
+    //keep this value as private to the instance of markup
+    this._fragment = Markup.fragment();
+
+    active = this._fragment;
+
+    //signal callbacks invoked with this constructors instance
+    Parser.call(this, {
+
+        start: function(node){
+
+            var n = Markup.node(node); //returns an observable jsonml compliant node object
+
+            if(node.documentElement) n.documentElement = node.documentElement;
+            //active target is either a fragment or element children which is a fragment
+            //append to fragment or children
+            if(active.children){
+
+                active.children.push(n); //manipulate elements children through method
+
+            }else{
+
+                active.push(n);
+
+            }
+
+            parent = active;
+
+            active = active[active.length - 1];
+
+        },
+
+        content: function(text){
+
+            if(active.children){
+
+                active.children.push(text); //manipulate elements children through method
+
+            }else{
+
+                active.push(text);
+
+            }
+
+        },
+
+        end:function(node, isVoid){
+
+            var n;
+
+            if(isVoid){
+
+                n = Markup.node(node);
+
+                if(node.documentElement) n.documentElement = node.documentElement;
+
+                if(active.children){
+
+                    active.children.push(n); //manipulate elements children through method
+
+                }else{
+
+                    active.push(n);
+
+                }
+
+            }else{
+
+                active = parent;
+
+            }
+
+        }
+
+    });
+
 }
 
-Markup.prototype = {
+inherit(Markup, Parser);
+
+Markup.prototype.html = function(){
+
+    //converts fragment to html string
+    var parser = new Parser, html = [];
+
+    parser.start.add(function(node){
+
+        html.push('<' + node.name);
+
+        if(node.attributes){
+
+            each(node.attributes, function(key, value){
+
+                if(value) value = '="' + value + '"';
+                html.push(' ' + key + value);
+
+            });
+
+        }
+
+        html.push('>');
+
+    });
+
+    parser.content.add(function(text){
+
+        html.push(text);
+
+    });
+
+    parser.end.add(function(node, isVoid){
+
+        if(isVoid){
+
+            html.push('<' + node.name);
+
+            if(node.attributes){
+
+                each(node.attributes, function(key, value){
+
+                    if(value) value = '="' + value + '"';
+                    html.push(' ' + key + value);
+
+                });
+
+            }
+
+            html.push('/>');
+
+        }else{
+
+            html.push('</' + node.name + '>');
+
+        }
+
+    });
+
+    parser.parse(this._fragment);
+
+    return html.join('');
 
 };
 
-Markup.node = function(name){
+Markup.prototype.json = function(){
+
+    return JSON.stringify(this._fragment);
+
+};
+
+Markup.prototype.fragment = function(){
+
+    //converts fragment to document fragment
+
+};
+
+//returns a new observable node
+//@name STRING as tagname
+//@name OBJECT literal as node.name, node.attributes
+Markup.node = function(name, attr){
 
     var node;
 
-    if(typeof name === 'undefined' || !is(name,'string')) throw new Error('failed to create node, name must be a string');
+    if(is(name, 'object')){
+
+        attr = name.attributes;
+        name = name.name;
+
+    }
+
+    if(typeof name === 'undefined' || !is(name, 'string')) throw new Error('failed to create node, name must be a string');
 
     node = Observer.observable(Object.create(Array.prototype, {
 
@@ -69,72 +262,117 @@ Markup.node = function(name){
 
         },
 
-        attributes:{
-            //value: Observer.observable(Object.create(Object.prototype)),
-            get: function(){
+        documentElement: element(),
 
-                return attributes(node) ? node[1] : undefined;
+        batch: {
 
-            },
-
-            set: function(value){
-
-                if(attributes(node)){
-
-                    //has attributes
-
-                    each(node[1], function(val, key){
-
-                        node[1].remove(key);
-
-                    });
-
-                    each(value, function(val, key){
-
-                        node[1].add(key, val);
-
-                    });
-
-                }else{
-
-                    node.splice(1, 0, value);
-
-                }
-
-            },
+            value: new Batch(function(){
+                console.log('batch complete');
+            }),
 
             enumerable: false
 
         },
 
-        children:{
+        //read only property, write with methods
+        attributes: {
 
-            get: function(){
-
-                return node.slice(attributes(node) ? 2 : 1);
-
-            },
-
-            set: function(value){
-
-                //value is array of children
-                value = Array.prototype.slice.call(value);
-
-                var i = attributes(node) ? 2 : 1;
-
-                value.unshift(i, node.length - 1);
-
-                node.splice.apply(undefined, value);
-
-            },
+            value: Observer.observable(Object.create(Object.prototype)),
 
             enumerable: false
 
-        }
+        },
+
+        //read only property
+        children: {
+
+            value: Markup.fragment(),
+
+            enumerable: false
+
+        },
+
+        //methods
+        remove: function(){
+
+            //removes from parent and from dom
+            //if arguments - find children and invoke remove
+
+        },
+
+        //builds document elements
+        render: function(){}
 
     }));
 
-    node.push(name);//kicks off mutation
+    node.push(name);
+
+    if(attr){
+
+        each(attr, function(val, key){
+
+            node.attributes.add(key, val);
+
+        });
+
+    }
+
+    node._observers.add(function(mutation){
+
+        //handle mutation and reflect changes to documentElement
+        console.log(mutation);
+
+        if(this.documentElement){
+
+            this.batch.add(bind(function(){
+
+                //this.documentElement.setAttribute(mutation.args[0], mutation.args[1]);
+
+            }, this));
+
+        }
+
+    }, node, -1); //make sure executes first
+
+    node.attributes._observers.add(function(mutation){
+
+        //this is node
+        //mutation.target is node.attributes
+        //need to know if we add or remove from node on mutation
+        if(Object.keys(mutation.target).length){
+
+            if(this[1] !== mutation.target){
+
+                this.splice(1, 0, mutation.target);
+
+            }else{
+
+                //bubble mutation to parent
+                this._observers.dispatch(mutation);
+
+            }
+
+        }else{
+
+            this.splice(1, 1);
+
+        }
+
+    }, node, -1); //make sure this executes first
+
+    node.children._observers.add(function(mutation){
+
+        //intercept splice mutations
+        if(mutation.method === 'splice'){
+
+            //args
+            mutation.args[0] = hasAttributes(this) ? mutation.args[0] + 2 : mutation.args[0] + 1;
+
+        }
+
+        this[mutation.method].apply(undefined, mutation.args);
+
+    }, node, -1);
 
     return node;
 
@@ -152,19 +390,11 @@ Markup.fragment = function(){
 
         },
 
-        append:{
+        append: {
 
             value: function(){
 
-                each(Array.prototype.slice.call(arguments), function(node){
-
-                    if(valid(node)){
-
-                        fragment.push(node);
-
-                    }
-
-                });
+                fragment.push(Markup.node.apply(undefined, Array.prototype.slice.call(arguments)));
 
             },
 
@@ -172,17 +402,41 @@ Markup.fragment = function(){
 
         },
 
-        prepend:{
+        documentFragment:{
+            value:null,
+            enumerable:false
+        },
 
-            value: function(){
+        render: {
 
-                each(Array.prototype.slice.call(arguments), function(node){
+            value:function(){
+                //how to handle rendering if element already exists
+            },
+            enumerable: false
 
-                    if(valid(node)){
+        },
 
-                        fragment.unshift(node);
+        prepend: {
 
-                    }
+            value:function(){
+
+                fragment.unshift(Markup.node.apply(undefined, Array.prototype.slice.call(arguments)));
+
+            },
+
+            enumerable: false
+
+        },
+
+        find: {
+
+            value: function(query){
+
+                var match = [];
+
+                fragment.each(function(node){
+
+
 
                 });
 

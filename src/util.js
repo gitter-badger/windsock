@@ -1,11 +1,18 @@
-var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout;
+var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
+    paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
 var Util = {
 
-    nextTick: function(fn){
+    nextTick: function(fn, context){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
-        tick(fn, 1);
+        return tick(Util.bind(fn, context), 1);
+
+    },
+
+    nextPaint: function(fn, context){
+
+        return paint(Util.bind(fn, context));
 
     },
 
@@ -15,7 +22,7 @@ var Util = {
             keys;
 
         //duck typing ftw
-        if(!obj.length){
+        if(typeof obj.length === 'undefined'){
 
             keys = Object.keys(obj);
 
@@ -129,7 +136,13 @@ var Util = {
     //Uppercase first letter
     upperCase: function(str){
 
-        return str.replace(/[a-z]/, function(match){return match.toUpperCase()});
+        return str.replace(/[a-z]/, function(match){return match.toUpperCase();});
+
+    },
+
+    lowerCase: function(str){
+
+        return str.replace(/[A-Z]/g, function(match){return match.toLowerCase();});
 
     },
 

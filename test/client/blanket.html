@@ -1,7 +1,17 @@
+<p>text<span class="something">more text</span> other text <br/> next line</p>
+
 <script src="../../dist/windsock.js"></script>
 
 <script>
 
-    var windsock = new Windsock();
-    
+    var windsock = new Windsock;
+
+    var p = document.querySelector('p');
+
+    var markup = new Windsock.markup;
+
+    markup.parse(p);
+
+    var html = markup.html();
+
 </script>

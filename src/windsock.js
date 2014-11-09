@@ -2,6 +2,7 @@ var util = require('./util'),
     Signals = require('./signals'),
     Parser = require('./parser'),
     Observer = require('./observer'),
+    Markup = require('./markup'),
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
@@ -28,5 +29,7 @@ Windsock.prototype = {
 };
 
 Windsock.util = util;
+
+Windsock.markup = Markup;
 
 module.exports = Windsock;

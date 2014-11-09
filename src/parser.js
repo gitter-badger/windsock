@@ -1,5 +1,6 @@
 var Signals = require('./signals'),
     util = require('./util'),
+    lowerCase = util.lowerCase,
     extend = util.extend,
     each = util.each,
     is = util.is;
@@ -21,6 +22,10 @@ var voidTags = [
     'source',
     'track',
     'wbr'
+];
+
+var ignoreTags = [
+    'script'
 ];
 
 function parseTag (tag){
@@ -76,7 +81,17 @@ function isVoid(tag){
 
 function createNode(){
 
-    return Object.create(null, {name:{value:'', enumerable:true, writable:true}});
+    return Object.create(null, {
+
+        name: {
+
+            value: '',
+            enumerable: true,
+            writable: true
+
+        }
+
+    });
 
 }
 
@@ -126,30 +141,45 @@ Parser.prototype.parse = function(obj){
 
 };
 
-Parser.prototype.parseDOM = function(node){
+Parser.prototype.parseDOM = function(element){
 
-    var self = this;
+    //heavy dom read operations
 
-    if(node.nodeName === 'SCRIPT') return;
+    if(ignoreTags.indexOf(lowerCase(element.nodeName)) !== -1) return;
 
-    var attr = Object.create(null);
+    var node = createNode();
 
-    each(node.attributes, function(attribute, index){
+    node.name = lowerCase(element.nodeName);
 
-        attr[attribute.nodeName] = attribute.nodeValue;
+    node.documentElement = element;
 
-    });
+    if(element.attributes.length){
 
-    if(node.hasChildNodes()){
+        node.attributes = {};
 
-        var childNodes = node.childNodes;
+        each(element.attributes, function(attribute, index){
+
+            node.attributes[attribute.name] = attribute.value;
+
+        });
+
+    }
+
+    if(!isVoid(node.name)) this.start.dispatch(node);
+
+    if(element.hasChildNodes()){
+
+        var childNodes = element.childNodes;
 
         for (var i = 0; i < childNodes.length; i++) {
 
             if(childNodes[i].nodeType == 1){
 
+                this.parseDOM(childNodes[i]);
+
             }else if(childNodes[i].nodeType == 3) {
 
+                this.content.dispatch(childNodes[i].nodeValue);
 
             }
 
@@ -157,13 +187,17 @@ Parser.prototype.parseDOM = function(node){
 
     }
 
+    if(node.attributes && !isVoid(node.name)) delete node.attributes;
+
+    this.end.dispatch(node, isVoid(node.name));
+
 };
 
 Parser.prototype.parseJSONML = function(jsonml){
 
     var i = 1, node;
 
-    if(is(jsonml[0], 'array')){
+    if((is(jsonml[0], 'array') || is(jsonml[0], 'object')) && typeof jsonml[0].length !== 'undefined'){
 
         this.parseJSONML(jsonml[0]);
 
@@ -208,7 +242,7 @@ Parser.prototype.parseJSONML = function(jsonml){
 
     if(node.attributes && !isVoid(node.name)) delete node.attributes;
 
-    this.end.dispatch(node);
+    this.end.dispatch(node, isVoid(node.name));
 
 };
 

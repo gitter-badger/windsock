@@ -75,10 +75,10 @@ describe('Markup', function () {
 
         describe('node.attributes',function(){
 
-            it('should return undefined for attributes that do not exist', function(){
+            it('should return an empty object for attributes that do not exist', function(){
 
                 var node = Markup.node('div');
-                assert.strictEqual(typeof node.attributes, 'undefined');
+                assert.strictEqual(Object.keys(node.attributes).length, 0);
 
             });
 
@@ -86,7 +86,7 @@ describe('Markup', function () {
 
                 var node = Markup.node('div');
 
-                node.attributes = {class: 'myClass'};
+                node.attributes.add('class', 'myClass');
                 assert.strictEqual(node[1].class, 'myClass');
 
             });
@@ -102,18 +102,18 @@ describe('Markup', function () {
 
             });
 
-            it('should replace properties and perserve observers', function(){
+            it('should set properties and perserve observers', function(){
 
                 var node = Markup.node('div'),
                     count = 0;
-
-                node.attributes = {class: 'myClass'};
 
                 node.attributes.watch(function(){
                     count++;
                 });
 
-                node.attributes = {class: 'newClass'};
+                node.attributes.add('class', 'myClass');
+                node.attributes.class = 'newClass';
+
                 assert.strictEqual(count, 2);
 
             });
@@ -122,9 +122,9 @@ describe('Markup', function () {
 
                 var node = Markup.node('div');
 
-                node.children = ['textnode', ' textnode'];
-                node.attributes = {class: 'newClass'};
-                assert.strictEqual(node[1].class, 'newClass');
+                node.children.push('textnode', ' textnode');
+                node.attributes.add('class', 'myClass');
+                assert.strictEqual(node[1].class, 'myClass');
                 assert.strictEqual(node.length, 4);
 
             });
@@ -152,23 +152,21 @@ describe('Markup', function () {
 
             it('should have correct length with just node name', function(){
 
-                var node = Markup.node('div'),
-                    children = ['text', ['div']];
+                var node = Markup.node('div');
 
-                node.children = children;
-                assert.strictEqual(node.children.length, children.length);
+                node.children.push('text', ['div']);
+                assert.strictEqual(node.children.length, 2);
                 assert.strictEqual(node[1], 'text');
 
             });
 
             it('should have correct length with attributes', function(){
 
-                var node = Markup.node('div'),
-                    children = ['text', ['div']];
+                var node = Markup.node('div');
 
-                node.attributes = {class: 'myClass'};
-                node.children = children;
-                assert.strictEqual(node.children.length, children.length);
+                node.attributes.add('class', 'myClass');
+                node.children.push('text', ['div']);
+                assert.strictEqual(node.children.length, 2);
                 assert.strictEqual(node[2], 'text');
 
             });
@@ -218,6 +216,12 @@ describe('Markup', function () {
         //methods --
         //markup.parse() is a method that converts the param to values, clears observers and overwrites current values
         //markup.find() traverses and returns flat list(array) of markup objects that match
+        //markup.node() creates a new observable node object
+        //markup.node('div')
+        //markup.node('div', 'some text')
+        //markup.node('div', {class:'classname'}, 'some text')
+        //markup.node('div', {class:'classname'}, [array of object literals])
+
 
         //array values --
         //markup[0] = name or markup object
@@ -231,6 +235,13 @@ describe('Markup', function () {
         //markup.push()
         //markup.splice()
         //markup.pop()
+
+        var markup = new Markup();
+        var m = new Markup();
+        markup.parse('<p>text<span class="something">more text</span> other text <br/> next line</p>');
+        m.parse(['p','text',['span', {class:'something'},'more text'], ' other text', ['br'], 'next line']);
+        console.log(markup.fragment);
+        console.log(m.fragment);
 
 
     });

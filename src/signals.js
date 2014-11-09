@@ -23,6 +23,7 @@ Signal.prototype = {
 
 };
 
+//TODO - make call stack/queue configurable
 function Signals(){
 
     this._signals = [];
@@ -46,6 +47,7 @@ Signals.prototype = {
     add: function(fn, context, priority){
 
         //signals are one to many, a signal can only belong to one signals class
+        //default order is a stack
         var signal = new Signal(fn, context, priority),
             i = 0;
 
@@ -66,8 +68,10 @@ Signals.prototype = {
     remove: function(signal){
 
         if(!signal){
+
             this._signals = [];
             return;
+            
         }
 
         //can add the same function with different context or priority
