@@ -3,33 +3,35 @@ var util = require('./util'),
     Parser = require('./parser'),
     Observer = require('./observer'),
     Markup = require('./markup'),
+    Binding = require('./binding'),
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
 
+
+
+
 function Windsock(options){
+
+    options = options || {};
+
+    this._bindings = null; //can be an object or
+
+    Object.defineProperty(this, 'bindings', {
+
+        get: function(){
+            return this._bindings;
+        },
+        set:function(bindings){
+            each(bindings, function(){
+
+            })
+        }
+
+    });
 
 }
 
-Windsock.prototype = {
-
-    parse: function(){
-        //accepts am html string, dom element, jsonmlobject
-        //converts to a markup object
-        //sets this instance markup value
-        //kicks off compile if needed
-        //returns markup object
-
-        //parser must be a part of markup module instance
-        //return this.markup = Markup.apply(this, arguments);
-
-    }
-
-};
-
-Windsock.util = util;
-
-Windsock.markup = Markup;
-
+Windsock.binding = Binding;
 module.exports = Windsock;

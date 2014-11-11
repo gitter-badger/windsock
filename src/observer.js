@@ -5,16 +5,16 @@ var util = require('./util'),
     each = util.each,
     extend = util.extend;
 
-var arrayMethods = [
+var define = Object.defineProperty,
+    defines = Object.defineProperties,
+    arrayMethods = [
         'push',
         'unshift',
         'splice',
         'shift',
         'pop',
         'set'
-    ],
-    define = Object.defineProperty,
-    defines = Object.defineProperties;
+    ];
 
 //returns whether or not the target is a candidate for observing
 function observe(target){
@@ -133,11 +133,11 @@ Observer.observable = function(obj, descriptor){
 
         each(arrayMethods, function(method){
 
-            //todo: performance diff between bind and closure for obj
+            //TODO: performance diff between bind and closure for obj methods
 
             define(obj, method, {
 
-                value:bind(function(){
+                value: function(){
 
                     var args = Array.prototype.slice.call(arguments),
                         value;
@@ -193,29 +193,31 @@ Observer.observable = function(obj, descriptor){
                     if(method === 'set'){
 
                         //treat set differently
-                        if(typeof this[args[0]] === 'undefined'){
+                        if(typeof obj[args[0]] === 'undefined'){
 
                             throw new Error('failed to set value at ' + args[0] + ' index does not exist');
 
                         }
 
-                        this[args[0]] = value = args[1];
+                        obj[args[0]] = value = args[1];
 
 
                     }else{
 
-                        value = Array.prototype[method].apply(this, args);
+                        value = Array.prototype[method].apply(obj, args);
 
                     }
 
-                    this._observers.dispatch(mutation({
-                        target: this,
+                    obj._observers.dispatch(mutation({
+
+                        target: obj,
                         method: method,
                         value: value,
                         args: args
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -229,9 +231,9 @@ Observer.observable = function(obj, descriptor){
 
             add: {
 
-                value: bind(function(key, value){
+                value: function(key, value){
 
-                    if(typeof this[key] !== 'undefined'){
+                    if(typeof obj[key] !== 'undefined'){
 
                         throw new Error('failed to add ' + key + ' already defined');
 
@@ -243,16 +245,18 @@ Observer.observable = function(obj, descriptor){
 
                     }
 
-                    define(this, key, accessors(value, key, this));
+                    define(obj, key, accessors(value, key, obj));
 
-                    this._observers.dispatch(mutation({
-                        target: this,
+                    obj._observers.dispatch(mutation({
+
+                        target: obj,
                         method: 'add',
                         value: value,
                         args: Array.prototype.slice.call(arguments)
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -260,33 +264,35 @@ Observer.observable = function(obj, descriptor){
 
             remove:{
 
-                value: bind(function(key){
+                value: function(key){
 
                     var removed;
 
-                    if(typeof this[key] === 'undefined'){
+                    if(typeof obj[key] === 'undefined'){
 
                         throw new Error('failed to remove ' + key + ' does not exist');
 
                     }
 
-                    removed = this[key];
+                    removed = obj[key];
 
-                    if(this[key]._observers){
+                    if(obj[key]._observers){
 
-                        this[key]._observers.remove();
+                        obj[key]._observers.remove();
 
                     }
 
-                    delete this[key];
+                    delete obj[key];
 
-                    this._observers.dispatch(mutation({
+                    obj._observers.dispatch(mutation({
+
                         method: 'remove',
-                        value:removed,
+                        value: removed,
                         args: Array.prototype.slice.call(arguments)
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -308,20 +314,20 @@ Observer.observable = function(obj, descriptor){
 
         watch:{
 
-            value: bind(function(path, watch){
+            value: function(path, watch){
 
                 //wrapper function for _observers.add
                 //makes sure the watch function is called with the obj as the context
 
                 if(is(path, 'function')){
 
-                    this._observers.add(path, this);
+                    obj._observers.add(path, obj);
                     return;
 
                 }
 
-                var resolved = this;
-                //resolve key path
+                var resolved = obj;
+
                 each(path.split('.'), function(key, index, list, halt){
 
                     if(resolved[key]){
@@ -343,9 +349,9 @@ Observer.observable = function(obj, descriptor){
 
                 }
 
-                resolved._observers.add(watch, this);
+                resolved._observers.add(watch, obj);
 
-            }, obj),
+            },
 
             enumerable: false
 
@@ -378,7 +384,7 @@ Observer.observe = function(obj){
 
         object = Observer.observable(Object.create(Array.prototype,  {length:{value:0, enumerable:false, writable:true}}));
 
-        each(obj, function(value, key){
+        each(obj, function(value){
 
             object.push(value);
 

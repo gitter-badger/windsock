@@ -110,6 +110,8 @@ describe('Observer', function () {
 
             });
 
+            assert.strictEqual(typeof mockObject._observers, 'undefined');
+
         });
 
         it('should return an observable object with same values', function () {

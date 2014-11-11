@@ -91,6 +91,62 @@ Batch.prototype = {
 module.exports = Batch;
 
 });
+require('binding', function(module){
+var util = require('./util'),
+    Signals = require('./signals'),
+    noop = util.noop,
+    extend = util.extend,
+    each = util.each,
+    accessors = util.accessors,
+    define = Object.defineProperty;
+
+function Binding(){}
+
+Binding.prototype = {}
+
+Binding.create = function(config){
+
+    var binding = Object.create(Object.prototype, {
+
+        update:{
+
+            value: new Signals,
+            enumerable: false,
+            writable: true
+
+        }
+
+    });
+
+    config = extend({
+
+        view: null,
+        model: null,
+        bind: noop
+
+    }, config || Object.create(null));
+
+    each(config, function(v, key){
+
+        define(binding, key, accessors(v, function(value, last){
+
+            binding.update.dispatch(value, last);
+
+        }, {
+
+            enumerable: true
+
+        }));
+
+    });
+
+    return binding;
+
+};
+
+module.exports = Binding;
+
+});
 require('markup', function(module){
 var util = require('./util'),
     Parser = require('./parser'),
@@ -154,6 +210,8 @@ function element(){
 
 }
 
+//markup instance is responsible for one fragment and it's decendants
+//
 function Markup(){
 
     var active, parent;
@@ -237,9 +295,9 @@ function Markup(){
 
 inherit(Markup, Parser);
 
+//converts fragment to html string
 Markup.prototype.html = function(){
 
-    //converts fragment to html string
     var parser = new Parser, html = [];
 
     parser.start.add(function(node){
@@ -300,15 +358,17 @@ Markup.prototype.html = function(){
 
 };
 
+//returns a jsonml compliant json string of the fragment
 Markup.prototype.json = function(){
 
     return JSON.stringify(this._fragment);
 
 };
 
-Markup.prototype.fragment = function(){
+//returns an actual document fragment
+Markup.prototype.render = function(){
 
-    //converts fragment to document fragment
+    return this._fragment.render();
 
 };
 
@@ -472,6 +532,7 @@ Markup.node = function(name, attr){
 
 };
 
+//returns a new observable document fragment
 Markup.fragment = function(){
 
     var fragment = Observer.observable(Object.create(Array.prototype, {
@@ -496,16 +557,21 @@ Markup.fragment = function(){
 
         },
 
-        documentFragment:{
-            value:null,
-            enumerable:false
+        documentFragment: {
+
+            value: null,
+
+            enumerable: false
+
         },
 
         render: {
 
             value:function(){
+
                 //how to handle rendering if element already exists
             },
+
             enumerable: false
 
         },
@@ -557,16 +623,16 @@ var util = require('./util'),
     each = util.each,
     extend = util.extend;
 
-var arrayMethods = [
+var define = Object.defineProperty,
+    defines = Object.defineProperties,
+    arrayMethods = [
         'push',
         'unshift',
         'splice',
         'shift',
         'pop',
         'set'
-    ],
-    define = Object.defineProperty,
-    defines = Object.defineProperties;
+    ];
 
 //returns whether or not the target is a candidate for observing
 function observe(target){
@@ -685,11 +751,11 @@ Observer.observable = function(obj, descriptor){
 
         each(arrayMethods, function(method){
 
-            //todo: performance diff between bind and closure for obj
+            //TODO: performance diff between bind and closure for obj methods
 
             define(obj, method, {
 
-                value:bind(function(){
+                value: function(){
 
                     var args = Array.prototype.slice.call(arguments),
                         value;
@@ -745,29 +811,31 @@ Observer.observable = function(obj, descriptor){
                     if(method === 'set'){
 
                         //treat set differently
-                        if(typeof this[args[0]] === 'undefined'){
+                        if(typeof obj[args[0]] === 'undefined'){
 
                             throw new Error('failed to set value at ' + args[0] + ' index does not exist');
 
                         }
 
-                        this[args[0]] = value = args[1];
+                        obj[args[0]] = value = args[1];
 
 
                     }else{
 
-                        value = Array.prototype[method].apply(this, args);
+                        value = Array.prototype[method].apply(obj, args);
 
                     }
 
-                    this._observers.dispatch(mutation({
-                        target: this,
+                    obj._observers.dispatch(mutation({
+
+                        target: obj,
                         method: method,
                         value: value,
                         args: args
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -781,9 +849,9 @@ Observer.observable = function(obj, descriptor){
 
             add: {
 
-                value: bind(function(key, value){
+                value: function(key, value){
 
-                    if(typeof this[key] !== 'undefined'){
+                    if(typeof obj[key] !== 'undefined'){
 
                         throw new Error('failed to add ' + key + ' already defined');
 
@@ -795,16 +863,18 @@ Observer.observable = function(obj, descriptor){
 
                     }
 
-                    define(this, key, accessors(value, key, this));
+                    define(obj, key, accessors(value, key, obj));
 
-                    this._observers.dispatch(mutation({
-                        target: this,
+                    obj._observers.dispatch(mutation({
+
+                        target: obj,
                         method: 'add',
                         value: value,
                         args: Array.prototype.slice.call(arguments)
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -812,33 +882,35 @@ Observer.observable = function(obj, descriptor){
 
             remove:{
 
-                value: bind(function(key){
+                value: function(key){
 
                     var removed;
 
-                    if(typeof this[key] === 'undefined'){
+                    if(typeof obj[key] === 'undefined'){
 
                         throw new Error('failed to remove ' + key + ' does not exist');
 
                     }
 
-                    removed = this[key];
+                    removed = obj[key];
 
-                    if(this[key]._observers){
+                    if(obj[key]._observers){
 
-                        this[key]._observers.remove();
+                        obj[key]._observers.remove();
 
                     }
 
-                    delete this[key];
+                    delete obj[key];
 
-                    this._observers.dispatch(mutation({
+                    obj._observers.dispatch(mutation({
+
                         method: 'remove',
-                        value:removed,
+                        value: removed,
                         args: Array.prototype.slice.call(arguments)
+
                     }));
 
-                }, obj),
+                },
 
                 enumerable:false
 
@@ -860,20 +932,20 @@ Observer.observable = function(obj, descriptor){
 
         watch:{
 
-            value: bind(function(path, watch){
+            value: function(path, watch){
 
                 //wrapper function for _observers.add
                 //makes sure the watch function is called with the obj as the context
 
                 if(is(path, 'function')){
 
-                    this._observers.add(path, this);
+                    obj._observers.add(path, obj);
                     return;
 
                 }
 
-                var resolved = this;
-                //resolve key path
+                var resolved = obj;
+
                 each(path.split('.'), function(key, index, list, halt){
 
                     if(resolved[key]){
@@ -895,9 +967,9 @@ Observer.observable = function(obj, descriptor){
 
                 }
 
-                resolved._observers.add(watch, this);
+                resolved._observers.add(watch, obj);
 
-            }, obj),
+            },
 
             enumerable: false
 
@@ -930,7 +1002,7 @@ Observer.observe = function(obj){
 
         object = Observer.observable(Object.create(Array.prototype,  {length:{value:0, enumerable:false, writable:true}}));
 
-        each(obj, function(value, key){
+        each(obj, function(value){
 
             object.push(value);
 
@@ -1043,13 +1115,21 @@ function createNode(){
             enumerable: true,
             writable: true
 
+        },
+
+        documentNode:{
+
+            value: null,
+            enumerable: true,
+            writable: true
+
         }
 
     });
 
 }
 
-Parser.signals = ['start', 'content', 'end', 'done'];
+Parser.signals = ['start', 'content', 'end'];
 
 //doesn't support xml namespaces, any type of fuzzy/predictive syntax,
 //error handling, doctypes, optional closures or anything a real parser would
@@ -1078,7 +1158,7 @@ Parser.prototype.parse = function(obj){
 
     if(is(obj, 'string')){
 
-        //treat as html
+        //html string
         return this.parseHTML(obj);
 
     }else if(obj.nodeName){
@@ -1088,30 +1168,30 @@ Parser.prototype.parse = function(obj){
 
     }else{
 
-        //assume a jsonml object
+        //jsonml compliant object
         return this.parseJSONML(obj);
 
     }
 
 };
 
-Parser.prototype.parseDOM = function(element){
+Parser.prototype.parseDOM = function(documentNode){
 
     //heavy dom read operations
 
-    if(ignoreTags.indexOf(lowerCase(element.nodeName)) !== -1) return;
+    if(ignoreTags.indexOf(lowerCase(documentNode.nodeName)) !== -1) return;
 
     var node = createNode();
 
-    node.name = lowerCase(element.nodeName);
+    node.name = lowerCase(documentNode.nodeName);
 
-    node.documentElement = element;
+    node.documentNode = documentNode;
 
-    if(element.attributes.length){
+    if(documentNode.attributes.length){
 
         node.attributes = {};
 
-        each(element.attributes, function(attribute, index){
+        each(documentNode.attributes, function(attribute, index){
 
             node.attributes[attribute.name] = attribute.value;
 
@@ -1121,9 +1201,9 @@ Parser.prototype.parseDOM = function(element){
 
     if(!isVoid(node.name)) this.start.dispatch(node);
 
-    if(element.hasChildNodes()){
+    if(documentNode.hasChildNodes()){
 
-        var childNodes = element.childNodes;
+        var childNodes = documentNode.childNodes;
 
         for (var i = 0; i < childNodes.length; i++) {
 
@@ -1257,8 +1337,6 @@ Parser.prototype.parseHTML = function(markup){
 
     }
 
-    return this.done.dispatch();
-
 };
 
 module.exports = Parser;
@@ -1377,7 +1455,7 @@ var Util = {
 
     nextPaint: function(fn, context){
 
-        return paint(Util.bind(fn, context));
+        return paint(Util.bind(fn, context), 1);
 
     },
 
@@ -1484,9 +1562,11 @@ var Util = {
 
     bind: function(fn, context){
 
+        var args = Array.prototype.slice.call(arguments);
+
         return function(){
 
-            return fn.apply(context, Array.prototype.slice.call(arguments));
+            return fn.apply(context, args.concat(Array.prototype.slice.call(arguments)));
 
         };
 
@@ -1498,6 +1578,30 @@ var Util = {
 
     },
 
+    accessors: function(initial, fn, descriptor){
+
+        //closure function for getter/setter value
+
+        return Util.extend({
+
+            get: function(){
+
+                return initial;
+
+            },
+
+            set: function(value){
+
+                var i = initial;
+                initial = value;
+                if(fn) fn.call(this, value, i);
+
+            }
+
+        }, descriptor || Object.create(null));
+
+    },
+
     //Uppercase first letter
     upperCase: function(str){
 
@@ -1505,6 +1609,7 @@ var Util = {
 
     },
 
+    //Lowercase all letters
     lowerCase: function(str){
 
         return str.replace(/[A-Z]/g, function(match){return match.toLowerCase();});
@@ -1525,41 +1630,52 @@ var Util = {
 module.exports = Util;
 
 });
+require('view', function(module){
+function View(){
+
+
+}
+
+module.exports = View;
+
+});
 require('windsock', function(module){
 var util = require('./util'),
     Signals = require('./signals'),
     Parser = require('./parser'),
     Observer = require('./observer'),
     Markup = require('./markup'),
+    Binding = require('./binding'),
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
 
+
+
+
 function Windsock(options){
+
+    options = options || {};
+
+    this._bindings = null; //can be an object or
+
+    Object.defineProperty(this, 'bindings', {
+
+        get: function(){
+            return this._bindings;
+        },
+        set:function(bindings){
+            each(bindings, function(){
+
+            })
+        }
+
+    });
 
 }
 
-Windsock.prototype = {
-
-    parse: function(){
-        //accepts am html string, dom element, jsonmlobject
-        //converts to a markup object
-        //sets this instance markup value
-        //kicks off compile if needed
-        //returns markup object
-
-        //parser must be a part of markup module instance
-        //return this.markup = Markup.apply(this, arguments);
-
-    }
-
-};
-
-Windsock.util = util;
-
-Windsock.markup = Markup;
-
+Windsock.binding = Binding;
 module.exports = Windsock;
 
 });

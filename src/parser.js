@@ -89,13 +89,21 @@ function createNode(){
             enumerable: true,
             writable: true
 
+        },
+
+        documentNode:{
+
+            value: null,
+            enumerable: true,
+            writable: true
+
         }
 
     });
 
 }
 
-Parser.signals = ['start', 'content', 'end', 'done'];
+Parser.signals = ['start', 'content', 'end'];
 
 //doesn't support xml namespaces, any type of fuzzy/predictive syntax,
 //error handling, doctypes, optional closures or anything a real parser would
@@ -124,7 +132,7 @@ Parser.prototype.parse = function(obj){
 
     if(is(obj, 'string')){
 
-        //treat as html
+        //html string
         return this.parseHTML(obj);
 
     }else if(obj.nodeName){
@@ -134,30 +142,30 @@ Parser.prototype.parse = function(obj){
 
     }else{
 
-        //assume a jsonml object
+        //jsonml compliant object
         return this.parseJSONML(obj);
 
     }
 
 };
 
-Parser.prototype.parseDOM = function(element){
+Parser.prototype.parseDOM = function(documentNode){
 
     //heavy dom read operations
 
-    if(ignoreTags.indexOf(lowerCase(element.nodeName)) !== -1) return;
+    if(ignoreTags.indexOf(lowerCase(documentNode.nodeName)) !== -1) return;
 
     var node = createNode();
 
-    node.name = lowerCase(element.nodeName);
+    node.name = lowerCase(documentNode.nodeName);
 
-    node.documentElement = element;
+    node.documentNode = documentNode;
 
-    if(element.attributes.length){
+    if(documentNode.attributes.length){
 
         node.attributes = {};
 
-        each(element.attributes, function(attribute, index){
+        each(documentNode.attributes, function(attribute, index){
 
             node.attributes[attribute.name] = attribute.value;
 
@@ -167,9 +175,9 @@ Parser.prototype.parseDOM = function(element){
 
     if(!isVoid(node.name)) this.start.dispatch(node);
 
-    if(element.hasChildNodes()){
+    if(documentNode.hasChildNodes()){
 
-        var childNodes = element.childNodes;
+        var childNodes = documentNode.childNodes;
 
         for (var i = 0; i < childNodes.length; i++) {
 
@@ -302,8 +310,6 @@ Parser.prototype.parseHTML = function(markup){
         }
 
     }
-
-    return this.done.dispatch();
 
 };
 

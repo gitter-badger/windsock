@@ -12,7 +12,7 @@ var Util = {
 
     nextPaint: function(fn, context){
 
-        return paint(Util.bind(fn, context));
+        return paint(Util.bind(fn, context), 1);
 
     },
 
@@ -119,9 +119,11 @@ var Util = {
 
     bind: function(fn, context){
 
+        var args = Array.prototype.slice.call(arguments);
+
         return function(){
 
-            return fn.apply(context, Array.prototype.slice.call(arguments));
+            return fn.apply(context, args.concat(Array.prototype.slice.call(arguments)));
 
         };
 
@@ -133,6 +135,30 @@ var Util = {
 
     },
 
+    accessors: function(initial, fn, descriptor){
+
+        //closure function for getter/setter value
+
+        return Util.extend({
+
+            get: function(){
+
+                return initial;
+
+            },
+
+            set: function(value){
+
+                var i = initial;
+                initial = value;
+                if(fn) fn.call(this, value, i);
+
+            }
+
+        }, descriptor || Object.create(null));
+
+    },
+
     //Uppercase first letter
     upperCase: function(str){
 
@@ -140,6 +166,7 @@ var Util = {
 
     },
 
+    //Lowercase all letters
     lowerCase: function(str){
 
         return str.replace(/[A-Z]/g, function(match){return match.toLowerCase();});

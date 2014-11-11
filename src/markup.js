@@ -60,6 +60,8 @@ function element(){
 
 }
 
+//markup instance is responsible for one fragment and it's decendants
+//
 function Markup(){
 
     var active, parent;
@@ -143,9 +145,9 @@ function Markup(){
 
 inherit(Markup, Parser);
 
+//converts fragment to html string
 Markup.prototype.html = function(){
 
-    //converts fragment to html string
     var parser = new Parser, html = [];
 
     parser.start.add(function(node){
@@ -206,15 +208,17 @@ Markup.prototype.html = function(){
 
 };
 
+//returns a jsonml compliant json string of the fragment
 Markup.prototype.json = function(){
 
     return JSON.stringify(this._fragment);
 
 };
 
-Markup.prototype.fragment = function(){
+//returns an actual document fragment
+Markup.prototype.render = function(){
 
-    //converts fragment to document fragment
+    return this._fragment.render();
 
 };
 
@@ -378,6 +382,7 @@ Markup.node = function(name, attr){
 
 };
 
+//returns a new observable document fragment
 Markup.fragment = function(){
 
     var fragment = Observer.observable(Object.create(Array.prototype, {
@@ -402,16 +407,21 @@ Markup.fragment = function(){
 
         },
 
-        documentFragment:{
-            value:null,
-            enumerable:false
+        documentFragment: {
+
+            value: null,
+
+            enumerable: false
+
         },
 
         render: {
 
             value:function(){
+
                 //how to handle rendering if element already exists
             },
+
             enumerable: false
 
         },
