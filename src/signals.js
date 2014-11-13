@@ -61,7 +61,7 @@ Signals.prototype = {
 
         this._signals.splice(i, 0, signal);
 
-        return signal;
+        return signal;//consider returning index of signal instead
 
     },
 
@@ -71,7 +71,7 @@ Signals.prototype = {
 
             this._signals = [];
             return;
-            
+
         }
 
         //can add the same function with different context or priority

@@ -1,14 +1,19 @@
 var util = require('./util'),
     Signals = require('./signals'),
     noop = util.noop,
+    merge = util.merge,
     extend = util.extend,
     each = util.each,
     accessors = util.accessors,
     define = Object.defineProperty;
 
-function Binding(){}
+function Binding(){
 
-Binding.prototype = {}
+}
+
+Binding.prototype = {};
+
+
 
 Binding.create = function(config){
 
@@ -24,19 +29,19 @@ Binding.create = function(config){
 
     });
 
-    config = extend({
+    config = merge({
 
         view: null,
         model: null,
-        bind: noop
+        directive: noop
 
     }, config || Object.create(null));
 
-    each(config, function(v, key){
+    each(config, function(value, key){
 
-        define(binding, key, accessors(v, function(value, last){
+        define(binding, key, accessors(value, function(val, last){
 
-            binding.update.dispatch(value, last);
+            binding.update.dispatch(val, last);
 
         }, {
 

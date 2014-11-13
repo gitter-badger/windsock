@@ -95,14 +95,19 @@ require('binding', function(module){
 var util = require('./util'),
     Signals = require('./signals'),
     noop = util.noop,
+    merge = util.merge,
     extend = util.extend,
     each = util.each,
     accessors = util.accessors,
     define = Object.defineProperty;
 
-function Binding(){}
+function Binding(){
 
-Binding.prototype = {}
+}
+
+Binding.prototype = {};
+
+
 
 Binding.create = function(config){
 
@@ -118,19 +123,19 @@ Binding.create = function(config){
 
     });
 
-    config = extend({
+    config = merge({
 
         view: null,
         model: null,
-        bind: noop
+        directive: noop
 
     }, config || Object.create(null));
 
-    each(config, function(v, key){
+    each(config, function(value, key){
 
-        define(binding, key, accessors(v, function(value, last){
+        define(binding, key, accessors(value, function(val, last){
 
-            binding.update.dispatch(value, last);
+            binding.update.dispatch(val, last);
 
         }, {
 
@@ -145,6 +150,53 @@ Binding.create = function(config){
 };
 
 module.exports = Binding;
+
+});
+require('directive', function(module){
+var util = require('./util'),
+    extend = util.extend;
+
+function Directive(){
+    //e.g. fragmentNode of a few li's ['li'], ['li'], ['li']
+    //model [1,2,3]
+}
+
+Directive.extend = function(directive){
+
+    var e = directive.prototype.constructor;
+    e.prototype = extend(Object.create(Directive.prototype), directive.prototype);
+    return e;
+
+};
+
+Directive.prototype.init = function(view, model){
+
+    this.view = view;
+    this.model = model;
+
+};
+
+Directive.prototype.update = function(mutation){
+
+    //called when model changes
+
+
+};
+
+Directive.prototype.bind = function(){
+
+    //called once
+    this.model._observers.add(this.update, this);
+
+};
+
+Directive.prototype.destroy = function(){
+
+    this.model._observers.remove();
+
+};
+
+module.exports = Directive;
 
 });
 require('markup', function(module){
@@ -615,6 +667,225 @@ Markup.fragment = function(){
 module.exports = Markup;
 
 });
+require('node', function(module){
+var util = require('./util'),
+    Observer = require('./observer'),
+    each = util.each,
+    is = util.is;
+
+//Node factory object
+module.exports = {
+
+    fragment: function(){
+
+        var fragmentNode = Observer.observable( Object.create( Array.prototype, {
+
+            length:{
+
+                value: 0,
+
+                enumerable: false,
+
+                writable: true
+
+            },
+
+            append: {
+
+                value: function(node){
+
+                    fragmentNode.push(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
+
+                },
+
+                enumerable: false
+
+            },
+
+            prepend: {
+
+                value:function(node){
+
+                    fragmentNode.unshift(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
+
+                },
+
+                enumerable: false
+
+            },
+
+            find: {
+
+                value: function(query){
+
+
+
+                },
+
+                enumerable: false
+
+            }
+
+        }));
+
+        return fragmentNode;
+
+    },
+
+    element: function(config){
+
+        var elementNode;
+
+        if(typeof config.name === 'undefined' || !is(config.name, 'string')){
+
+            throw new Error('failed to create elementNode, name must be a string');
+
+        }
+
+        elementNode = Observer.observable( Object.create( Array.prototype, {
+
+            length:{
+
+                value: 0,
+
+                enumerable: false,
+
+                writable: true
+
+            },
+
+            name: {
+
+                get: function(){
+
+                    return elementNode[0];
+
+                },
+
+                set: function(value){
+
+                    elementNode.set(0, value);
+
+                },
+
+                enumerable: false
+
+            },
+
+            attributes: {
+
+                value: Observer.observable(Object.create(Object.prototype), false),
+
+                enumerable: false
+
+            },
+
+            children: {
+
+                value: Node.fragment(),
+
+                enumerable: false
+
+            },
+
+            documentNode: {
+
+                value: config.documentNode || {},
+
+                enumerable: false
+
+            }
+
+        }));
+
+        //set name
+        elementNode.push(config.name);
+
+        //set attributes
+        each(config.attributes, function(value, key){
+
+            elementNode.attributes.add(key, value);
+
+        });
+
+        elementNode.attributes._observers.add(function(mutation){
+
+            //this is elementNode
+            //mutation.target is elementNode.attributes
+            //need to know if we add or remove from elementNode on mutation
+            if(Object.keys(mutation.target).length){
+
+                if(this[1] !== mutation.target){
+
+                    this.splice(1, 0, mutation.target);
+
+                }else{
+
+                    //bubble mutation to parent
+                    this._observers.dispatch(mutation);
+
+                }
+
+            }else{
+
+                this.splice(1, 1);
+
+            }
+
+        }, elementNode, -1);
+
+
+        elementNode.children._observers.add(function(mutation){
+
+            //intercept splice mutations
+            if(mutation.method === 'splice'){
+
+                //args
+                mutation.args[0] = hasAttributes(this) ? mutation.args[0] + 2 : mutation.args[0] + 1;
+
+            }
+
+            this[mutation.method].apply(undefined, mutation.args);
+
+        }, elementNode, -1);
+
+        return elementNode;
+
+    }
+
+    text: function(value){
+
+        var textNode = Observer.observable( Object.create( Object.prototype, {
+
+            toString: {
+
+                value: function(){
+
+                    return this.value;
+
+                },
+
+                enumerable: false
+
+            },
+
+            value: {
+
+                value: value,
+
+                enumerable: true //make enumerable for observers
+
+            }
+
+        }));
+
+        return textNode;
+
+    }
+
+};
+
+});
 require('observer', function(module){
 var util = require('./util'),
     Signals = require('./signals'),
@@ -653,7 +924,7 @@ function accessors(value, key, obj){
 
         set: function(val){
 
-            if(observe(val)){
+            if(observe(val) && obj._recursive){
 
                 val = Observer.observe(val);
 
@@ -662,10 +933,12 @@ function accessors(value, key, obj){
             value = val;
 
             obj._observers.dispatch(mutation({
+
                 target: obj,
                 method: 'set',
                 value: value,
                 args: key
+
             }));
 
         },
@@ -747,6 +1020,22 @@ Observer.observable = function(obj, descriptor){
     //return obj if already observable
     if(obj._observers) return obj;
 
+    if(is(descriptor, 'boolean')){
+
+        descriptor = {
+
+            _recursive: {
+
+                value: descriptor,
+                writable: false,
+                enumerable: false
+
+            }
+
+        };
+
+    }
+
     if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
         each(arrayMethods, function(method){
@@ -768,7 +1057,7 @@ Observer.observable = function(obj, descriptor){
 
                             each(args, function(arg, i){
 
-                                if(observe(arg)){
+                                if(observe(arg) && obj._recursive){
 
                                     args[i] = Observer.observe(arg);
 
@@ -784,7 +1073,7 @@ Observer.observable = function(obj, descriptor){
 
                                 each(args.slice(2), function(arg, i){
 
-                                    if(observe(arg)){
+                                    if(observe(arg) && obj._recursive){
 
                                         args[i + 2] = Observer.observe(arg);
 
@@ -798,7 +1087,7 @@ Observer.observable = function(obj, descriptor){
 
                         case 'set':
 
-                            if(observe(args[1])){
+                            if(observe(args[1]) && obj._recursive){
 
                                 args[1] = Observer.observe(args[1]);
 
@@ -857,7 +1146,7 @@ Observer.observable = function(obj, descriptor){
 
                     }
 
-                    if(observe(value)){
+                    if(observe(value) && obj._recursive){
 
                         value = Observer.observe(value);
 
@@ -904,6 +1193,7 @@ Observer.observable = function(obj, descriptor){
 
                     obj._observers.dispatch(mutation({
 
+                        target: obj,
                         method: 'remove',
                         value: removed,
                         args: Array.prototype.slice.call(arguments)
@@ -926,6 +1216,14 @@ Observer.observable = function(obj, descriptor){
 
             value: new Signals(),
 
+            enumerable: false
+
+        },
+
+        _recursive:{
+
+            value: true,
+            writable: false,
             enumerable: false
 
         },
@@ -1000,7 +1298,7 @@ Observer.observe = function(obj){
 
     }else if(is(obj, 'array')){
 
-        object = Observer.observable(Object.create(Array.prototype,  {length:{value:0, enumerable:false, writable:true}}));
+        object = Observer.observable(Object.create(Array.prototype, {length:{value:0, enumerable:false, writable:true}}));
 
         each(obj, function(value){
 
@@ -1406,7 +1704,7 @@ Signals.prototype = {
 
         this._signals.splice(i, 0, signal);
 
-        return signal;
+        return signal;//consider returning index of signal instead
 
     },
 
@@ -1416,7 +1714,7 @@ Signals.prototype = {
 
             this._signals = [];
             return;
-            
+
         }
 
         //can add the same function with different context or priority
@@ -1511,12 +1809,50 @@ var Util = {
 
     },
 
+    find: function(list, query){
+
+        var assert = Util.noop,
+            result;
+
+        if(Util.is(query, 'function')){
+
+            assert = function(){
+
+                if(query.apply(undefined, Array.prototype.slice.call(arguments))){
+
+                    result = arguments[2];
+                    return arguments[3];
+
+                }
+            };
+
+        }else{
+
+            assert = function(value, key, obj, halt){
+
+                var match = true;
+
+                each(query, function(v, k){
+
+                    
+
+                });
+
+            };
+
+        }
+
+        Util.each(list, assert);
+
+        return result;
+
+    },
+
     //adds enumerable properties to object, returns that object
     extend: function(obj){
 
         for(var i = 1, l = arguments.length; i < l; i++){
 
-            //Object.keys then loop
             Util.each(arguments[i], function(value, key){
 
                 obj[key] = value;
@@ -1524,6 +1860,26 @@ var Util = {
             });
 
         }
+
+        return obj;
+
+    },
+
+    //overwrites enumerable properties only if they exist
+    //TODO: make this an option - only if they dont exist
+    merge: function(obj){
+
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        Util.each(args, function(val, i){
+
+            Util.each(obj, function(value, key){
+
+                if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
+
+            });
+
+        });
 
         return obj;
 
@@ -1631,8 +1987,15 @@ module.exports = Util;
 
 });
 require('view', function(module){
+var util = require('./util'),
+    Node = require('./node'),
+    each = util.each,
+    is = util.is;
+
+
 function View(){
 
+    this._node = View.create
 
 }
 
@@ -1644,38 +2007,134 @@ var util = require('./util'),
     Signals = require('./signals'),
     Parser = require('./parser'),
     Observer = require('./observer'),
-    Markup = require('./markup'),
+    Directive = require('./directive'),
     Binding = require('./binding'),
+    find = util.find,
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
 
-
-
-
 function Windsock(options){
 
-    options = options || {};
+    options = options || Object.create(null);
 
-    this._bindings = null; //can be an object or
+    this.directives = {};
 
-    Object.defineProperty(this, 'bindings', {
+    this.bindings = Observer.observable([], false);
 
-        get: function(){
-            return this._bindings;
-        },
-        set:function(bindings){
-            each(bindings, function(){
+    this.bindings.watch(function(mutation){
 
-            })
-        }
+        //if
 
     });
 
+    this._model = options.model || Object.create(null);
+
 }
 
+Windsock.prototype = {
+
+    _setModel: function(data){
+
+        //TODO: see if causes memory leak if no clean up of any observers on old data first
+        this._model = Observer.observe(data);
+
+    },
+
+    _setView: function(node){
+        
+    },
+
+    _directive: function(key, closure){
+
+        //private method for adding a directive
+        this.directives[key] = closure.call(this, Directive);
+
+    },
+
+    directive: function(key, construct){
+
+        //public method for registering a directive
+        if(this.directives[key]){
+
+            throw new Error('failed to register directive ' + key + ', already exists');
+
+        }
+
+        this._directive(key, function(directive){
+
+            return directive.extend(construct);
+
+        });
+
+    },
+
+    binding: function(){
+
+        //convert binding
+        var b = Binding.create();
+        this.bindings.push(b);
+
+    },
+
+    _compile: function(){
+
+        var directive, node, data;
+
+        for(var i = 0, l = this.bindings.length; i < l; i++){
+
+            directive = this.bindings[i].directive; //fallback to default directive here
+
+            //resolve directive
+            if(is(directive, 'string') && this.directives[directive]){
+
+                directive = new this.directives[directive];
+
+            }else{
+
+                //try
+                this.directive(directive.name, directive.construct);
+
+            }
+
+            //3 ways to filter model
+            //findwhere for array
+            //assert for each key/value pair
+            //keypath
+            directive.model = this.model.find(this.bindings[i].model);
+            //and view
+            //find
+            //filter
+            //tagname selector
+            directive.view = this.view.find(this.bindings[i].view);
+            //bind
+            directive.bind();
+
+        }
+
+    }
+
+};
+
+Object.defineProperty(Windsock.prototype, 'model', {
+
+    get: function(){
+
+        return this._model;
+
+    },
+
+    set: function(data){
+
+        this._setModel(data);
+
+    }
+
+});
+
 Windsock.binding = Binding;
+Windsock.Directive = Directive;
 module.exports = Windsock;
 
 });

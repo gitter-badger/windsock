@@ -8,4 +8,27 @@
 
     var p = document.querySelector('p');
 
+    //custom directive
+    var customDirective = function(){
+
+        console.log('here');
+
+    };
+
+    customDirective.prototype.bind = function(){console.log('cool')};
+
+    windsock.directive('custom', customDirective);
+
+    windsock._directive('text', function(Directive){
+
+        var myDirective = function(){};
+
+        return Directive.extend(myDirective);
+
+    });
+
+    //windsock.directive.custom.prototype
+    //changing this will change every instance of this directive
+
+
 </script>

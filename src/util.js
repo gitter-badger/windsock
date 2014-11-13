@@ -68,12 +68,50 @@ var Util = {
 
     },
 
+    find: function(list, query){
+
+        var assert = Util.noop,
+            result;
+
+        if(Util.is(query, 'function')){
+
+            assert = function(){
+
+                if(query.apply(undefined, Array.prototype.slice.call(arguments))){
+
+                    result = arguments[2];
+                    return arguments[3];
+
+                }
+            };
+
+        }else{
+
+            assert = function(value, key, obj, halt){
+
+                var match = true;
+
+                each(query, function(v, k){
+
+                    
+
+                });
+
+            };
+
+        }
+
+        Util.each(list, assert);
+
+        return result;
+
+    },
+
     //adds enumerable properties to object, returns that object
     extend: function(obj){
 
         for(var i = 1, l = arguments.length; i < l; i++){
 
-            //Object.keys then loop
             Util.each(arguments[i], function(value, key){
 
                 obj[key] = value;
@@ -81,6 +119,26 @@ var Util = {
             });
 
         }
+
+        return obj;
+
+    },
+
+    //overwrites enumerable properties only if they exist
+    //TODO: make this an option - only if they dont exist
+    merge: function(obj){
+
+        var args = Array.prototype.slice.call(arguments, 1);
+
+        Util.each(args, function(val, i){
+
+            Util.each(obj, function(value, key){
+
+                if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
+
+            });
+
+        });
 
         return obj;
 

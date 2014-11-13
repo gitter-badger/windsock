@@ -35,7 +35,7 @@ function accessors(value, key, obj){
 
         set: function(val){
 
-            if(observe(val)){
+            if(observe(val) && obj._recursive){
 
                 val = Observer.observe(val);
 
@@ -44,10 +44,12 @@ function accessors(value, key, obj){
             value = val;
 
             obj._observers.dispatch(mutation({
+
                 target: obj,
                 method: 'set',
                 value: value,
                 args: key
+
             }));
 
         },
@@ -129,6 +131,22 @@ Observer.observable = function(obj, descriptor){
     //return obj if already observable
     if(obj._observers) return obj;
 
+    if(is(descriptor, 'boolean')){
+
+        descriptor = {
+
+            _recursive: {
+
+                value: descriptor,
+                writable: false,
+                enumerable: false
+
+            }
+
+        };
+
+    }
+
     if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
         each(arrayMethods, function(method){
@@ -150,7 +168,7 @@ Observer.observable = function(obj, descriptor){
 
                             each(args, function(arg, i){
 
-                                if(observe(arg)){
+                                if(observe(arg) && obj._recursive){
 
                                     args[i] = Observer.observe(arg);
 
@@ -166,7 +184,7 @@ Observer.observable = function(obj, descriptor){
 
                                 each(args.slice(2), function(arg, i){
 
-                                    if(observe(arg)){
+                                    if(observe(arg) && obj._recursive){
 
                                         args[i + 2] = Observer.observe(arg);
 
@@ -180,7 +198,7 @@ Observer.observable = function(obj, descriptor){
 
                         case 'set':
 
-                            if(observe(args[1])){
+                            if(observe(args[1]) && obj._recursive){
 
                                 args[1] = Observer.observe(args[1]);
 
@@ -239,7 +257,7 @@ Observer.observable = function(obj, descriptor){
 
                     }
 
-                    if(observe(value)){
+                    if(observe(value) && obj._recursive){
 
                         value = Observer.observe(value);
 
@@ -286,6 +304,7 @@ Observer.observable = function(obj, descriptor){
 
                     obj._observers.dispatch(mutation({
 
+                        target: obj,
                         method: 'remove',
                         value: removed,
                         args: Array.prototype.slice.call(arguments)
@@ -308,6 +327,14 @@ Observer.observable = function(obj, descriptor){
 
             value: new Signals(),
 
+            enumerable: false
+
+        },
+
+        _recursive:{
+
+            value: true,
+            writable: false,
             enumerable: false
 
         },
@@ -382,7 +409,7 @@ Observer.observe = function(obj){
 
     }else if(is(obj, 'array')){
 
-        object = Observer.observable(Object.create(Array.prototype,  {length:{value:0, enumerable:false, writable:true}}));
+        object = Observer.observable(Object.create(Array.prototype, {length:{value:0, enumerable:false, writable:true}}));
 
         each(obj, function(value){
 
