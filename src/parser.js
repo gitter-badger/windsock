@@ -103,7 +103,7 @@ function createNode(){
 
 }
 
-Parser.signals = ['start', 'content', 'end'];
+Parser.signals = ['start', 'content', 'end', 'done'];
 
 //doesn't support xml namespaces, any type of fuzzy/predictive syntax,
 //error handling, doctypes, optional closures or anything a real parser would
@@ -112,9 +112,9 @@ function Parser(callbacks){
     var selfie = this;
 
     //parseHTML signals
-    each(Parser.signals, function(name){
+    each(Parser.signals, function registerParserSignals(name){
 
-        selfie[name] = new Signals; //woa i don't even need parens
+        selfie[name] = new Signals;
 
         if(typeof callbacks !== 'undefined' && typeof callbacks[name] !== 'undefined'){
 
@@ -126,6 +126,18 @@ function Parser(callbacks){
 
 }
 
+Parser.prototype.reset = function(){
+
+    var self = this;
+
+    each(Parser.signals, function destroyParserSignals(signals){
+
+        self[signals].remove();
+
+    });
+
+};
+
 Parser.prototype.parse = function(obj){
 
     if(!obj) return;
@@ -133,19 +145,21 @@ Parser.prototype.parse = function(obj){
     if(is(obj, 'string')){
 
         //html string
-        return this.parseHTML(obj);
+        this.parseHTML(obj);
 
     }else if(obj.nodeName){
 
         //html element
-        return this.parseDOM(obj);
+        this.parseDOM(obj);
 
     }else{
 
         //jsonml compliant object
-        return this.parseJSONML(obj);
+        this.parseJSONML(obj);
 
     }
+
+    this.done.dispatch();
 
 };
 

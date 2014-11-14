@@ -4,6 +4,7 @@ var util = require('./util'),
     Observer = require('./observer'),
     Directive = require('./directive'),
     Binding = require('./binding'),
+    View = require('./view'),
     find = util.find,
     inherit = util.inherit,
     extend = util.extend,
@@ -18,13 +19,9 @@ function Windsock(options){
 
     this.bindings = Observer.observable([], false);
 
-    this.bindings.watch(function(mutation){
-
-        //if
-
-    });
-
     this._model = options.model || Object.create(null);
+
+    if(options.view) this.view = new View(options.view);
 
 }
 
@@ -35,10 +32,6 @@ Windsock.prototype = {
         //TODO: see if causes memory leak if no clean up of any observers on old data first
         this._model = Observer.observe(data);
 
-    },
-
-    _setView: function(node){
-        
     },
 
     _directive: function(key, closure){
@@ -67,15 +60,13 @@ Windsock.prototype = {
 
     binding: function(){
 
-        //convert binding
-        var b = Binding.create();
-        this.bindings.push(b);
+
 
     },
 
     _compile: function(){
 
-        var directive, node, data;
+        var directive;
 
         for(var i = 0, l = this.bindings.length; i < l; i++){
 
@@ -89,7 +80,7 @@ Windsock.prototype = {
             }else{
 
                 //try
-                this.directive(directive.name, directive.construct);
+                //this.directive(directive.name, directive.construct);
 
             }
 
@@ -97,7 +88,7 @@ Windsock.prototype = {
             //findwhere for array
             //assert for each key/value pair
             //keypath
-            directive.model = this.model.find(this.bindings[i].model);
+            directive.model = this.model;
             //and view
             //find
             //filter
@@ -129,5 +120,6 @@ Object.defineProperty(Windsock.prototype, 'model', {
 });
 
 Windsock.binding = Binding;
+Windsock.view = View;
 Windsock.Directive = Directive;
 module.exports = Windsock;

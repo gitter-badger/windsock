@@ -4,7 +4,7 @@ var util = require('./util'),
     is = util.is;
 
 //Node factory object
-module.exports = {
+var Node = {
 
     fragment: function(){
 
@@ -24,7 +24,7 @@ module.exports = {
 
                 value: function(node){
 
-                    fragmentNode.push(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
+                    return fragmentNode.push(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
 
                 },
 
@@ -36,7 +36,7 @@ module.exports = {
 
                 value:function(node){
 
-                    fragmentNode.unshift(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
+                    return fragmentNode.unshift(is(node, 'string') ? Node.text(node) : Node.element.apply(undefined, Array.prototype.slice.call(arguments)));
 
                 },
 
@@ -56,7 +56,7 @@ module.exports = {
 
             }
 
-        }));
+        }), false);
 
         return fragmentNode;
 
@@ -126,23 +126,10 @@ module.exports = {
 
             }
 
-        }));
+        }), false);
 
-        //set name
-        elementNode.push(config.name);
+        elementNode.attributes._observers.add(function attributeObserver(mutation){
 
-        //set attributes
-        each(config.attributes, function(value, key){
-
-            elementNode.attributes.add(key, value);
-
-        });
-
-        elementNode.attributes._observers.add(function(mutation){
-
-            //this is elementNode
-            //mutation.target is elementNode.attributes
-            //need to know if we add or remove from elementNode on mutation
             if(Object.keys(mutation.target).length){
 
                 if(this[1] !== mutation.target){
@@ -165,7 +152,7 @@ module.exports = {
         }, elementNode, -1);
 
 
-        elementNode.children._observers.add(function(mutation){
+        elementNode.children._observers.add(function childObserver(mutation){
 
             //intercept splice mutations
             if(mutation.method === 'splice'){
@@ -179,38 +166,56 @@ module.exports = {
 
         }, elementNode, -1);
 
+        //set name
+        elementNode.push(config.name);
+
+        //set attributes
+        if(config.attributes){
+
+            each(config.attributes, function setAttribute(value, key){
+
+                elementNode.attributes.add(key, value);
+
+            });
+
+        }
+
         return elementNode;
 
-    }
+    },
 
     text: function(value){
 
-        var textNode = Observer.observable( Object.create( Object.prototype, {
+        // var textNode = Observer.observable( Object.create( Object.prototype, {
+        //
+        //     toString: {
+        //
+        //         value: function(){
+        //
+        //             return this.value;
+        //
+        //         },
+        //
+        //         enumerable: false
+        //
+        //     },
+        //
+        //     value: {
+        //
+        //         value: value,
+        //
+        //         enumerable: true
+        //
+        //     }
+        //
+        // }), false);
+        //
+        // return textNode;
 
-            toString: {
-
-                value: function(){
-
-                    return this.value;
-
-                },
-
-                enumerable: false
-
-            },
-
-            value: {
-
-                value: value,
-
-                enumerable: true //make enumerable for observers
-
-            }
-
-        }));
-
-        return textNode;
+        return value;
 
     }
 
 };
+
+module.exports = Node;

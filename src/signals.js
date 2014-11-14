@@ -36,7 +36,7 @@ Signals.prototype = {
 
         var args = Array.prototype.slice.call(arguments);
 
-        each(this._signals, function(signal){
+        each(this._signals, function invokeSignal(signal){
 
             if(signal.invoke(args) === false) return arguments[3];
 
