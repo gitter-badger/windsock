@@ -1,34 +1,25 @@
-<p>text<span class="something">more text</span> other text <br/> next line</p>
+<div><p>text<span class="something">more text</span> other text <br/> next line</p><ul class="list"><li>list item</li></ul></div><div class="ok">another div</div>
 
 <script src="../../dist/windsock.js"></script>
 
 <script>
 
-    var windsock = new Windsock;
+    var html = '<div><p>text<span class="something">more text</span> other text <br/> next line</p><ul class="list"><li>list item</li></ul></div><div class="ok">another div</div>';
 
-    var p = document.querySelector('p');
 
-    //custom directive
-    var customDirective = function(){
+    var div = document.querySelector('div');
+    var divs = document.querySelectorAll('div');
+    var frag = document.createDocumentFragment();
+        frag.appendChild(div);
+    var txt = document.createTextNode('a little text node');
+    //test passing in:
+    //an element
+    //an array of elements
+    //a document fragment
+    //a text node
+    //a jsonml object of all of the above
+    //html string of all of the above
 
-        console.log('here');
-
-    };
-
-    customDirective.prototype.bind = function(){console.log('cool')};
-
-    windsock.directive('custom', customDirective);
-
-    windsock._directive('text', function(Directive){
-
-        var myDirective = function(){};
-
-        return Directive.extend(myDirective);
-
-    });
-
-    //windsock.directive.custom.prototype
-    //changing this will change every instance of this directive
 
 
 </script>

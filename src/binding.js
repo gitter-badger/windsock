@@ -9,6 +9,8 @@ var util = require('./util'),
 
 function Binding(){
 
+    
+
 }
 
 Binding.prototype = {};

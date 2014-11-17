@@ -1,55 +1,127 @@
 var util = require('./util'),
     Node = require('./node'),
     Parser = require('./parser'),
+    Batch = require('./batch'),
+    traverse = util.traverse,
     each = util.each,
     is = util.is;
 
 function View(obj){
 
+    //private ref to virtual node
     this._node = null;
-    if(obj) this.parse(obj);
+    this._batch = new Batch;
+
+    if(obj) this._parse(obj);
 
 }
 
-View.prototype.parse = function(obj){
+View.prototype._compile = function(){
+
+    //traverse this._node
+    //add observers to each element to batch changes to dom nodes
+    traverse.call(this, this._node, function compileView(value){
+
+        console.log(value);
+
+    });
+
+};
+
+View.prototype._parse = function(obj){
+
+    //parse the obj and convert to virtual dom at this._node
+    //takes anything compatible with parser.parse
+    //a node list
+    //or an array of anything compatible with parser.parse
 
     var parser = new Parser,
+        dom = typeof obj.nodeName !== 'undefined',
+        createElement,
+        setActive,
         active,
         parent;
 
-    active = this._node = Node.fragment();
+
 
     parser.start.add(function(node){
 
         node = Node.element(node);
 
-        if(active.children){
+        if(is(node.documentNode, 'empty') && !dom){
+            node.documentNode = document.createElement(node.name);
+            if(node.attributes){
+                each(node.attributes, function(value, key){
+                    node.documentNode.setAttribute(key, value);
+                })
+            }
+        }
 
-            active.children.append(node);
+        node.attributes._observers.add( function(mutation){
+
+            if(mutation.method == 'remove'){
+
+                this.documentNode.removeAttribute(mutation.args[0]);
+
+            }else{
+
+                this.documentNode.setAttribute(mutation.args[0], mutation.args[1]);
+
+            }
+
+        }, node);
+
+        if(!this._node){
+
+            active = this._node = node;
 
         }else{
 
-            active.append(node);
+            active.push(node);
+
+            parent = active;
+
+            active = active[active.length - 1];
 
         }
 
-        parent = active;
 
-        active = active[active.length - 1];
 
-    });
+        if(!dom) active.documentNode.appendChild(node.documentNode);
+
+
+
+    }, this);
 
     parser.content.add(function(text){
 
-        if(active.children){
+        text = Node.text(text);
 
-            active.children.append(text);
+        if(!dom){
 
-        }else{
-
-            active.append(text);
+            text.textNode = document.createTextNode(text.nodeValue);
 
         }
+
+        text._observers.add( function(mutation){
+
+            console.log('here');
+
+            if(mutation.method == 'remove'){
+
+                //remove text node
+
+            }else{
+
+                this.textNode.nodeValue = mutation.value;
+
+            }
+
+        }, text);
+
+        active.push(text);
+
+        if(!dom) active.documentNode.appendChild(text.textNode);
 
     });
 
@@ -59,15 +131,18 @@ View.prototype.parse = function(obj){
 
             node = Node.element(node);
 
-            if(active.children){
-
-                active.children.append(node);
-
-            }else{
-
-                active.append(node);
-
+            if(is(node.documentNode, 'empty') && !dom){
+                node.documentNode = document.createElement(node.name);
+                if(node.attributes){
+                    each(node.attributes, function(value, key){
+                        node.documentNode.setAttribute(key, value);
+                    })
+                }
             }
+
+            active.push(node);
+
+            if(!dom) active.documentNode.appendChild(node.documentNode);
 
         }else{
 
@@ -85,6 +160,12 @@ View.prototype.parse = function(obj){
     });
 
     parser.parse(obj);
+
+};
+
+View.prototype.fragment = function(){
+
+    return this._node;
 
 };
 
@@ -157,7 +238,17 @@ View.prototype.json = function(){
 
     if(!this._node) return;
 
-    return JSON.stringify(this._node);
+    return JSON.stringify(this._node, function jsonReplacer(key, value){
+
+        if(value.nodeValue){
+
+            return value.toString();
+
+        }
+
+        return value;
+
+    });
 
 };
 

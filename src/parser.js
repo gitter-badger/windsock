@@ -79,17 +79,10 @@ function isVoid(tag){
 
 }
 
+//normalize parsed results for signals
 function createNode(){
 
     return Object.create(null, {
-
-        name: {
-
-            value: '',
-            enumerable: true,
-            writable: true
-
-        },
 
         documentNode:{
 
@@ -163,17 +156,56 @@ Parser.prototype.parse = function(obj){
 
 };
 
+Parser.prototype.domChildren = function(documentNode){
+
+    if(documentNode.hasChildNodes()){
+
+        var childNodes = documentNode.childNodes;
+
+        for (var i = 0, l = childNodes.length; i < l; i++) {
+
+            this.parseDOM(childNodes[i]);
+
+        }
+
+    }
+
+};
+
+//parsers job is to take input and return as close to the same result for each as possible
 Parser.prototype.parseDOM = function(documentNode){
 
     //heavy dom read operations
+    //accepts
+    //a documentElement
+    //a documentFragment
+    //a documentTextNode
 
     if(ignoreTags.indexOf(lowerCase(documentNode.nodeName)) !== -1) return;
 
+    //fragment
+    if(documentNode.nodeType == 11){
+
+        this.domChildren(documentNode);
+
+        return;
+
+    }
+
     var node = createNode();
 
-    node.name = lowerCase(documentNode.nodeName);
-
     node.documentNode = documentNode;
+
+    //if text node
+    if(documentNode.nodeType == 3){
+
+        node.value = documentNode.nodeValue;
+        this.content.dispatch(node);
+        return;
+
+    }
+
+    node.name = lowerCase(documentNode.nodeName);
 
     if(documentNode.attributes.length){
 
@@ -189,25 +221,7 @@ Parser.prototype.parseDOM = function(documentNode){
 
     if(!isVoid(node.name)) this.start.dispatch(node);
 
-    if(documentNode.hasChildNodes()){
-
-        var childNodes = documentNode.childNodes;
-
-        for (var i = 0; i < childNodes.length; i++) {
-
-            if(childNodes[i].nodeType == 1){
-
-                this.parseDOM(childNodes[i]);
-
-            }else if(childNodes[i].nodeType == 3) {
-
-                this.content.dispatch(childNodes[i].nodeValue);
-
-            }
-
-        }
-
-    }
+    this.domChildren(documentNode);
 
     if(node.attributes && !isVoid(node.name)) delete node.attributes;
 
@@ -229,7 +243,8 @@ Parser.prototype.parseJSONML = function(jsonml){
 
         node.name = jsonml[0];
 
-        if(is(jsonml[1], 'object')){
+        //replaced Object.prototype check in is(jsonml[1], 'object') with custom toString for text nodes
+        if(jsonml.length > 1 && jsonml[1].toString() === '[object Object]'){
 
             i++;
             node.attributes = extend(Object.create(null), jsonml[1]);
@@ -246,9 +261,10 @@ Parser.prototype.parseJSONML = function(jsonml){
 
     while(i < jsonml.length){
 
-        if(is(jsonml[i], 'string')){
+        if(is(jsonml[i], 'string') || jsonml[i].nodeValue ){
 
-            this.content.dispatch(jsonml[i]);
+            //convert to node
+            this.content.dispatch(jsonml[i].toString());
 
         }else{
 
@@ -282,6 +298,7 @@ Parser.prototype.parseHTML = function(markup){
         if(nextTagIndex >= 0 ){
 
             //start element exists in string
+            //need to convert content to node
             if(nextTagIndex > 0) this.content.dispatch(markup.substring(0, nextTagIndex));
 
             //set html string to index of new element to end
@@ -316,6 +333,7 @@ Parser.prototype.parseHTML = function(markup){
 
         }else{
 
+            //need to convert content to node
             this.content.dispatch(markup);
 
             //reset

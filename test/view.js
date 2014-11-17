@@ -1,15 +1,15 @@
-var Markup = require('../src/markup');
+var View = require('../src/view');
 var assert = require('assert');
 
-describe('Markup', function () {
+describe('View', function () {
 
     it('should be loaded successfully', function () {
 
-        assert.notStrictEqual(typeof Markup, 'undefined');
+        assert.notStrictEqual(typeof View, 'undefined');
 
     });
 
-    describe('Markup.node()', function(){
+    describe('View.node()', function(){
 
         it('should throw an error if node name not provided', function(){
 
@@ -17,7 +17,7 @@ describe('Markup', function () {
 
             try{
 
-                var node = Markup.node();
+                var node = View.node();
 
             }catch(e){
 
@@ -32,7 +32,7 @@ describe('Markup', function () {
         it('should return an object with accessor keys', function(){
 
             var keys = ['name', 'attributes', 'children'],
-                node = Markup.node('div');
+                node = View.node('div');
 
             keys.forEach(function(key){
 
@@ -46,7 +46,7 @@ describe('Markup', function () {
 
             it('should return the name as a string', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 assert.strictEqual(node.name, 'div');
                 assert.strictEqual(Object.prototype.toString.call(node.name), '[object String]');
@@ -55,7 +55,7 @@ describe('Markup', function () {
 
             it('should set the value at index 0', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 assert.strictEqual(node[0], 'div');
 
@@ -63,7 +63,7 @@ describe('Markup', function () {
 
             it('should change property value and value index 0', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.name = 'a';
                 assert.strictEqual(node.name, 'a');
@@ -77,14 +77,14 @@ describe('Markup', function () {
 
             it('should return an empty object for attributes that do not exist', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
                 assert.strictEqual(Object.keys(node.attributes).length, 0);
 
             });
 
             it('should set the value at index 1', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.attributes.add('class', 'myClass');
                 assert.strictEqual(node[1].class, 'myClass');
@@ -93,7 +93,7 @@ describe('Markup', function () {
 
             it('should change property value and value index 1', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.attributes = {class: 'myClass'};
                 node.attributes.add('id', 'myId');
@@ -104,7 +104,7 @@ describe('Markup', function () {
 
             it('should set properties and perserve observers', function(){
 
-                var node = Markup.node('div'),
+                var node = View.node('div'),
                     count = 0;
 
                 node.attributes.watch(function(){
@@ -120,7 +120,7 @@ describe('Markup', function () {
 
             it('should insert values at index 1 when children exist', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.children.push('textnode', ' textnode');
                 node.attributes.add('class', 'myClass');
@@ -135,7 +135,7 @@ describe('Markup', function () {
 
             it('should have length of 0 if no children', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 assert.strictEqual(node.children.length, 0);
 
@@ -143,7 +143,7 @@ describe('Markup', function () {
 
             it('should have length of 0 if no children and attributes', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.attributes = {class: 'myClass'};
                 assert.strictEqual(node.children.length, 0);
@@ -152,7 +152,7 @@ describe('Markup', function () {
 
             it('should have correct length with just node name', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.children.push('text', ['div']);
                 assert.strictEqual(node.children.length, 2);
@@ -162,7 +162,7 @@ describe('Markup', function () {
 
             it('should have correct length with attributes', function(){
 
-                var node = Markup.node('div');
+                var node = View.node('div');
 
                 node.attributes.add('class', 'myClass');
                 node.children.push('text', ['div']);
@@ -175,7 +175,7 @@ describe('Markup', function () {
 
     });
 
-    describe('Markup.fragment()', function(){
+    describe('View.fragment()', function(){
 
         it('should ', function(){
 
@@ -194,55 +194,6 @@ describe('Markup', function () {
 
 
         });
-
-    });
-
-    it('should return an object with all methods', function(){
-
-        //markup is an subclassed observed array
-
-        //properties --
-        //markup.attributes is an empty observed object - cant add attributes without name
-        //markup.attributes.add()
-        //markup.attributes.remove()
-        //markup.attributes.class = ''
-        //markup.name is an observed string
-        //markup.name = 'div' <- unshift
-        //markup.name = '' <- shift
-        //markup.children is an observed array
-        //markup.children.push()
-        //markup.children.pop()
-
-        //methods --
-        //markup.parse() is a method that converts the param to values, clears observers and overwrites current values
-        //markup.find() traverses and returns flat list(array) of markup objects that match
-        //markup.node() creates a new observable node object
-        //markup.node('div')
-        //markup.node('div', 'some text')
-        //markup.node('div', {class:'classname'}, 'some text')
-        //markup.node('div', {class:'classname'}, [array of object literals])
-
-
-        //array values --
-        //markup[0] = name or markup object
-        //markup[1] = attributes or markup object
-        //markup[2] = string
-        //markup[0].set('div') -> must use set if exists
-        //markup[1].set({} || markupObject || string) -> must use set if exists
-        //markup[2].set()
-
-        //mutation methods --
-        //markup.push()
-        //markup.splice()
-        //markup.pop()
-
-        var markup = new Markup();
-        var m = new Markup();
-        markup.parse('<p>text<span class="something">more text</span> other text <br/> next line</p>');
-        m.parse(['p','text',['span', {class:'something'},'more text'], ' other text', ['br'], 'next line']);
-        console.log(markup.fragment);
-        console.log(m.fragment);
-
 
     });
 

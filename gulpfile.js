@@ -3,6 +3,8 @@ var fs = require('fs'),
     spawn = require('child_process').spawn,
     gulp = require('gulp'),
     concat = require('gulp-concat'),
+    uglify = require('gulp-uglify'),
+    rename = require('gulp-rename'),
     package = require('./package.json');
 
 function reg(){
@@ -40,6 +42,9 @@ gulp.task('concat', function(){
         .pipe(concat('windsock.js'))
         .pipe(req())
         .pipe(iffy())
+        .pipe(gulp.dest('./dist/'))
+        .pipe(rename('windsock.min.js'))
+        //.pipe(uglify())
         .pipe(gulp.dest('./dist/'));
 });
 

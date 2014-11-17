@@ -16,10 +16,67 @@ var define = Object.defineProperty,
         'set'
     ];
 
-//returns whether or not the target is a candidate for observing
+//Returns whether or not the target is a candidate for observing
 function observe(target){
 
     return ((is(target, 'array') || is(target, 'object')) && typeof target._observers === 'undefined');
+
+}
+
+function configurableProperties(obj){
+
+    var properties = [];
+
+    each(Object.getOwnPropertyNames(obj), function(prop){
+
+        if( Object.getOwnPropertyDescriptor(obj, prop).configurable) properties.push(prop);
+
+    });
+
+    return properties;
+
+}
+
+function bindMutation(property, fn){
+
+    return function(mutation){
+
+        if(mutation.args[0] === property) fn.call(this, mutation);
+
+    };
+
+}
+
+//Returns a value object for mutations
+function mutation(obj){
+
+    return extend(Object.create(null, {
+
+        target: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        method: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        value: {
+            value: null,
+            writable: true,
+            enumerable: true
+        },
+
+        args: {
+            value: null,
+            writable: true,
+            enumerable: true
+        }
+
+    }), obj);
 
 }
 
@@ -48,7 +105,7 @@ function accessors(value, key, obj){
                 target: obj,
                 method: 'set',
                 value: value,
-                args: key
+                args: [key, value]
 
             }));
 
@@ -58,38 +115,6 @@ function accessors(value, key, obj){
         configurable: true
 
     };
-
-}
-
-function mutation(obj){
-
-    return extend(Object.create(null, {
-
-        target: {
-            value: null,
-            writable: true,
-            enumerable: true
-        },
-
-        method:{
-            value: null,
-            writable: true,
-            enumerable: true
-        },
-
-        value: {
-            value: null,
-            writable: true,
-            enumerable: true
-        },
-
-        args: {
-            value: null,
-            writable: true,
-            enumerable: true
-        }
-
-    }), obj);
 
 }
 
@@ -119,7 +144,6 @@ Observer.prototype = {
 
 };
 
-//checks for subclassed arrays by duck typing for length
 Observer.observable = function(obj, descriptor){
 
     if(!observe(obj)){
@@ -128,7 +152,6 @@ Observer.observable = function(obj, descriptor){
 
     }
 
-    //return obj if already observable
     if(obj._observers) return obj;
 
     if(is(descriptor, 'boolean')){
@@ -276,7 +299,7 @@ Observer.observable = function(obj, descriptor){
 
                 },
 
-                enumerable:false
+                enumerable: false
 
             },
 
@@ -331,33 +354,38 @@ Observer.observable = function(obj, descriptor){
 
         },
 
-        _recursive:{
+        _recursive: {
 
             value: true,
+
             writable: false,
+
             enumerable: false
 
         },
 
-        watch:{
+        bind: {
 
-            value: function(path, watch){
-
-                //wrapper function for _observers.add
-                //makes sure the watch function is called with the obj as the context
+            value: function(path, fn){
 
                 if(is(path, 'function')){
 
-                    obj._observers.add(path, obj);
+                    this._observers.add(path, this);
                     return;
 
                 }
 
-                var resolved = obj;
+                var resolved = this,
+                    property;
 
                 each(path.split('.'), function(key, index, list, halt){
 
-                    if(resolved[key]){
+                    if(index === list.length - 1){
+
+                        property = key;
+                        return halt;
+
+                    }else if(resolved[key]){
 
                         resolved = resolved[key];
 
@@ -372,11 +400,11 @@ Observer.observable = function(obj, descriptor){
 
                 if(resolved == null || typeof resolved._observers === 'undefined'){
 
-                    throw new Error('failed to watch value, keypath does not exist or is not observable');
+                    throw new Error('failed to bind value, keypath does not exist or is not observable');
 
                 }
 
-                resolved._observers.add(watch, obj);
+                resolved._observers.add(bindMutation(property, fn), this);
 
             },
 
@@ -391,39 +419,26 @@ Observer.observable = function(obj, descriptor){
 
 };
 
-//doesn't check for subclassed arrays
-//returns a new observable object with enumerable keys of param
-Observer.observe = function(obj){
+Observer.observe = function(obj, fn){
 
-    var object;
+    each(configurableProperties(obj), function(key){
 
-    if(is(obj, 'object')){
+        if(observe(obj[key])){
 
-        object = Observer.observable(Object.create(Object.prototype));
+            obj[key] = Observer.observe(obj[key]);
 
-        each(obj, function(value, key){
+        }
 
-            object.add(key, value);
+        //isNAN lol
+        if(typeof obj.length === 'undefined' || isNaN(key)) define(obj, key, accessors(obj[key], key, obj));
 
-        });
+    });
 
-    }else if(is(obj, 'array')){
+    Observer.observable(obj);
 
-        object = Observer.observable(Object.create(Array.prototype, {length:{value:0, enumerable:false, writable:true}}));
+    if(fn) obj.bind(fn);
 
-        each(obj, function(value){
-
-            object.push(value);
-
-        });
-
-    }else{
-
-        throw new Error('param is not an Object or Array');
-
-    }
-
-    return object;
+    return obj;
 
 };
 

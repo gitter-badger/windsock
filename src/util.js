@@ -93,7 +93,7 @@ var Util = {
 
                 each(query, function(v, k){
 
-                    
+
 
                 });
 
@@ -188,6 +188,18 @@ var Util = {
     },
 
     is: function(obj, type){
+
+        switch(type){
+
+            case 'empty':
+
+                return Object.keys(obj).length == 0;
+
+            default:
+
+                break;
+                
+        }
 
         return Object.prototype.toString.call(obj) === '[object ' + Util.upperCase(type) + ']';
 
