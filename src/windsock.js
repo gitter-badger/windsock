@@ -15,13 +15,51 @@ var util = require('./util'),
 //Windsock constructor
 function Windsock(options){
 
-    options = options || Object.create(null);
+    this.options = options = options || Object.create(null);
 
     this._model = options.model || Object.create(null);
+
+    this.bindings = [];
+
+    if(options.view) this.view = new View(options.view);
+
+    if(options.bindings){
+
+        each.call(this, this.bindings, function(binding){
+
+            this.bindings.push(new Binding(binding));
+
+        });
+
+    }
+
+
 
 }
 
 Windsock.prototype = {
+
+    init: function(){
+
+        each.call(this, this.bindings, function(){
+
+            var views = this.view.find(this.view),
+                model = this.model;
+
+            each.call(this, views, function(view){
+
+                var directive = Directive.extend(function(){
+
+                    this.view = view;
+                    this.model = model;
+
+                })
+
+            });
+
+        });
+
+    },
 
     _setModel: function(data){
 
@@ -51,9 +89,7 @@ Object.defineProperty(Windsock.prototype, 'model', {
 
 
 
-Windsock.binding = Binding;
 Windsock.observer = Observer;
-Windsock.view = View;
-Windsock.Directive = Directive;
+
 
 module.exports = Windsock;

@@ -1,18 +1,18 @@
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
-var Util = {
+var util = {
 
     nextTick: function(fn, context){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
-        return tick(Util.bind(fn, context), 1);
+        return tick(util.bind(fn, context), 1);
 
     },
 
     nextPaint: function(fn, context){
 
-        return paint(Util.bind(fn, context), 1);
+        return paint(util.bind(fn, context), 1);
 
     },
 
@@ -48,7 +48,7 @@ var Util = {
     //in order synchronous traversal
     traverse: function(list, fn){
 
-        Util.each.call(this, list, function(result){
+        util.each.call(this, list, function(result){
 
             var halt;
 
@@ -56,9 +56,9 @@ var Util = {
             halt = fn.apply(this, Array.prototype.slice.call(arguments));
 
             //traverse results
-            if(Util.is(result, 'object') || Util.is(result, 'array')){
+            if(util.is(result, 'object') || util.is(result, 'array')){
 
-                Util.traverse.call(this, result, fn);
+                util.traverse.call(this, result, fn);
 
             }
 
@@ -70,10 +70,10 @@ var Util = {
 
     find: function(list, query){
 
-        var assert = Util.noop,
+        var assert = util.noop,
             result;
 
-        if(Util.is(query, 'function')){
+        if(util.is(query, 'function')){
 
             assert = function(){
 
@@ -101,7 +101,7 @@ var Util = {
 
         }
 
-        Util.each(list, assert);
+        util.each(list, assert);
 
         return result;
 
@@ -112,7 +112,7 @@ var Util = {
 
         for(var i = 1, l = arguments.length; i < l; i++){
 
-            Util.each(arguments[i], function(value, key){
+            if(arguments[i]) util.each(arguments[i], function(value, key){
 
                 obj[key] = value;
 
@@ -130,9 +130,9 @@ var Util = {
 
         var args = Array.prototype.slice.call(arguments, 1);
 
-        Util.each(args, function(val, i){
+        util.each(args, function(val, i){
 
-            Util.each(obj, function(value, key){
+            util.each(obj, function(value, key){
 
                 if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
 
@@ -165,7 +165,7 @@ var Util = {
 
         var matched = true;
 
-        Util.each(query, function(val, key){
+        util.each(query, function(val, key){
 
             if(list[key] !== val) matched = false;
 
@@ -177,7 +177,7 @@ var Util = {
 
     bind: function(fn, context){
 
-        var args = Array.prototype.slice.call(arguments);
+        var args = Array.prototype.slice.call(arguments, 2);
 
         return function(){
 
@@ -198,10 +198,10 @@ var Util = {
             default:
 
                 break;
-                
+
         }
 
-        return Object.prototype.toString.call(obj) === '[object ' + Util.upperCase(type) + ']';
+        return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
     },
 
@@ -209,7 +209,7 @@ var Util = {
 
         //closure function for getter/setter value
 
-        return Util.extend({
+        return util.extend({
 
             get: function(){
 
@@ -230,16 +230,9 @@ var Util = {
     },
 
     //Uppercase first letter
-    upperCase: function(str){
+    capitalize: function(str){
 
         return str.replace(/[a-z]/, function(match){return match.toUpperCase();});
-
-    },
-
-    //Lowercase all letters
-    lowerCase: function(str){
-
-        return str.replace(/[A-Z]/g, function(match){return match.toLowerCase();});
 
     },
 
@@ -254,4 +247,4 @@ var Util = {
 
 };
 
-module.exports = Util;
+module.exports = util;

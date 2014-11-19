@@ -7,13 +7,17 @@ var util = require('./util'),
     accessors = util.accessors,
     define = Object.defineProperty;
 
-function Binding(){
+function Binding(options){
 
-    
+    this.options = options || {};
 
 }
 
-Binding.prototype = {};
+Binding.prototype = {
+
+    
+
+};
 
 
 

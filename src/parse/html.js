@@ -14,6 +14,7 @@ function attributes(attr){
 
 }
 
+//Assumes the signals share same context and have an array property 'html'
 module.exports = {
 
     start: function(node){

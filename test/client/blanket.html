@@ -1,25 +1,40 @@
-<div><p>text<span class="something">more text</span> other text <br/> next line</p><ul class="list"><li>list item</li></ul></div><div class="ok">another div</div>
+
+
+<div id="demo">
+    Some crazy text the developer puts here
+  <input type="text">
+</div>
+
+
 
 <script src="../../dist/windsock.js"></script>
 
 <script>
 
-    var html = '<div><p>text<span class="something">more text</span> other text <br/> next line</p><ul class="list"><li>list item</li></ul></div><div class="ok">another div</div>';
-
-
-    var div = document.querySelector('div');
-    var divs = document.querySelectorAll('div');
-    var frag = document.createDocumentFragment();
-        frag.appendChild(div);
-    var txt = document.createTextNode('a little text node');
-    //test passing in:
-    //an element
-    //an array of elements
-    //a document fragment
-    //a text node
-    //a jsonml object of all of the above
-    //html string of all of the above
-
+var demo = new Windsock({
+    view: document.getElementById('demo'),
+    model: {
+        message: 'Hello'
+    },
+    bindings:[{
+        view: {id:'demo'},
+        model: 'message',
+        directive: function(div, mutation){
+            div[2].set(mutation.value);
+        }
+    },{
+        view: 'input',
+        model: 'message',
+        directive: {
+            bind:function(view, model){
+                var input = view.documentNode;
+                input.addEventListener('keyup', function(){
+                    model.message = input.value;
+                });
+            }
+        }
+    }]
+});
 
 
 </script>

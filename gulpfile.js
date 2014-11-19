@@ -10,7 +10,7 @@ var fs = require('fs'),
 function reg(){
     return map(function(file, cb){
         file.contents = Buffer.concat([
-                new Buffer("require('" + file.relative.replace('.js','') + "', function(module){\n" ),
+                new Buffer("require('" + file.relative.replace('.js','') + "', function(module, exports){\n" ),
                 new Buffer(file.contents),
                 new Buffer('\n});')
             ]);
@@ -37,19 +37,19 @@ function iffy(){
 }
 
 gulp.task('concat', function(){
-    gulp.src('./src/*.js')
+    gulp.src(['./src/**/*.js','!_*'])
         .pipe(reg())
         .pipe(concat('windsock.js'))
         .pipe(req())
         .pipe(iffy())
         .pipe(gulp.dest('./dist/'))
         .pipe(rename('windsock.min.js'))
-        //.pipe(uglify())
+        .pipe(uglify())
         .pipe(gulp.dest('./dist/'));
 });
 
 gulp.task('default', ['concat'], function(){
-    gulp.watch(['./src/*.js', './lib/*.js'], function(){
+    gulp.watch(['./src/**/*.js', './lib/*.js'], function(){
         gulp.run('concat');
     });
 });

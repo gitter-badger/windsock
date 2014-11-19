@@ -1,23 +1,13 @@
-var util = require('./util'),
-    is = util.is;
+var defines = Object.defineProperties;
 
 //An object literal module with factory methods for constructing new value objects
-//representing jsonml compliant virtual dom nodes
-var Node = {
+//representing uncompiled jsonml compliant virtual dom nodes
+var node = {
 
+    //Creates an array literal and defines property to hold reference to fragmentNode
     fragment: function(documentNode){
 
-        return Object.create(Array.prototype, {
-
-            length:{
-
-                value: 0,
-
-                enumerable: false,
-
-                writable: true
-
-            },
+        return defines([], {
 
             documentNode: {
 
@@ -33,45 +23,18 @@ var Node = {
 
     },
 
+    //Extends fragment by defining name and attribute properties
     element: function(name, attributes, documentNode){
 
-        return Object.create(Array.prototype, {
-
-            length:{
-
-                value: 0,
-
-                enumerable: false,
-
-                writable: true
-
-            },
-
-            documentNode: {
-
-                value: documentNode || {},
-
-                enumerable: false,
-
-                writable: true
-
-            },
+    var elm = defines(node.fragment(documentNode), {
 
             name: {
 
-                get: function(){
+                value: name,
 
-                    return this[0];
+                enumerable: false,
 
-                },
-
-                set: function(value){
-
-                    this.set(0, value);
-
-                },
-
-                enumerable: false
+                configurable: true
 
             },
 
@@ -79,14 +42,23 @@ var Node = {
 
                 value: attributes || {},
 
-                enumerable: false
+                enumerable: false,
+
+                configurable: true
 
             }
 
         });
 
+        elm.push(name);
+
+        if(attributes) elm.push(attributes);
+
+        return elm;
+
     },
 
+    //Creates an object that represents the text value
     text: function(value, documentNode){
 
         return Object.create(Object.prototype, {
@@ -125,13 +97,27 @@ var Node = {
 
             },
 
-            value:{
+            toJSON: {
+
+                value: function(){
+
+                    return this.value;
+
+                },
+
+                enumerable: false
+
+            },
+
+            value: {
 
                 value: value,
 
                 enumerable: false,
 
-                writable: true
+                writable: true,
+
+                configurable: true
 
             }
 
@@ -141,4 +127,4 @@ var Node = {
 
 };
 
-module.exports = Node;
+module.exports = node;

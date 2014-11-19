@@ -1,20 +1,101 @@
 var util = require('./util'),
-    Node = require('./node'),
-    Parser = require('./parser'),
+    node = require('./node'),
+    parser = require('./parser'),
+    Observer = require('./observer'),
     Batch = require('./batch'),
     traverse = util.traverse,
+    bind = util.bind,
     each = util.each,
     is = util.is;
 
-function View(obj){
+//Instance of view is a jsonml spec compliant virtual dom
+//Mutations on nodes are observed and batched for dom manipulation
+//API:
+//var jsonml = View.parser.parse(source)
+//Parses markup source and converts it to an array
+//
+//View.compile(jsonml)
+//Compiles observers to batch changes
 
-    //private ref to virtual node
-    this._node = null;
-    this._batch = new Batch;
+//var fragment = View.render(jsonml)
+//Compiles and returns the parent document fragment
 
-    if(obj) this._parse(obj);
+function View(obj){}
+
+View.parser = parser;
+
+function bind(element){
+
+    if(!element.name && !element.value && element.length){
+
+        each(element, View.parser.bind);
+
+    }
+
+    Observer.observe(element);
 
 }
+
+function parse(e){
+
+    if(!this.active) this.active = this;
+    if(!this.parent) this.parent = this;
+
+    switch(e.type){
+
+        case 'text':
+            this.active.push(node.text(e.value, e.textNode));
+            break;
+        case 'start':
+            this.parent = this.active;
+            this.active = this.active[this.active.push(node.element(e.name, e.attributes, e.documentElement)) - 1];
+            break;
+        case 'end':
+            if(e.void){
+                this.active.push(node.element(e.name, e.attributes, e.documentElement));
+            }else{
+                //set active to parent
+                this.active = this.parent;
+            }
+            break;
+
+    }
+
+};
+
+//Determines which method to use for parsing
+//cloneNode is used for DOM nodes
+//documentNodes are created for string and array source types
+//parent node is appended to a documentFragment
+//returns virtualdom
+View.parser.parse = function(source){
+
+    var virtualDOM = node.fragment(document.createDocumentFragment()),
+        method;
+
+    if(is(source, 'string')){
+
+        method = 'parseHTML';
+
+    }else if(source.nodeName){
+
+        method = 'parseDOM';
+        source = source.cloneNode();
+
+    }else{
+
+        method = 'parseJSONML';
+
+    }
+
+    View.parser[method].call(undefined, source, bind(parse, virtualDOM));
+
+    delete virtualDOM.active;
+    delete virtualDOM.parent;
+
+    return virtualDOM;
+
+};
 
 View.prototype._compile = function(){
 
@@ -163,76 +244,7 @@ View.prototype._parse = function(obj){
 
 };
 
-View.prototype.fragment = function(){
 
-    return this._node;
-
-};
-
-View.prototype.html = function(){
-
-    if(!this._node) return;
-
-    var html = [],
-        parser = new Parser;
-
-    parser.start.add(function(node){
-
-        html.push('<' + node.name);
-
-        if(node.attributes){
-
-            each(node.attributes, function(key, value){
-
-                if(value) value = '="' + value + '"';
-                html.push(' ' + key + value);
-
-            });
-
-        }
-
-        html.push('>');
-
-    });
-
-    parser.content.add(function(text){
-
-        html.push(text);
-
-    });
-
-    parser.end.add(function(node, isVoid){
-
-        if(isVoid){
-
-            html.push('<' + node.name);
-
-            if(node.attributes){
-
-                each(node.attributes, function(key, value){
-
-                    if(value) value = '="' + value + '"';
-                    html.push(' ' + key + value);
-
-                });
-
-            }
-
-            html.push('/>');
-
-        }else{
-
-            html.push('</' + node.name + '>');
-
-        }
-
-    });
-
-    parser.parse(this._node);
-
-    return html.join('');
-
-};
 
 View.prototype.json = function(){
 
