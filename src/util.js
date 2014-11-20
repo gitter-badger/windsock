@@ -130,9 +130,9 @@ var util = {
 
         var args = Array.prototype.slice.call(arguments, 1);
 
-        util.each(args, function(val, i){
+        util.each(args, function mergeArgIterator(val, i){
 
-            util.each(obj, function(value, key){
+            util.each(obj, function mergeTargetKeyIterator(value, key){
 
                 if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
 

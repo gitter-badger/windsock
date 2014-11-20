@@ -350,11 +350,12 @@ var util = require('./util'),
     is = util.is,
     bind = util.bind,
     each = util.each,
+    merge = util.merge,
     extend = util.extend;
 
 var define = Object.defineProperty,
     defines = Object.defineProperties,
-    arrayMethods = [
+    arrayMutatorMethods = [
         'push',
         'unshift',
         'splice',
@@ -363,20 +364,32 @@ var define = Object.defineProperty,
         'set'
     ];
 
-//Returns whether or not the target is a candidate for observing
-function observe(target){
+/**
+ * Returns whether or not the target is a candidate for observing
+ *
+ * @param {Object|Array} target
+ */
+
+function isObservable(target){
 
     return ((is(target, 'array') || is(target, 'object')) && typeof target._observers === 'undefined');
 
 }
 
-function configurableProperties(obj){
+/**
+ * Returns the configurable property keys of an object
+ *
+ * @param {Object|Array} target
+ * @return {Array}
+ */
+
+function configurableProperties(target){
 
     var properties = [];
 
-    each(Object.getOwnPropertyNames(obj), function(prop){
+    each(Object.getOwnPropertyNames(target), function(prop){
 
-        if( Object.getOwnPropertyDescriptor(obj, prop).configurable) properties.push(prop);
+        if(Object.getOwnPropertyDescriptor(target, prop).configurable) properties.push(prop);
 
     });
 
@@ -384,56 +397,208 @@ function configurableProperties(obj){
 
 }
 
-//Binds a callback to specific property
-function bindMutation(property, fn){
+/**
+* Returns a new mutation value object
+*
+* @param {Object} obj
+* @return {Object}
+*/
 
-    return function(mutation){
-
-        if(mutation.args[0] === property) fn.call(this, mutation);
-
-    };
-
-}
-
-//Returns a value object for mutations
 function mutation(obj){
 
-    return extend(Object.create(null, {
+    return merge({
 
-        target: {
-            value: null,
-            writable: true,
-            enumerable: true
-        },
+        target: null,
+        method: null,
+        args: null,
+        value: null,
+        transformed: null
 
-        method: {
-            value: null,
-            writable: true,
-            enumerable: true
-        },
-
-        value: {
-            value: null,
-            writable: true,
-            enumerable: true
-        },
-
-        args: {
-            value: null,
-            writable: true,
-            enumerable: true
-        }
-
-    }), obj);
+    }, obj);
 
 }
 
-function transform(obj){
-    return extend({
+/**
+ *Loops an array of objects and transforms them if observable
+ *
+ * @param {Array} array
+ */
+
+function observeEach(array){
+
+    each(array, function mutationArgumentIterator(target){
+
+        if(isObservable(target)) Observer.observe(target);
+
+    });
+
+}
+
+/**
+ *Defines proxied mutate methods on an array
+ *
+ * @param {Array} array
+ */
+
+function observableArray(array){
+
+    each(arrayMutatorMethods, function arrayMutatorMethodIterator(method){
+
+        define(array, method, {
+
+            value: function(){
+
+                var mutationObject = mutation({
+                        target: this,
+                        method: method,
+                        args: Array.prototype.slice.call(arguments)
+                    });
+
+                switch(method){
+
+                    case 'push':
+                    case 'unshift':
+
+                        if(this._recursive) observeEach(mutationObject.args);
+
+                    break;
+
+                    case 'splice':
+
+                        if(mutationObject.args.length > 2 && this._recursive) observeEach(mutationObject.args.slice(2));
+
+                    break;
+
+                    case 'set':
+
+                        if(isObservable(mutationObject.args[1]) && this._recursive) Observer.observe(mutationObject.args[1]);
+
+                    break;
+
+                }
+
+                this._transforms.dispatch(mutationObject);
+
+                if(method === 'set'){
+
+                    if(typeof this[mutationObject.args[0]] === 'undefined'){
+
+                        throw new Error('failed to set value at ' + mutationObject.args[0] + ' index does not exist');
+
+                    }
+
+                    this[mutationObject.args[0]] = mutationObject.args[1];
 
 
+                }else{
 
-    }, obj);
+                    mutationObject.value = Array.prototype[method].apply(this, mutationObject.args);
+
+                }
+
+                this._observers.dispatch(mutationObject);
+
+            }
+
+        });
+
+    });
+
+}
+
+/**
+ * Sets the property of an object in the context of a mutation
+ *
+ * @param {String} key
+ * @param {*} value
+ * @param {Object} target
+ * @param {String} method
+ */
+
+function setValue(key, value, target, method){
+
+    var mutationObject = mutation({
+        target: target,
+        method: method,
+        args: Array.prototype.slice.call(arguments),
+        value: value
+    });
+
+    if(isObservable(mutationObject.value) && target._recursive){
+
+        Observer.observe(mutationObject.value);
+
+    }
+
+    target._transforms.dispatch(mutationObject);
+
+    define(target, key, accessors(mutationObject.transformed || mutationObject.value, key, target));
+
+    target._observers.dispatch(mutationObject);
+
+}
+
+/**
+*Defines mutate methods Add/Remove on an object
+*
+* @param {Object} object
+*/
+
+function observableObject(object){
+
+    defines(object, {
+
+        add: {
+
+            value: function(key, value){
+
+                if(typeof this[key] !== 'undefined'){
+
+                    throw new Error('failed to add ' + key + ' already defined');
+
+                }
+
+                setValue(key, value, this, 'add');
+
+            }
+
+        },
+
+        remove:{
+
+            value: function(key){
+
+                var removed,
+                    mutationObject = mutation({
+                        target: this,
+                        method: 'remove',
+                        args: Array.prototype.slice.call(arguments)
+                    });
+
+                if(typeof this[key] === 'undefined'){
+
+                    throw new Error('failed to remove ' + key + ' does not exist');
+
+                }
+
+                mutationObject.value = this[key];
+
+                if(this[key]._observers){
+
+                    this[key]._observers.remove();
+
+                }
+
+                delete this[key];
+
+                this._observers.dispatch(mutationObject);
+
+            }
+
+        }
+
+    });
+
 }
 
 function accessors(value, key, obj){
@@ -448,39 +613,22 @@ function accessors(value, key, obj){
 
         set: function(val){
 
-            var transformedValue = transform({
-
-                target: this,
-                method: 'set',
-                value: val
-
-            }), old;
-
-            if(observe(val) && this._recursive){
-
-                Observer.observe(transformedValue.value);
-
-            }
-
-            this._transforms.dispatch(transformedValue);
-
-            old = value;
-            value = transformedValue.value;
-
-            this._observers.dispatch(mutation({
-
-                target: this,
-                method: 'set',
-                value: old,
-                transformed: transformedValue.value,
-                args: Array.prototype.slice.call(arguments)
-
-            }));
+            setValue(key, value, obj, 'set');
 
         },
 
         enumerable: true,
         configurable: true
+
+    };
+
+}
+
+function bindMutation(property, fn){
+
+    return function(mutation){
+
+        if(mutation.args[0] === property) fn.call(this, mutation);
 
     };
 
@@ -514,7 +662,7 @@ Observer.prototype = {
 
 Observer.observable = function(obj, descriptor){
 
-    if(!observe(obj)){
+    if(!isObservable(obj)){
 
         throw new Error('failed to make target observable not an array or object');
 
@@ -540,232 +688,27 @@ Observer.observable = function(obj, descriptor){
 
     if(is(obj, 'array') || typeof obj.length !== 'undefined'){
 
-        each(arrayMethods, function(method){
-
-            //TODO: performance diff between bind and closure for obj methods
-
-            define(obj, method, {
-
-                value: function(){
-
-                    var args = Array.prototype.slice.call(arguments),
-                        transformedValue = transform({
-                            target: this,
-                            method: method,
-                            args: Array.prototype.slice.call(arguments)
-                        }),
-                        value;
-
-                    //if the method adds or changes a value, need to check if array or object
-                    switch(method){
-
-                        case 'push':
-                        case 'unshift':
-
-                            each(transformedValue.args, function(arg, i){
-
-                                if(observe(arg) && obj._recursive){
-
-                                    transformedValue.args[i] = Observer.observe(arg);
-
-                                }
-
-                            });
-
-                            break;
-
-                        case 'splice':
-
-                            if(transformedValue.args.length > 2){
-
-                                each(transformedValue.args.slice(2), function(arg, i){
-
-                                    if(observe(arg) && obj._recursive){
-
-                                        transformedValue.args[i + 2] = Observer.observe(arg);
-
-                                    }
-
-                                });
-
-                            }
-
-                            break;
-
-                        case 'set':
-
-                            if(observe(transformedValue.args[1]) && obj._recursive){
-
-                                transformedValue.args[1] = Observer.observe(transformedValue.args[1]);
-
-                            }
-
-                            break;
-
-                    }
-
-                    this._transforms.dispatch(transformedValue);
-
-                    if(method === 'set'){
-
-                        //treat set differently
-                        if(typeof obj[transformedValue.args[0]] === 'undefined'){
-
-                            throw new Error('failed to set value at ' + transformedValue.args[0] + ' index does not exist');
-
-                        }
-
-                        obj[transformedValue.args[0]] = value = transformedValue.args[1];
-
-
-                    }else{
-
-                        value = Array.prototype[method].apply(obj, transformedValue.args);
-
-                    }
-
-                    obj._observers.dispatch(mutation({
-
-                        target: obj,
-                        method: method,
-                        value: value,
-                        transformed: transformedValue.value,
-                        args: args
-
-                    }));
-
-                },
-
-                enumerable:false
-
-            });
-
-        });
+        observableArray(obj);
 
     }else{
 
-        defines(obj, {
-
-            add: {
-
-                value: function(key, value){
-
-                    /**
-                     * Value object to hold transform value
-                     * @type {Object}
-                     */
-                    var transformedValue = transform({
-
-                        target: this,
-                        method: 'add',
-                        value: value
-
-                    });
-
-                    if(typeof this[key] !== 'undefined'){
-
-                        throw new Error('failed to add ' + key + ' already defined');
-
-                    }
-
-                    if(observe(value) && this._recursive){
-
-                        Observer.observe(transformedValue.value);
-
-                    }
-
-                    this._transforms.dispatch(transformedValue);
-
-                    define(this, key, accessors(transformedValue.value, key, obj));
-
-                    this._observers.dispatch(mutation({
-
-                        target: this,
-                        method: 'add',
-                        value: value,
-                        transformed: transformedValue.value,
-                        args: Array.prototype.slice.call(arguments)
-
-                    }));
-
-                },
-
-                enumerable: false
-
-            },
-
-            remove:{
-
-                value: function(key){
-
-                    var removed;
-
-                    if(typeof obj[key] === 'undefined'){
-
-                        throw new Error('failed to remove ' + key + ' does not exist');
-
-                    }
-
-                    removed = obj[key];
-
-                    if(obj[key]._observers){
-
-                        obj[key]._observers.remove();
-
-                    }
-
-                    delete obj[key];
-
-                    obj._observers.dispatch(mutation({
-
-                        target: obj,
-                        method: 'remove',
-                        value: removed,
-                        args: Array.prototype.slice.call(arguments)
-
-                    }));
-
-                },
-
-                enumerable:false
-
-            }
-
-        });
+        observableObject(obj);
 
     }
 
-
-    /**
-     * Define non enumerable properties to object
-     * @type {Object}
-     */
     defines(obj, extend({
 
         _transforms: {
-
-            value: new Signals,
-
-            enumerable: false
-
+            value: new Signals
         },
 
         _observers: {
-
-            value: new Signals,
-
-            enumerable: false
-
+            value: new Signals
         },
 
         _recursive: {
-
             value: true,
-
-            writable: false,
-
-            enumerable: false
-
+            writable: false
         },
 
         bind: {
@@ -810,12 +753,9 @@ Observer.observable = function(obj, descriptor){
 
                 resolved._observers.add(bindMutation(property, fn), this);
 
-            },
-
-            enumerable: false
+            }
 
         }
-
 
     }, descriptor));
 
@@ -825,15 +765,14 @@ Observer.observable = function(obj, descriptor){
 
 Observer.observe = function(obj, fn){
 
-    each(configurableProperties(obj), function(key){
+    each(configurableProperties(obj), function configurablePropertiesIterator(key){
 
-        if(observe(obj[key])){
+        if(isObservable(obj[key])){
 
             Observer.observe(obj[key]);
 
         }
 
-        //isNAN lol
         //redefine the configurable property if not an array index
         if(typeof obj.length === 'undefined' || isNaN(key)) define(obj, key, accessors(obj[key], key, obj));
 
@@ -1413,9 +1352,9 @@ var util = {
 
         var args = Array.prototype.slice.call(arguments, 1);
 
-        util.each(args, function(val, i){
+        util.each(args, function mergeArgIterator(val, i){
 
-            util.each(obj, function(value, key){
+            util.each(obj, function mergeTargetKeyIterator(value, key){
 
                 if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
 
