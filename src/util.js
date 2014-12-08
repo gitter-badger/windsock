@@ -195,13 +195,15 @@ var util = {
 
                 return Object.keys(obj).length == 0;
 
+            case 'undefined':
+
+                return typeof obj === 'undefined';
+
             default:
 
-                break;
+                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
         }
-
-        return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
     },
 

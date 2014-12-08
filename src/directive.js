@@ -24,6 +24,7 @@ Directive.prototype.init = function(view, model){
 Directive.prototype.update = function(mutation){
 
     //called when model changes
+    //normalizes mutation and invokes callbacks accordingly
 
 
 };

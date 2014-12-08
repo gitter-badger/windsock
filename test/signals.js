@@ -49,6 +49,37 @@ describe('Signals', function () {
 
     });
 
+    describe('queue(fn)', function(){
+
+        var signals = new Signals(),
+            t = true;
+
+        it('should add signal', function(){
+
+            var signal = signals.queue(function(){});
+            assert.strictEqual(signal instanceof Signals.signal, true);
+            assert.strictEqual(signals._signals.length, 1);
+
+        });
+
+        it('should add signal with correct priority', function(){
+
+            var signal = signals.queue(function(){
+                t = false;
+            }, undefined);
+            assert.strictEqual(signal.priority, 1);
+
+        });
+
+        it('should dispatch signals in correct order', function(){
+
+            signals.dispatch();
+            assert.strictEqual(t, false);
+
+        });
+
+    });
+
     describe('remove(signal)', function(){
 
         var signals = new Signals();

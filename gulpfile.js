@@ -37,7 +37,7 @@ function iffy(){
 }
 
 gulp.task('concat', function(){
-    gulp.src(['./src/**/*.js','!_*'])
+    gulp.src(['./src/**/*.js'])
         .pipe(reg())
         .pipe(concat('windsock.js'))
         .pipe(req())

@@ -191,6 +191,7 @@ Directive.prototype.init = function(view, model){
 Directive.prototype.update = function(mutation){
 
     //called when model changes
+    //normalizes mutation and invokes callbacks accordingly
 
 
 };
@@ -350,95 +351,87 @@ var util = require('./util'),
     is = util.is,
     bind = util.bind,
     each = util.each,
+    match = util.match,
     merge = util.merge,
     extend = util.extend;
 
 var define = Object.defineProperty,
     defines = Object.defineProperties,
     arrayMutatorMethods = [
-        'push',
-        'unshift',
-        'splice',
-        'shift',
+        'fill',
         'pop',
-        'set'
+        'push',
+        'reverse',
+        'shift',
+        'sort',
+        'splice',
+        'unshift'
     ];
 
-/**
- * Returns whether or not the target is a candidate for observing
- *
- * @param {Object|Array} target
- */
+function dispatch(mutationRecord, signals){
 
-function isObservable(target){
+    each(mutationRecord.object._observers, function(observer){
 
-    return ((is(target, 'array') || is(target, 'object')) && typeof target._observers === 'undefined');
+        observer[signals].dispatch(mutationRecord);
+
+    });
 
 }
 
-/**
- * Returns the configurable property keys of an object
- *
- * @param {Object|Array} target
- * @return {Array}
- */
+function mutation(obj){
+    return merge({
+        name:null,
+        object:null,
+        type:null,
+        oldValue:null,
+        transformed:null
+    }, obj);
+}
 
-function configurableProperties(target){
+function defineAccessors(descriptor, prop, value){
 
-    var properties = [];
+    descriptor[prop] = {
+
+        get: function(){return value;},
+
+        set: function(newValue){
+
+            var mutationRecord = mutation({
+                name: prop,
+                object: this,
+                type: 'update',
+                oldValue: value,
+                transformed: observable(newValue, this._recursive)
+            });
+
+            dispatch(mutationRecord, 'transforms');
+
+            value = mutationRecord.transformed;
+
+            dispatch(mutationRecord, 'observers');
+
+            mutationRecord = null;
+        },
+
+        enumerable: true,
+
+        configurable: true
+
+    };
+
+}
+
+function defineConfigurableProperties(descriptor, target){
 
     each(Object.getOwnPropertyNames(target), function(prop){
 
-        if(Object.getOwnPropertyDescriptor(target, prop).configurable) properties.push(prop);
+        if(descriptor._recursive) observable(target[prop]);
 
-    });
-
-    return properties;
-
-}
-
-/**
-* Returns a new mutation value object
-*
-* @param {Object} obj
-* @return {Object}
-*/
-
-function mutation(obj){
-
-    return merge({
-
-        target: null,
-        method: null,
-        args: null,
-        value: null,
-        transformed: null
-
-    }, obj);
-
-}
-
-/**
- *Loops an array of objects and transforms them if observable
- *
- * @param {Array} array
- */
-
-function observeEach(array){
-
-    each(array, function mutationArgumentIterator(target){
-
-        if(isObservable(target)) Observer.observe(target);
+        if(Object.getOwnPropertyDescriptor(target, prop).configurable) defineAccessors(descriptor, prop, target[prop]);
 
     });
 
 }
-
-/**
- *Defines proxied mutate methods on an array
- *
- * @param {Array} array
- */
 
 function observableArray(array){
 
@@ -449,10 +442,10 @@ function observableArray(array){
             value: function(){
 
                 var mutationObject = mutation({
-                        target: this,
-                        method: method,
-                        args: Array.prototype.slice.call(arguments)
-                    });
+                    target: this,
+                    method: method,
+                    args: Array.prototype.slice.call(arguments)
+                });
 
                 switch(method){
 
@@ -506,92 +499,56 @@ function observableArray(array){
 
 }
 
-/**
- * Sets the property of an object in the context of a mutation
- *
- * @param {String} key
- * @param {*} value
- * @param {Object} target
- * @param {String} method
- */
+function observableObject(descriptor){
 
-function setValue(key, value, target, method){
-
-    var mutationObject = mutation({
-        target: target,
-        method: method,
-        args: Array.prototype.slice.call(arguments),
-        value: value
-    });
-
-    if(isObservable(mutationObject.value) && target._recursive){
-
-        Observer.observe(mutationObject.value);
-
-    }
-
-    target._transforms.dispatch(mutationObject);
-
-    define(target, key, accessors(mutationObject.transformed || mutationObject.value, key, target));
-
-    target._observers.dispatch(mutationObject);
-
-}
-
-/**
-*Defines mutate methods Add/Remove on an object
-*
-* @param {Object} object
-*/
-
-function observableObject(object){
-
-    defines(object, {
+    extend(descriptor, {
 
         add: {
 
-            value: function(key, value){
+            value: function(prop, value){
 
-                if(typeof this[key] !== 'undefined'){
+                if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
 
-                    throw new Error('failed to add ' + key + ' already defined');
+                var desc = {},
+                    mutationRecord = mutation({
+                        name: prop,
+                        object: this,
+                        type: 'add',
+                        transformed: observable(value, this._recursive)
+                    });
 
-                }
+                dispatch(mutationRecord, 'transforms');
 
-                setValue(key, value, this, 'add');
+                defineAccessors(desc, prop, mutationRecord.transformed);
+
+                defines(this, desc);
+
+                dispatch(mutationRecord, 'observers');
+
+                mutationRecord = null;
 
             }
 
         },
 
-        remove:{
+        delete:{
 
-            value: function(key){
+            value: function(prop){
 
-                var removed,
-                    mutationObject = mutation({
-                        target: this,
-                        method: 'remove',
-                        args: Array.prototype.slice.call(arguments)
-                    });
+                if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
 
-                if(typeof this[key] === 'undefined'){
+                var mutationRecord = mutation({
+                    name: prop,
+                    object: this,
+                    type: 'delete',
+                    oldValue: this[prop]
+                });
 
-                    throw new Error('failed to remove ' + key + ' does not exist');
+                if(this[prop]._observers) each(this[prop]._observers, function(observer){observer.unobserve();});
 
-                }
+                delete this[prop];
 
-                mutationObject.value = this[key];
-
-                if(this[key]._observers){
-
-                    this[key]._observers.remove();
-
-                }
-
-                delete this[key];
-
-                this._observers.dispatch(mutationObject);
+                dispatch(mutationRecord, 'observers');
 
             }
 
@@ -601,192 +558,65 @@ function observableObject(object){
 
 }
 
-function accessors(value, key, obj){
+function observable(target, recursive){
 
-    return {
+    if(!is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
 
-        get: function(){
+    var descriptor = {
 
-            return value;
-
+        _observers: {
+            value: []
         },
 
-        set: function(val){
-
-            setValue(key, value, obj, 'set');
-
-        },
-
-        enumerable: true,
-        configurable: true
+        _recursive: {
+            value: is(recursive, 'undefined') ? true : recursive
+        }
 
     };
 
+    if(is(target, 'array') || !is(target.length, 'undefined')){
+
+        observableArray(descriptor);
+
+    }else{
+
+        observableObject(descriptor);
+
+    }
+
+    defineConfigurableProperties(descriptor, target);
+
+    defines(target, descriptor);
+
+    return target;
+
 }
 
-function bindMutation(property, fn){
-
-    return function(mutation){
-
-        if(mutation.args[0] === property) fn.call(this, mutation);
-
-    };
-
-}
-
-function Observer(fn){
-
-    this.bound = fn;
-    this.observed = null;
-    this.signal = null;
-
+function Observer(){
+    this.observers = new Signals;
+    this.transforms = new Signals;
+    this._observed = [];
 }
 
 Observer.prototype = {
 
     observe: function(target){
-
-        this.observed = Observer.observe(target);
-        this.signal = this.observed._observers.add(this.bound, this);
-        return this.observed;
-
+        observable(target);
+        target._observers.push(this);
+        this._observed.push(target);
     },
-
-    disconnect: function(){
-
-        this.observed._observers.remove(this.signal);
-
+    unobserve: function(target){
+        var _this = this;
+        //support unobserving a single object
+        this.observers.remove();
+        this.transforms.remove();
+        each(this._observed, function(value){
+            value._observers.splice(value._observers.indexOf(_this), 1);
+            _this._observed.splice(_this._observed.indexOf(value), 1);
+        });
     }
 
 };
-
-Observer.observable = function(obj, descriptor){
-
-    if(!isObservable(obj)){
-
-        throw new Error('failed to make target observable not an array or object');
-
-    }
-
-    if(obj._observers) return obj;
-
-    if(is(descriptor, 'boolean')){
-
-        descriptor = {
-
-            _recursive: {
-
-                value: descriptor,
-                writable: false,
-                enumerable: false
-
-            }
-
-        };
-
-    }
-
-    if(is(obj, 'array') || typeof obj.length !== 'undefined'){
-
-        observableArray(obj);
-
-    }else{
-
-        observableObject(obj);
-
-    }
-
-    defines(obj, extend({
-
-        _transforms: {
-            value: new Signals
-        },
-
-        _observers: {
-            value: new Signals
-        },
-
-        _recursive: {
-            value: true,
-            writable: false
-        },
-
-        bind: {
-
-            value: function(path, fn){
-
-                if(is(path, 'function')){
-
-                    this._observers.add(path, this);
-                    return;
-
-                }
-
-                var resolved = this,
-                    property;
-
-                each(path.split('.'), function(key, index, list, halt){
-
-                    if(index === list.length - 1){
-
-                        property = key;
-                        return halt;
-
-                    }else if(resolved[key]){
-
-                        resolved = resolved[key];
-
-                    }else{
-
-                        resolved = null;
-                        return halt;
-
-                    }
-
-                });
-
-                if(resolved == null || typeof resolved._observers === 'undefined'){
-
-                    throw new Error('failed to bind value, keypath does not exist or is not observable');
-
-                }
-
-                resolved._observers.add(bindMutation(property, fn), this);
-
-            }
-
-        }
-
-    }, descriptor));
-
-    return obj;
-
-};
-
-Observer.observe = function(obj, fn){
-
-    each(configurableProperties(obj), function configurablePropertiesIterator(key){
-
-        if(isObservable(obj[key])){
-
-            Observer.observe(obj[key]);
-
-        }
-
-        //redefine the configurable property if not an array index
-        if(typeof obj.length === 'undefined' || isNaN(key)) define(obj, key, accessors(obj[key], key, obj));
-
-    });
-
-    Observer.observable(obj);
-
-    if(fn) obj.bind(fn);
-
-    return obj;
-
-};
-
-Observer.mutation = mutation;
 
 module.exports = Observer;
 
@@ -1147,7 +977,6 @@ Signal.prototype = {
 
 };
 
-//TODO - make call stack/queue configurable
 function Signals(){
 
     this._signals = [];
@@ -1172,6 +1001,7 @@ Signals.prototype = {
 
         //signals are one to many, a signal can only belong to one signals class
         //default order is a stack
+        //default priority is 0
         var signal = new Signal(fn, context, priority),
             i = 0;
 
@@ -1186,6 +1016,12 @@ Signals.prototype = {
         this._signals.splice(i, 0, signal);
 
         return signal;//consider returning index of signal instead
+
+    },
+
+    queue: function(fn, context){
+
+        return this.add(fn, context, this._signals.length);
 
     },
 
@@ -1417,13 +1253,15 @@ var util = {
 
                 return Object.keys(obj).length == 0;
 
+            case 'undefined':
+
+                return typeof obj === 'undefined';
+
             default:
 
-                break;
+                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
         }
-
-        return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
     },
 
