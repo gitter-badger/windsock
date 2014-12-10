@@ -199,6 +199,10 @@ var util = {
 
                 return typeof obj === 'undefined';
 
+            case 'null':
+
+                return obj === null;
+
             default:
 
                 return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';

@@ -3,6 +3,7 @@ var util = require('./util'),
     is = util.is,
     bind = util.bind,
     each = util.each,
+    match = util.match,
     merge = util.merge,
     extend = util.extend;
 
@@ -40,13 +41,17 @@ function mutate(mutationRecord, m){
 }
 
 function mutation(obj){
+
     return merge({
+
         name:null,
         object:null,
         type:null,
         oldValue:null,
         transformed:null
+
     }, obj);
+
 }
 
 function defineAccessors(descriptor, prop, value){
@@ -111,9 +116,29 @@ function observableArray(descriptor){
 
                 switch(method){
 
+                    case 'fill':
+
+                        mutation.name = args[1];
+                        mutationRecord.oldValue = this.slice(args[1], args[2]);
+
+                    break;
+
+                    case 'pop':
+
+                        mutationRecord.name = this.length - 1;
+                        mutationRecord.oldValue = this.slice(this.length - 1);
+
+                    break
+
                     case 'push':
 
                         mutationRecord.name = this.length;
+
+                    break;
+
+                    case 'shift':
+
+                        mutationRecord.oldValue = this.slice(0, 1);
 
                     case 'unshift':
 
@@ -167,13 +192,13 @@ function observableObject(descriptor){
                     type: 'add',
                     transformed: value
 
-                }, function(){
+                }), function(){
 
                     if(this.object._recursive) observable(this.transformed);
 
-                    defines(this.object, defineAccessors({}, this.name, this.transformed));
+                    define(this.object, this.name, defineAccessors({}, this.name, this.transformed));
 
-                }));
+                });
 
             }
 
@@ -210,7 +235,7 @@ function observableObject(descriptor){
 
 function observable(target, recursive){
 
-    if(!is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
+    if(is(target, 'null') || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
 
     var descriptor = {
 
@@ -252,6 +277,16 @@ function only(object, callback){
 
 }
 
+function limit(callback, query){
+
+    return function(mutation){
+
+        if(match(mutation, query)) callback.call(this, mutation);
+
+    };
+
+}
+
 function Observer(){
 
     this.observers = new Signals;
@@ -274,7 +309,7 @@ Observer.prototype = {
 
         if(callback){
 
-            return this.observers.add(only(target, callback), this);
+            return this.observers.add(limit(callback, {object: target}), target);
 
         }
 
@@ -286,7 +321,7 @@ Observer.prototype = {
 
         if(callback){
 
-            return this.transforms.queue(only(target, callback), this);
+            return this.transforms.queue(limit(callback, {object: target}), target);
 
         }
 
@@ -295,6 +330,18 @@ Observer.prototype = {
     unobserve: function(target){
 
         var remove = bind(function(value){
+
+                this.observers.each(function(signal){
+
+                    if(signal.context === value) this.remove(signal);
+
+                });
+
+                this.transforms.each(function(signal){
+
+                    if(signal.context === value) this.remove(signal);
+
+                });
 
                 value._observers.splice(value._observers.indexOf(this), 1);
                 this._observed.splice(this._observed.indexOf(value), 1);

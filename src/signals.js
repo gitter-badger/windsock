@@ -92,6 +92,12 @@ Signals.prototype = {
 
         return i;
 
+    },
+
+    each: function(fn){
+
+        each.call(this, this._signals, fn);
+
     }
 
 };

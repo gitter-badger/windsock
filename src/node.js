@@ -26,7 +26,7 @@ var node = {
     //Extends fragment by defining name and attribute properties
     element: function(name, attributes, documentNode){
 
-    var elm = defines(node.fragment(documentNode), {
+        var elm = defines(node.fragment(documentNode), {
 
             name: {
 

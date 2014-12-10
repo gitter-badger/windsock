@@ -241,7 +241,7 @@ var node = {
     //Extends fragment by defining name and attribute properties
     element: function(name, attributes, documentNode){
 
-    var elm = defines(node.fragment(documentNode), {
+        var elm = defines(node.fragment(documentNode), {
 
             name: {
 
@@ -378,39 +378,54 @@ function dispatch(mutationRecord, signals){
 
 }
 
+function mutate(mutationRecord, m){
+
+    dispatch(mutationRecord, 'transforms');
+
+    m.call(mutationRecord);
+
+    dispatch(mutationRecord, 'observers');
+
+}
+
 function mutation(obj){
+
     return merge({
+
         name:null,
         object:null,
         type:null,
         oldValue:null,
         transformed:null
+
     }, obj);
+
 }
 
 function defineAccessors(descriptor, prop, value){
 
-    descriptor[prop] = {
+    return descriptor[prop] = {
 
         get: function(){return value;},
 
         set: function(newValue){
 
-            var mutationRecord = mutation({
+            mutate(mutation({
+
                 name: prop,
                 object: this,
                 type: 'update',
                 oldValue: value,
-                transformed: observable(newValue, this._recursive)
+                transformed: newValue
+
+            }), function(){
+
+                if(this.object._recursive) observable(this.transformed);
+
+                value = this.transformed;
+
             });
 
-            dispatch(mutationRecord, 'transforms');
-
-            value = mutationRecord.transformed;
-
-            dispatch(mutationRecord, 'observers');
-
-            mutationRecord = null;
         },
 
         enumerable: true,
@@ -433,67 +448,76 @@ function defineConfigurableProperties(descriptor, target){
 
 }
 
-function observableArray(array){
+function observableArray(descriptor){
 
     each(arrayMutatorMethods, function arrayMutatorMethodIterator(method){
 
-        define(array, method, {
+        descriptor[method] = {
 
             value: function(){
 
-                var mutationObject = mutation({
-                    target: this,
-                    method: method,
-                    args: Array.prototype.slice.call(arguments)
-                });
+                var mutationRecord = mutation({
+                        object: this,
+                        type: method
+                    }),
+                    args = Array.prototype.slice.call(arguments);
 
                 switch(method){
 
+                    case 'fill':
+
+                        mutation.name = args[1];
+                        mutationRecord.oldValue = this.slice(args[1], args[2]);
+
+                    break;
+
+                    case 'pop':
+
+                        mutationRecord.name = this.length - 1;
+                        mutationRecord.oldValue = this.slice(this.length - 1);
+
+                    break
+
                     case 'push':
+
+                        mutationRecord.name = this.length;
+
+                    break;
+
+                    case 'shift':
+
+                        mutationRecord.oldValue = this.slice(0, 1);
+
                     case 'unshift':
 
-                        if(this._recursive) observeEach(mutationObject.args);
+                        mutationRecord.name = 0;
 
                     break;
 
                     case 'splice':
 
-                        if(mutationObject.args.length > 2 && this._recursive) observeEach(mutationObject.args.slice(2));
-
-                    break;
-
-                    case 'set':
-
-                        if(isObservable(mutationObject.args[1]) && this._recursive) Observer.observe(mutationObject.args[1]);
+                        mutationRecord.name = args[0];
+                        if(args[1]) mutationRecord.oldValue = this.slice(args[0], args[0] + args[1]);
 
                     break;
 
                 }
 
-                this._transforms.dispatch(mutationObject);
+                mutationRecord.transformed = args;
 
-                if(method === 'set'){
+                mutate(mutationRecord, function(){
 
-                    if(typeof this[mutationObject.args[0]] === 'undefined'){
+                    if(this._recursive) each(this.transformed, observable);
 
-                        throw new Error('failed to set value at ' + mutationObject.args[0] + ' index does not exist');
+                    Array.prototype[this.type].apply(this.object, this.transformed);
 
-                    }
+                });
 
-                    this[mutationObject.args[0]] = mutationObject.args[1];
+                mutationRecord = null;
 
+            },
 
-                }else{
-
-                    mutationObject.value = Array.prototype[method].apply(this, mutationObject.args);
-
-                }
-
-                this._observers.dispatch(mutationObject);
-
-            }
-
-        });
+        };
 
     });
 
@@ -509,23 +533,20 @@ function observableObject(descriptor){
 
                 if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
 
-                var desc = {},
-                    mutationRecord = mutation({
-                        name: prop,
-                        object: this,
-                        type: 'add',
-                        transformed: observable(value, this._recursive)
-                    });
+                mutate(mutation({
 
-                dispatch(mutationRecord, 'transforms');
+                    name: prop,
+                    object: this,
+                    type: 'add',
+                    transformed: value
 
-                defineAccessors(desc, prop, mutationRecord.transformed);
+                }), function(){
 
-                defines(this, desc);
+                    if(this.object._recursive) observable(this.transformed);
 
-                dispatch(mutationRecord, 'observers');
+                    define(this.object, this.name, defineAccessors({}, this.name, this.transformed));
 
-                mutationRecord = null;
+                });
 
             }
 
@@ -537,18 +558,20 @@ function observableObject(descriptor){
 
                 if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
 
-                var mutationRecord = mutation({
+                mutate(mutation({
+
                     name: prop,
                     object: this,
                     type: 'delete',
                     oldValue: this[prop]
+
+                }), function(){
+
+                    if(this.object[this.name]._observers) each(this.object[this.name]._observers, function(observer){observer.unobserve();});
+
+                    delete this.object[this.name];
+
                 });
-
-                if(this[prop]._observers) each(this[prop]._observers, function(observer){observer.unobserve();});
-
-                delete this[prop];
-
-                dispatch(mutationRecord, 'observers');
 
             }
 
@@ -560,7 +583,7 @@ function observableObject(descriptor){
 
 function observable(target, recursive){
 
-    if(!is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
+    if(is(target, 'null') || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
 
     var descriptor = {
 
@@ -569,7 +592,7 @@ function observable(target, recursive){
         },
 
         _recursive: {
-            value: is(recursive, 'undefined') ? true : recursive
+            value: !is(recursive, 'boolean') ? true : recursive
         }
 
     };
@@ -592,7 +615,28 @@ function observable(target, recursive){
 
 }
 
+function only(object, callback){
+
+    return function(mutation){
+
+        if(mutation.object === object) callback.call(this, mutation);
+
+    };
+
+}
+
+function limit(callback, query){
+
+    return function(mutation){
+
+        if(match(mutation, query)) callback.call(this, mutation);
+
+    };
+
+}
+
 function Observer(){
+
     this.observers = new Signals;
     this.transforms = new Signals;
     this._observed = [];
@@ -600,20 +644,77 @@ function Observer(){
 
 Observer.prototype = {
 
-    observe: function(target){
+    observe: function(target, callback){
+
         observable(target);
-        target._observers.push(this);
-        this._observed.push(target);
+
+        if(!this.observing(target)){
+
+            target._observers.push(this);
+            this._observed.push(target);
+
+        }
+
+        if(callback){
+
+            return this.observers.add(limit(callback, {object: target}), target);
+
+        }
+
     },
+
+    transform: function(target, callback){
+
+        this.observe(target);
+
+        if(callback){
+
+            return this.transforms.queue(limit(callback, {object: target}), target);
+
+        }
+
+    },
+
     unobserve: function(target){
-        var _this = this;
-        //support unobserving a single object
-        this.observers.remove();
-        this.transforms.remove();
-        each(this._observed, function(value){
-            value._observers.splice(value._observers.indexOf(_this), 1);
-            _this._observed.splice(_this._observed.indexOf(value), 1);
-        });
+
+        var remove = bind(function(value){
+
+                this.observers.each(function(signal){
+
+                    if(signal.context === value) this.remove(signal);
+
+                });
+
+                this.transforms.each(function(signal){
+
+                    if(signal.context === value) this.remove(signal);
+
+                });
+
+                value._observers.splice(value._observers.indexOf(this), 1);
+                this._observed.splice(this._observed.indexOf(value), 1);
+
+            }, this);
+
+        if(target){
+
+            remove(target);
+
+        }else{
+
+            this.observers.remove();
+            this.transforms.remove();
+
+            each(this._observed, remove);
+
+        }
+
+    },
+
+    observing: function(target){
+
+        return this._observed.indexOf(target) >= 0;
+
     }
 
 };
@@ -1046,6 +1147,12 @@ Signals.prototype = {
 
         return i;
 
+    },
+
+    each: function(fn){
+
+        each.call(this, this._signals, fn);
+
     }
 
 };
@@ -1257,6 +1364,10 @@ var util = {
 
                 return typeof obj === 'undefined';
 
+            case 'null':
+
+                return obj === null;
+
             default:
 
                 return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
@@ -1308,6 +1419,396 @@ var util = {
 };
 
 module.exports = util;
+
+});
+require('vdom', function(module, exports){
+var util = require('./util'),
+    node = require('./node'),
+    Parser = require('./parser'),
+    Observer = require('./observer'),
+    match = util.match,
+    each = util.each,
+    is = util.is;
+
+var vdom = Object.create(null);
+
+function create(){
+
+    var args = Array.prototype.slice.call(arguments),
+        jsonml = [],
+        config = {};
+
+    if(args.length){
+        if(is(args[0], 'string')){
+
+            config.name = args[0];
+            if(is(args[1],'string')){
+                config.text = args[1];
+            }else{
+                config.attributes = args[1];
+            }
+
+        }else if(is(args[0], 'object')){
+            //treat as parse event value object
+            if(args[0].value) return node.text(args[0].value);
+            config.name = args[0].name;
+            config.attributes = args[0].attributes;
+        }
+    }else{
+        //fragment
+    }
+
+
+
+    Object.defineProperties(jsonml, {
+
+        name:{
+
+            get: function(){
+
+                return this._node.name.value;
+
+            },
+            set: function(name){
+
+                this._node.name.value = name;
+
+            }
+
+        },
+
+        attributes:{
+
+            get: function(){
+
+                return this._node.attributes;
+
+            },
+            set: function(attributes){
+
+                if(this._node.name.value === null) throw new Error('failed to set attributes on fragment');
+
+                var keys = Object.keys(attributes);
+
+                each.call(this, this._node.attributes, function(val, prop){
+
+                    if(!attributes[prop]) {
+
+                        this._node.attributes.delete(prop);
+                        return;
+                    }
+
+                    if(attributes[prop] !== val) this._node.attributes[prop] = attributes[prop];
+                    keys.splice(keys.indexOf(prop), 1);
+
+                });
+
+                each.call(this, keys, function(prop){
+
+                    this._node.attributes.add(prop, attributes[prop]);
+
+                });
+
+            }
+
+        },
+
+        children:{
+
+            get: function(){
+
+                return this._node.children;
+
+            },
+
+            set: function(node){
+
+                this._node.children = create(node);//need to make this kick off observer
+
+            }
+
+        },
+
+        text:{
+
+            get: function(){
+
+                return this.find(function(child){
+                    return typeof child.attributes === 'undefined';
+                });
+
+            },
+
+            set: function(value){
+                if(this.text.length){
+                    //remove all first
+                    this.text[0].value = value;
+                }else{
+                    this.append(node.text(value));
+                }
+            }
+
+        },
+
+        parent:{
+
+            value: null,
+            writable: true
+
+        },
+
+        find:{
+
+            value: function(query){
+
+                var result = [],
+                    find = query;
+
+                if(!is(query, 'function')) find = function(child){
+                    return match(child, query);
+                };
+
+                each(this.children, function(child){
+
+                    if(find(child)) result.push(child);
+                    if(!is(child.children, 'undefined') && child.children.length) result.concat(child.find(find));
+
+                });
+
+                return result;
+
+            }
+
+        },
+
+        clone:{
+
+            value: function(fn){
+
+                return parse(this, Parser.parseJSONML);
+
+            }
+
+        },
+
+        before:{
+
+            value: function(){
+
+                var elm = create.apply(this, Array.prototype.slice.call(arguments));
+
+                if(!this.name){
+                    this.children.unshift(elm);
+                    return elm;
+                }
+                if(this.parent){
+                    this.parent.children.splice(this.parent.children.indexOf(this), 0, elm);
+                    return elm;
+                }
+
+                throw new Error('failed to resolve parent');
+
+            }
+
+        },
+
+        after:{
+
+            value: function(){
+
+                var elm = create.apply(this, Array.prototype.slice.call(arguments));
+
+                if(!this.name){
+                    this.children.push(elm);
+                    return elm;
+                }
+                if(this.parent){
+                    this.parent.children.splice(this.parent.children.indexOf(this) + 1, 0, elm);
+                    return elm;
+                }
+
+                throw new Error('failed to resolve parent');
+
+            }
+
+        },
+
+        prepend:{
+
+            value: function(){
+
+                this.children.unshift(create.apply(this, Array.prototype.slice.call(arguments)));
+                return this;
+
+            }
+
+        },
+
+        append:{
+
+            value: function(){
+
+                this.children.push(create.apply(this, Array.prototype.slice.call(arguments)));
+                return this;
+
+            }
+
+        },
+
+        jsonml:{
+
+            value:function(){}
+        },
+
+        html:{
+
+            value:function(){}
+
+        },
+
+        _compiled:{
+
+            value: false,
+
+            writable: true
+
+        },
+
+        _observer:{
+
+            value: new Observer
+
+        },
+
+        _node:{
+
+            value: {
+
+                name: {
+                    value: null
+                },
+
+                attributes: {},
+
+                children: []
+
+            },
+            configurable: true
+
+        }
+
+    });
+
+    jsonml._observer.observe(jsonml._node.name, function(mutation){
+
+        if(mutation.oldValue === null){
+
+            jsonml.unshift(mutation.object[mutation.name]);
+
+        }else{
+
+            jsonml[0] = mutation.object[mutation.name];
+
+        }
+
+    });
+
+    jsonml._observer.observe(jsonml._node.attributes, function(mutation){
+
+        if(is(mutation.object, 'empty') && is(jsonml[1], 'object')){
+
+            jsonml.splice(1, 1);
+
+        }else if(jsonml[1] !== mutation.object){
+
+            jsonml.splice(1, 0, mutation.object);
+
+        }
+
+    });
+
+    jsonml._observer.observe(jsonml._node.children, function(mutation){
+
+        Array.prototype[mutation.type].apply(jsonml, mutation.transformed);
+
+    });
+
+    if(config.name) jsonml.name = config.name;
+    if(config.attributes) jsonml.attributes = config.attributes;
+
+    return jsonml;
+
+}
+
+function compileJSONML(){}
+
+function compile(jsonml){
+
+    if(jsonml._compiled) throw new Error('failed to compile, already compiled');
+
+    var compiled = jsonml.clone(compileJSONML);
+    
+    compiled._compiled = true;
+
+}
+
+function parse(source, method){
+
+    var fragment = create();
+
+    method(source, function(e){
+
+        switch(e.type){
+
+            case 'text':
+
+                fragment.append(e);
+
+            break;
+
+            case 'start':
+
+                fragment = fragment.after(e);
+
+            break;
+
+            case 'end':
+
+                if(e.void){
+
+                    fragment.append(e);
+
+                }else{
+
+                    fragment = fragment.parent;
+
+                }
+
+            break;
+
+        }
+
+    });
+
+    return fragment;
+
+}
+
+vdom.parse = function(source){
+
+    if(is(source, 'string')) return parse(source, Parser.parseHTML);
+
+    if(source.nodeName) return parse(source.cloneNode(true), Parser.parseDOM);
+
+    return parse(source, Parser.parseJSONML);
+
+};
+
+vdom.create = create;
+
+vdom.compile = compile;
+
+module.exports = vdom;
 
 });
 require('view', function(module, exports){
@@ -1629,92 +2130,71 @@ var util = require('./util'),
     Directive = require('./directive'),
     Binding = require('./binding'),
     View = require('./view'),
+    vdom = require('./vdom'),
     find = util.find,
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
 
-
-//Windsock constructor
 function Windsock(options){
 
     this.options = options = options || Object.create(null);
 
-    this._model = options.model || Object.create(null);
+    this._observer = new Observer;
 
-    this.bindings = [];
+    if(options.model) this.model = options.model;
 
-    if(options.view) this.view = new View(options.view);
-
-    if(options.bindings){
-
-        each.call(this, this.bindings, function(binding){
-
-            this.bindings.push(new Binding(binding));
-
-        });
-
-    }
-
-
+    if(options.view) this.view = options.view;
 
 }
 
 Windsock.prototype = {
 
-    init: function(){
+    _setModel: function(data){
 
-        each.call(this, this.bindings, function(){
-
-            var views = this.view.find(this.view),
-                model = this.model;
-
-            each.call(this, views, function(view){
-
-                var directive = Directive.extend(function(){
-
-                    this.view = view;
-                    this.model = model;
-
-                })
-
-            });
-
-        });
+        if(this._model) this._observer.unobserve();
+        this._observer.observe(data);
+        this._model = data;
 
     },
 
-    _setModel: function(data){
+    _setView: function(view){
 
-        //TODO: see if causes memory leak if no clean up of any observers on old data first
-        this._model = Observer.observe(data);
 
     }
 
 
 };
 
-Object.defineProperty(Windsock.prototype, 'model', {
 
-    get: function(){
+Object.defineProperties(Windsock.prototype, {
 
-        return this._model;
-
+    model:{
+        get:function(){
+            return this._model;
+        },
+        set:function(m){
+            this._setModel(m);
+        },
+        enumerable: true
     },
-
-    set: function(data){
-
-        this._setModel(data);
-
+    view:{
+        get:function(){
+            return this._view;
+        },
+        set:function(v){
+            this._setView(v);
+        },
+        enumerable: true
     }
 
 });
 
 
-
 Windsock.observer = Observer;
 
+Windsock.vdom = vdom;
 
 module.exports = Windsock;
 

@@ -5,91 +5,70 @@ var util = require('./util'),
     Directive = require('./directive'),
     Binding = require('./binding'),
     View = require('./view'),
+    vdom = require('./vdom'),
     find = util.find,
     inherit = util.inherit,
     extend = util.extend,
     each = util.each,
     is = util.is;
 
-
-//Windsock constructor
 function Windsock(options){
 
     this.options = options = options || Object.create(null);
 
-    this._model = options.model || Object.create(null);
+    this._observer = new Observer;
 
-    this.bindings = [];
+    if(options.model) this.model = options.model;
 
-    if(options.view) this.view = new View(options.view);
-
-    if(options.bindings){
-
-        each.call(this, this.bindings, function(binding){
-
-            this.bindings.push(new Binding(binding));
-
-        });
-
-    }
-
-
+    if(options.view) this.view = options.view;
 
 }
 
 Windsock.prototype = {
 
-    init: function(){
+    _setModel: function(data){
 
-        each.call(this, this.bindings, function(){
-
-            var views = this.view.find(this.view),
-                model = this.model;
-
-            each.call(this, views, function(view){
-
-                var directive = Directive.extend(function(){
-
-                    this.view = view;
-                    this.model = model;
-
-                })
-
-            });
-
-        });
+        if(this._model) this._observer.unobserve();
+        this._observer.observe(data);
+        this._model = data;
 
     },
 
-    _setModel: function(data){
+    _setView: function(view){
 
-        //TODO: see if causes memory leak if no clean up of any observers on old data first
-        this._model = Observer.observe(data);
 
     }
 
 
 };
 
-Object.defineProperty(Windsock.prototype, 'model', {
 
-    get: function(){
+Object.defineProperties(Windsock.prototype, {
 
-        return this._model;
-
+    model:{
+        get:function(){
+            return this._model;
+        },
+        set:function(m){
+            this._setModel(m);
+        },
+        enumerable: true
     },
-
-    set: function(data){
-
-        this._setModel(data);
-
+    view:{
+        get:function(){
+            return this._view;
+        },
+        set:function(v){
+            this._setView(v);
+        },
+        enumerable: true
     }
 
 });
 
 
-
 Windsock.observer = Observer;
 
+Windsock.vdom = vdom;
 
 module.exports = Windsock;

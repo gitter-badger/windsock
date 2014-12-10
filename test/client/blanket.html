@@ -15,25 +15,7 @@ var demo = new Windsock({
     view: document.getElementById('demo'),
     model: {
         message: 'Hello'
-    },
-    bindings:[{
-        view: {id:'demo'},
-        model: 'message',
-        directive: function(div, mutation){
-            div[2].set(mutation.value);
-        }
-    },{
-        view: 'input',
-        model: 'message',
-        directive: {
-            bind:function(view, model){
-                var input = view.documentNode;
-                input.addEventListener('keyup', function(){
-                    model.message = input.value;
-                });
-            }
-        }
-    }]
+    }
 });
 
 
