@@ -222,13 +222,13 @@ var node = {
     //Creates an array literal and defines property to hold reference to fragmentNode
     fragment: function(documentNode){
 
-        return defines([], {
+        return Object.create(Object.prototype, {
 
             documentNode: {
 
                 value: documentNode || {},
 
-                enumerable: false,
+                enumerable: true,
 
                 writable: true
 
@@ -241,15 +241,13 @@ var node = {
     //Extends fragment by defining name and attribute properties
     element: function(name, attributes, documentNode){
 
-        var elm = defines(node.fragment(documentNode), {
+        return defines(node.fragment(documentNode), {
 
             name: {
 
                 value: name,
 
-                enumerable: false,
-
-                configurable: true
+                enumerable: true
 
             },
 
@@ -257,19 +255,11 @@ var node = {
 
                 value: attributes || {},
 
-                enumerable: false,
-
-                configurable: true
+                enumerable: true
 
             }
 
         });
-
-        elm.push(name);
-
-        if(attributes) elm.push(attributes);
-
-        return elm;
 
     },
 
@@ -789,8 +779,47 @@ function hasChildren(source, callback){
 
 }
 
+function parseTag (tag){
+
+    var node = eventValueObject({
+
+        documentElement: {}
+
+    }),
+
+    reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)=["']([^"']+)["'])/g,
+
+    match = tag.match(reg);
+
+    if(match.length > 1) node.attributes = {};
+
+    for(var i = 0, l = match.length; i < l; i++){
+
+        var keyVal = match[i].split('=');
+
+        if(i === 0) {
+
+            //node.name = keyVal[0].replace('/','').replace('>','').trim();
+            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
+
+        }else if(keyVal.length > 1){
+
+            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
+
+        }else{
+
+            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
+
+        }
+
+    }
+
+    return node;
+
+}
+
 //cloneNode prior to avoid heavy dom reads
-function parseDOM(source, callback){
+exports.parseDOM = function(source, callback){
 
     var node;
 
@@ -852,9 +881,9 @@ function parseDOM(source, callback){
 
     callback(node);
 
-}
+};
 
-function parseJSONML(source, callback){
+exports.parseJSONML = function(source, callback){
 
     var index = 1, node;
 
@@ -920,48 +949,9 @@ function parseJSONML(source, callback){
 
     callback(node);
 
-}
+};
 
-function parseTag (tag){
-
-    var node = eventValueObject({
-
-        documentElement: {}
-
-    }),
-
-    reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)=["']([^"']+)["'])/g,
-
-    match = tag.match(reg);
-
-    if(match.length > 1) node.attributes = {};
-
-    for(var i = 0, l = match.length; i < l; i++){
-
-        var keyVal = match[i].split('=');
-
-        if(i === 0) {
-
-            //node.name = keyVal[0].replace('/','').replace('>','').trim();
-            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
-
-        }else if(keyVal.length > 1){
-
-            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
-
-        }else{
-
-            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
-
-        }
-
-    }
-
-    return node;
-
-}
-
-function parseHTML(source, callback){
+exports.parseHTML = function(source, callback){
 
     var endOfTagIndex,
         startTag,
@@ -1045,11 +1035,7 @@ function parseHTML(source, callback){
 
     }
 
-}
-
-exports.parseDOM = parseDOM;
-exports.parseJSONML = parseJSONML;
-exports.parseHTML = parseHTML;
+};
 
 });
 require('signals', function(module, exports){
@@ -1424,43 +1410,72 @@ module.exports = util;
 require('vdom', function(module, exports){
 var util = require('./util'),
     node = require('./node'),
-    Parser = require('./parser'),
+    parser = require('./parser'),
     Observer = require('./observer'),
     match = util.match,
+    merge = util.merge,
     each = util.each,
     is = util.is;
 
-var vdom = Object.create(null);
+//the assumption is that you are creating an element
+//this method returns a jsonml spec compliant virtual dom element
+//inherits from Node
+//Node isnt instantiated only inherited from
+//text, element, fragment
+//no arguments return fragment
+//string
+//string, object
+//object convert base on type property
+
+function attributesToString(attr){
+
+    var attribute = '';
+
+    for(var key in attr){
+
+        attribute += ' ' + key;
+
+        if(attr[key]) attribute+= '="' + attr[key] + '"';
+
+    }
+
+    return attribute;
+
+}
 
 function create(){
 
     var args = Array.prototype.slice.call(arguments),
         jsonml = [],
-        config = {};
+        n;
 
-    if(args.length){
-        if(is(args[0], 'string')){
+    if(!args.length) throw new Error('failed to create vdom, atleast 1 argument required');
 
-            config.name = args[0];
-            if(is(args[1],'string')){
-                config.text = args[1];
-            }else{
-                config.attributes = args[1];
-            }
+    if(is(args[0], 'string')){
 
-        }else if(is(args[0], 'object')){
-            //treat as parse event value object
-            if(args[0].value) return node.text(args[0].value);
-            config.name = args[0].name;
-            config.attributes = args[0].attributes;
+        n = node.element.apply(undefined, args);
+
+    }else if(is(args[0], 'object')){
+
+        try{
+
+            n = node[args[0].type].apply(args, args.slice(1));
+
+        }catch(e){
+
+            throw new Error('failed to create vdom, node type does not exist');
+
         }
-    }else{
-        //fragment
+
+        if(args[0].type !== 'element') return n;
+        //text can have: parent, before(), after(), and all other methods after jsonml
+        //fragment can have everything but jsonml technically
+
     }
 
-
-
     Object.defineProperties(jsonml, {
+
+        //accessor properties
 
         name:{
 
@@ -1473,7 +1488,9 @@ function create(){
 
                 this._node.name.value = name;
 
-            }
+            },
+
+            enumerable: true
 
         },
 
@@ -1535,16 +1552,27 @@ function create(){
 
                 return this.find(function(child){
                     return typeof child.attributes === 'undefined';
-                });
+                }).join('');
 
             },
 
             set: function(value){
                 if(this.text.length){
-                    //remove all first
-                    this.text[0].value = value;
+
+                    var textNodes = this.find(function(child){
+                        return typeof child.attributes === 'undefined';
+                    });
+
+                    each(textNodes, function(text, i){
+                        if(i === 0){
+                            text.value = value;
+                        }else{
+                            text.remove();
+                        }
+                    });
+
                 }else{
-                    this.append(node.text(value));
+                    this.append({type:'text'}, value);
                 }
             }
 
@@ -1556,6 +1584,8 @@ function create(){
             writable: true
 
         },
+
+        //methods
 
         find:{
 
@@ -1571,7 +1601,7 @@ function create(){
                 each(this.children, function(child){
 
                     if(find(child)) result.push(child);
-                    if(!is(child.children, 'undefined') && child.children.length) result.concat(child.find(find));
+                    if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
 
                 });
 
@@ -1585,7 +1615,7 @@ function create(){
 
             value: function(fn){
 
-                return parse(this, Parser.parseJSONML);
+                return parse(this, parser.parseJSONML);
 
             }
 
@@ -1655,14 +1685,72 @@ function create(){
 
         },
 
+        remove:{
+
+            value: function(){
+
+                if(this.parent){
+                    this.parent.children.splice(this.parent.children.indexOf(this), 1);
+                    return this.parent
+                }
+
+            }
+
+        },
+
         jsonml:{
 
-            value:function(){}
+            value:function(){
+
+                //HAWT
+                return JSON.stringify(this);
+
+            }
         },
 
         html:{
 
-            value:function(){}
+            value:function(){
+
+                var html = [];
+
+                parser.parseJSONML(this, function(e){
+
+                    switch(e.type){
+
+                        case 'text':
+
+                            html.push(e.value);
+
+                        break;
+
+                        case 'start':
+
+                            html.push('<' + e.name + attributesToString(e.attributes) + '>');
+
+                        break;
+
+                        case 'end':
+
+                            if(e.void){
+
+                                html.push('<' + e.name + attributesToString(e.attributes) + '/>');
+
+                            }else{
+
+                                html.push('</' + e.name + '>');
+
+                            }
+
+                        break;
+
+                    }
+
+                });
+
+                return html.join('');
+
+            }
 
         },
 
@@ -1699,6 +1787,9 @@ function create(){
 
     });
 
+    //adding the observers should be here
+    //adding the jsonml specific observers and setting initial values should be another fn
+
     jsonml._observer.observe(jsonml._node.name, function(mutation){
 
         if(mutation.oldValue === null){
@@ -1733,28 +1824,40 @@ function create(){
 
     });
 
-    if(config.name) jsonml.name = config.name;
-    if(config.attributes) jsonml.attributes = config.attributes;
+    jsonml.name = n.name;
+    if(!is(n.attributes, 'empty')) jsonml.attributes = n.attributes;
 
     return jsonml;
 
 }
-
-function compileJSONML(){}
 
 function compile(jsonml){
 
     if(jsonml._compiled) throw new Error('failed to compile, already compiled');
 
     var compiled = jsonml.clone(compileJSONML);
-    
+
     compiled._compiled = true;
 
 }
 
-function parse(source, method){
+exports.parse = function (source){
 
-    var fragment = create();
+    var method, fragment;
+
+    if(is(source, 'string')){
+
+        method = parser.parseHTML;
+
+    }else if(source.nodeName){
+
+        method = parser.parseDOM;
+
+    }else{
+
+        method = parser.parseJSONML;
+
+    }
 
     method(source, function(e){
 
@@ -1768,7 +1871,8 @@ function parse(source, method){
 
             case 'start':
 
-                fragment = fragment.after(e);
+                e.type = 'element';
+                fragment = fragment ? fragment.after(e) : create(e);
 
             break;
 
@@ -1776,6 +1880,7 @@ function parse(source, method){
 
                 if(e.void){
 
+                    e.type = 'element';
                     fragment.append(e);
 
                 }else{
@@ -1792,23 +1897,9 @@ function parse(source, method){
 
     return fragment;
 
-}
-
-vdom.parse = function(source){
-
-    if(is(source, 'string')) return parse(source, Parser.parseHTML);
-
-    if(source.nodeName) return parse(source.cloneNode(true), Parser.parseDOM);
-
-    return parse(source, Parser.parseJSONML);
-
 };
 
-vdom.create = create;
-
-vdom.compile = compile;
-
-module.exports = vdom;
+exports.create = create;
 
 });
 require('view', function(module, exports){

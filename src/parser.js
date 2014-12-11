@@ -64,8 +64,47 @@ function hasChildren(source, callback){
 
 }
 
+function parseTag (tag){
+
+    var node = eventValueObject({
+
+        documentElement: {}
+
+    }),
+
+    reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)=["']([^"']+)["'])/g,
+
+    match = tag.match(reg);
+
+    if(match.length > 1) node.attributes = {};
+
+    for(var i = 0, l = match.length; i < l; i++){
+
+        var keyVal = match[i].split('=');
+
+        if(i === 0) {
+
+            //node.name = keyVal[0].replace('/','').replace('>','').trim();
+            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
+
+        }else if(keyVal.length > 1){
+
+            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
+
+        }else{
+
+            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
+
+        }
+
+    }
+
+    return node;
+
+}
+
 //cloneNode prior to avoid heavy dom reads
-function parseDOM(source, callback){
+exports.parseDOM = function(source, callback){
 
     var node;
 
@@ -127,9 +166,9 @@ function parseDOM(source, callback){
 
     callback(node);
 
-}
+};
 
-function parseJSONML(source, callback){
+exports.parseJSONML = function(source, callback){
 
     var index = 1, node;
 
@@ -195,48 +234,9 @@ function parseJSONML(source, callback){
 
     callback(node);
 
-}
+};
 
-function parseTag (tag){
-
-    var node = eventValueObject({
-
-        documentElement: {}
-
-    }),
-
-    reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)=["']([^"']+)["'])/g,
-
-    match = tag.match(reg);
-
-    if(match.length > 1) node.attributes = {};
-
-    for(var i = 0, l = match.length; i < l; i++){
-
-        var keyVal = match[i].split('=');
-
-        if(i === 0) {
-
-            //node.name = keyVal[0].replace('/','').replace('>','').trim();
-            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
-
-        }else if(keyVal.length > 1){
-
-            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
-
-        }else{
-
-            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
-
-        }
-
-    }
-
-    return node;
-
-}
-
-function parseHTML(source, callback){
+exports.parseHTML = function(source, callback){
 
     var endOfTagIndex,
         startTag,
@@ -320,8 +320,4 @@ function parseHTML(source, callback){
 
     }
 
-}
-
-exports.parseDOM = parseDOM;
-exports.parseJSONML = parseJSONML;
-exports.parseHTML = parseHTML;
+};

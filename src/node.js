@@ -7,13 +7,13 @@ var node = {
     //Creates an array literal and defines property to hold reference to fragmentNode
     fragment: function(documentNode){
 
-        return defines([], {
+        return Object.create(Object.prototype, {
 
             documentNode: {
 
                 value: documentNode || {},
 
-                enumerable: false,
+                enumerable: true,
 
                 writable: true
 
@@ -26,15 +26,13 @@ var node = {
     //Extends fragment by defining name and attribute properties
     element: function(name, attributes, documentNode){
 
-        var elm = defines(node.fragment(documentNode), {
+        return defines(node.fragment(documentNode), {
 
             name: {
 
                 value: name,
 
-                enumerable: false,
-
-                configurable: true
+                enumerable: true
 
             },
 
@@ -42,19 +40,11 @@ var node = {
 
                 value: attributes || {},
 
-                enumerable: false,
-
-                configurable: true
+                enumerable: true
 
             }
 
         });
-
-        elm.push(name);
-
-        if(attributes) elm.push(attributes);
-
-        return elm;
 
     },
 
