@@ -371,4 +371,19 @@ Observer.prototype = {
 
 };
 
+Observer.observe = function(target, callback){
+    var observer = new Observer;
+    observer.observe(target, callback);
+    return observer;
+};
+
+Observer.unobserve = function(target){
+    if(target._observers){
+        each(target._observers, function(observer){
+            observer.unobserve(target);
+        });
+    }
+    return target;
+};
+
 module.exports = Observer;

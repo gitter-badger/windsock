@@ -1,42 +1,4 @@
-//windsock.js version 0.0.0
-(function(){
-'use strict';
-require.module = Object.create(null);
-
-function registerFormat(path){
-    return path.replace(/\//g,'');
-}
-
-function require(path, register){
-
-    if(register){
-
-        require.module[registerFormat(path)] = register;
-
-        return;
-
-    }
-
-    var module = Object.create(null),
-        exports = module.exports = Object.create(null);
-
-
-    path = path.replace(/[\/.]/g, '');
-
-    if(require.module[path]){
-
-        require.module[path].call(this, module, exports);
-
-    }else{
-
-        throw new Error('failed to resolve module path: ' + path);
-
-    }
-
-    return module.exports;
-
-}
-require('batch', function(module, exports){
+!function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var paint = require('./util').nextPaint;
 
 function Batch(fn){
@@ -96,8 +58,7 @@ Batch.prototype = {
 
 module.exports = Batch;
 
-});
-require('binding', function(module, exports){
+},{"./util":8}],2:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     noop = util.noop,
@@ -163,8 +124,7 @@ Binding.create = function(config){
 
 module.exports = Binding;
 
-});
-require('directive', function(module, exports){
+},{"./signals":7,"./util":8}],3:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend;
 
@@ -211,8 +171,7 @@ Directive.prototype.destroy = function(){
 
 module.exports = Directive;
 
-});
-require('node', function(module, exports){
+},{"./util":8}],4:[function(require,module,exports){
 var defines = Object.defineProperties;
 
 //An object literal module with factory methods for constructing new value objects
@@ -334,8 +293,7 @@ var node = {
 
 module.exports = node;
 
-});
-require('observer', function(module, exports){
+},{}],5:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -709,10 +667,24 @@ Observer.prototype = {
 
 };
 
+Observer.observe = function(target, callback){
+    var observer = new Observer;
+    observer.observe(target, callback);
+    return observer;
+};
+
+Observer.unobserve = function(target){
+    if(target._observers){
+        each(target._observers, function(observer){
+            observer.unobserve(target);
+        });
+    }
+    return target;
+};
+
 module.exports = Observer;
 
-});
-require('parser', function(module, exports){
+},{"./signals":7,"./util":8}],6:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend,
     each = util.each,
@@ -1037,8 +1009,7 @@ exports.parseHTML = function(source, callback){
 
 };
 
-});
-require('signals', function(module, exports){
+},{"./util":8}],7:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -1147,8 +1118,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-});
-require('util', function(module, exports){
+},{"./util":8}],8:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
@@ -1406,8 +1376,7 @@ var util = {
 
 module.exports = util;
 
-});
-require('vdom', function(module, exports){
+},{}],9:[function(require,module,exports){
 var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
@@ -1416,16 +1385,6 @@ var util = require('./util'),
     merge = util.merge,
     each = util.each,
     is = util.is;
-
-//the assumption is that you are creating an element
-//this method returns a jsonml spec compliant virtual dom element
-//inherits from Node
-//Node isnt instantiated only inherited from
-//text, element, fragment
-//no arguments return fragment
-//string
-//string, object
-//object convert base on type property
 
 function attributesToString(attr){
 
@@ -1594,9 +1553,26 @@ function create(){
                 var result = [],
                     find = query;
 
-                if(!is(query, 'function')) find = function(child){
-                    return match(child, query);
-                };
+                if(!is(query, 'function')){
+                    
+                    if(is(query, 'string')){
+
+                        find = function(child){
+                            return child.name === query;
+                        };
+
+                    }else if(is(query, 'object')){
+
+                        find = function(child){
+                            return match(child.attributes, query);
+                        };
+
+                    }else{
+
+                        throw new Error('failed to find, query not supported');
+
+                    }
+                }
 
                 each(this.children, function(child){
 
@@ -1901,8 +1877,7 @@ exports.parse = function (source){
 
 exports.create = create;
 
-});
-require('view', function(module, exports){
+},{"./node":4,"./observer":5,"./parser":6,"./util":8}],10:[function(require,module,exports){
 var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
@@ -2212,8 +2187,7 @@ View.prototype.find = function(query, target){
 
 module.exports = View;
 
-});
-require('windsock', function(module, exports){
+},{"./batch":1,"./node":4,"./observer":5,"./parser":6,"./util":8}],11:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     Parser = require('./parser'),
@@ -2289,54 +2263,5 @@ Windsock.vdom = vdom;
 
 module.exports = Windsock;
 
+},{"./binding":2,"./directive":3,"./observer":5,"./parser":6,"./signals":7,"./util":8,"./vdom":9,"./view":10}]},{},[11])(11)
 });
-require('parse/html', function(module, exports){
-function attributes(attr){
-
-    var attribute = '';
-
-    for(var key in attr){
-
-        attribute += ' ' + key;
-
-        if(attr[key]) attribute+= '="' + attr[key] + '"';
-
-    }
-
-    return attribute;
-
-}
-
-//Assumes the signals share same context and have an array property 'html'
-module.exports = {
-
-    start: function(node){
-
-        this.html.push('<' + node.name + attributes(node.attributes) + '>');
-
-    },
-
-    content: function(text){
-
-        this.html.push(text.value);
-
-    },
-
-    end: function(node, isVoid){
-
-        if(isVoid){
-
-            this.html.push('<' + node.name + attributes(node.attributes) + '/>');
-
-        }else{
-
-            this.html.push('</' + node.name + '>');
-
-        }
-
-    }
-
-};
-
-});
-window.Windsock = require('windsock');})();

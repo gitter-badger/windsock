@@ -7,16 +7,6 @@ var util = require('./util'),
     each = util.each,
     is = util.is;
 
-//the assumption is that you are creating an element
-//this method returns a jsonml spec compliant virtual dom element
-//inherits from Node
-//Node isnt instantiated only inherited from
-//text, element, fragment
-//no arguments return fragment
-//string
-//string, object
-//object convert base on type property
-
 function attributesToString(attr){
 
     var attribute = '';
@@ -184,9 +174,26 @@ function create(){
                 var result = [],
                     find = query;
 
-                if(!is(query, 'function')) find = function(child){
-                    return match(child, query);
-                };
+                if(!is(query, 'function')){
+                    
+                    if(is(query, 'string')){
+
+                        find = function(child){
+                            return child.name === query;
+                        };
+
+                    }else if(is(query, 'object')){
+
+                        find = function(child){
+                            return match(child.attributes, query);
+                        };
+
+                    }else{
+
+                        throw new Error('failed to find, query not supported');
+
+                    }
+                }
 
                 each(this.children, function(child){
 

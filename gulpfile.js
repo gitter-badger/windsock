@@ -10,7 +10,7 @@ var fs = require('fs'),
 function reg(){
     return map(function(file, cb){
         file.contents = Buffer.concat([
-                new Buffer("require('" + file.relative.replace('.js','') + "', function(module, exports){\n" ),
+                new Buffer("require('" + file.relative.replace('index.js','').replace('.js','').replace(/[\/.]/g, '') + "', function(module, exports){\n" ),
                 new Buffer(file.contents),
                 new Buffer('\n});')
             ]);
