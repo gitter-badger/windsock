@@ -50,17 +50,17 @@ function eventValueObject(options){
 
 function hasChildren(source, callback){
 
-   if(source.hasChildNodes()){
+    if(source.hasChildNodes()){
 
-       var childNodes = source.childNodes;
+        var childNodes = source.childNodes;
 
-       for (var i = 0, l = childNodes.length; i < l; i++) {
+        for (var i = 0, l = childNodes.length; i < l; i++) {
 
-           parseDOM(childNodes[i], callback);
+            parseDOM(childNodes[i], callback);
 
-       }
+        }
 
-   }
+    }
 
 }
 
@@ -104,7 +104,7 @@ function parseTag (tag){
 }
 
 //cloneNode prior to avoid heavy dom reads
-exports.parseDOM = function(source, callback){
+function parseDOM(source, callback){
 
     var node;
 
@@ -146,7 +146,7 @@ exports.parseDOM = function(source, callback){
 
         node.attributes = {};
 
-        each(source.attributes, function(attribute, index){
+        each(source.attributes, function(attribute){
 
             node.attributes[attribute.name] = attribute.value;
 
@@ -166,9 +166,9 @@ exports.parseDOM = function(source, callback){
 
     callback(node);
 
-};
+}
 
-exports.parseJSONML = function(source, callback){
+function parseJSONML(source, callback){
 
     var index = 1, node;
 
@@ -222,7 +222,7 @@ exports.parseJSONML = function(source, callback){
 
         }
 
-        index++
+        index++;
 
     }
 
@@ -234,9 +234,9 @@ exports.parseJSONML = function(source, callback){
 
     callback(node);
 
-};
+}
 
-exports.parseHTML = function(source, callback){
+function parseHTML(source, callback){
 
     var endOfTagIndex,
         startTag,
@@ -320,4 +320,8 @@ exports.parseHTML = function(source, callback){
 
     }
 
-};
+}
+
+exports.parseDOM = parseDOM;
+exports.parseHTML = parseHTML;
+exports.parseJSONML = parseJSONML;

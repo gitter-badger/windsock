@@ -23,7 +23,7 @@
     "jshint": "jshint src/",
     "jscs": "jscs src/",
     "mocha": "mocha",
-    "test": "npm run mocha",
+    "test": "npm run jshint && npm run jscs && npm run mocha",
     "browserify": "browserify src/windsock.js --no-detect-globals --standalone windsock > dist/windsock.js",
     "uglifyjs": "uglifyjs dist/windsock.js -o dist/windsock.min.js",
     "dist": "npm run browserify && npm run uglifyjs"

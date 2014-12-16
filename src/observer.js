@@ -56,7 +56,7 @@ function mutation(obj){
 
 function defineAccessors(descriptor, prop, value){
 
-    return descriptor[prop] = {
+    return (descriptor[prop] = {
 
         get: function(){return value;},
 
@@ -84,7 +84,7 @@ function defineAccessors(descriptor, prop, value){
 
         configurable: true
 
-    };
+    });
 
 }
 
@@ -128,7 +128,7 @@ function observableArray(descriptor){
                         mutationRecord.name = this.length - 1;
                         mutationRecord.oldValue = this.slice(this.length - 1);
 
-                    break
+                    break;
 
                     case 'push':
 
@@ -140,6 +140,7 @@ function observableArray(descriptor){
 
                         mutationRecord.oldValue = this.slice(0, 1);
 
+                        /* falls through */
                     case 'unshift':
 
                         mutationRecord.name = 0;
@@ -267,16 +268,6 @@ function observable(target, recursive){
 
 }
 
-function only(object, callback){
-
-    return function(mutation){
-
-        if(mutation.object === object) callback.call(this, mutation);
-
-    };
-
-}
-
 function limit(callback, query){
 
     return function(mutation){
@@ -289,8 +280,8 @@ function limit(callback, query){
 
 function Observer(){
 
-    this.observers = new Signals;
-    this.transforms = new Signals;
+    this.observers = new Signals();
+    this.transforms = new Signals();
     this._observed = [];
 }
 
@@ -372,7 +363,7 @@ Observer.prototype = {
 };
 
 Observer.observe = function(target, callback){
-    var observer = new Observer;
+    var observer = new Observer();
     observer.observe(target, callback);
     return observer;
 };

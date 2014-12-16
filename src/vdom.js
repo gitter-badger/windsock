@@ -3,7 +3,6 @@ var util = require('./util'),
     parser = require('./parser'),
     Observer = require('./observer'),
     match = util.match,
-    merge = util.merge,
     each = util.each,
     is = util.is;
 
@@ -175,7 +174,7 @@ function create(){
                     find = query;
 
                 if(!is(query, 'function')){
-                    
+
                     if(is(query, 'string')){
 
                         find = function(child){
@@ -210,9 +209,9 @@ function create(){
 
         clone:{
 
-            value: function(fn){
+            value: function(){
 
-                return parse(this, parser.parseJSONML);
+                
 
             }
 
@@ -288,7 +287,7 @@ function create(){
 
                 if(this.parent){
                     this.parent.children.splice(this.parent.children.indexOf(this), 1);
-                    return this.parent
+                    return this.parent;
                 }
 
             }
@@ -361,7 +360,7 @@ function create(){
 
         _observer:{
 
-            value: new Observer
+            value: new Observer()
 
         },
 
@@ -428,15 +427,7 @@ function create(){
 
 }
 
-function compile(jsonml){
 
-    if(jsonml._compiled) throw new Error('failed to compile, already compiled');
-
-    var compiled = jsonml.clone(compileJSONML);
-
-    compiled._compiled = true;
-
-}
 
 exports.parse = function (source){
 

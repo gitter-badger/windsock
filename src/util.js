@@ -16,17 +16,19 @@ var util = {
 
     },
 
-    each:function(obj, fn){
+    each: function(obj, fn){
 
         var halt = Object.create(null),
-            keys;
+            keys,
+            i = 0,
+            l;
 
         //duck typing ftw
         if(typeof obj.length === 'undefined'){
 
             keys = Object.keys(obj);
 
-            for(var i = 0, l = keys.length; i < l; i++){
+            for(l = keys.length; i < l; i++){
 
                 if(fn.call(this, obj[keys[i]], keys[i], obj, halt) === halt) return;
 
@@ -37,7 +39,7 @@ var util = {
         }
 
         //cached length is faster
-        for(var i = 0, l = obj.length; i < l; i++){
+        for(l = obj.length; i < l; i++){
 
             if (fn.call(this, obj[i], i, obj, halt) === halt) return;
 
@@ -68,55 +70,20 @@ var util = {
 
     },
 
-    find: function(list, query){
-
-        var assert = util.noop,
-            result;
-
-        if(util.is(query, 'function')){
-
-            assert = function(){
-
-                if(query.apply(undefined, Array.prototype.slice.call(arguments))){
-
-                    result = arguments[2];
-                    return arguments[3];
-
-                }
-            };
-
-        }else{
-
-            assert = function(value, key, obj, halt){
-
-                var match = true;
-
-                each(query, function(v, k){
-
-
-
-                });
-
-            };
-
-        }
-
-        util.each(list, assert);
-
-        return result;
-
-    },
-
     //adds enumerable properties to object, returns that object
     extend: function(obj){
 
         for(var i = 1, l = arguments.length; i < l; i++){
 
-            if(arguments[i]) util.each(arguments[i], function(value, key){
+            if(arguments[i]){
 
-                obj[key] = value;
+                for(var key in arguments[i]){
 
-            });
+                    obj[key] = arguments[i][key];
+
+                }
+
+            }
 
         }
 
@@ -193,19 +160,19 @@ var util = {
 
             case 'empty':
 
-                return Object.keys(obj).length == 0;
+            return Object.keys(obj).length === 0;
 
             case 'undefined':
 
-                return typeof obj === 'undefined';
+            return typeof obj === 'undefined';
 
             case 'null':
 
-                return obj === null;
+            return obj === null;
 
             default:
 
-                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
+            return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
         }
 
@@ -245,7 +212,7 @@ var util = {
     isEmpty: function(obj){
 
         //converts the operands to numbers then applies strict comparison
-        return Object.keys(obj).length == false;
+        return Object.keys(obj).length === 0;
 
     },
 
