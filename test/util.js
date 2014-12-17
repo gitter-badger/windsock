@@ -1,15 +1,15 @@
-var Util = require('../src/util');
+var util = require('../src/util');
 var assert = require('assert');
 
-describe('Util', function () {
+describe('util', function () {
 
     it('should be loaded successfully', function () {
 
-        assert.notStrictEqual(typeof Util, 'undefined');
+        assert.notStrictEqual(typeof util, 'undefined');
 
     });
 
-    describe('nextTick(fn)', function(){
+    describe('tick(fn)', function(){
 
         it('should invoke callback on the next stack', function(done){
 
@@ -20,7 +20,7 @@ describe('Util', function () {
                     done();
                 };
 
-            Util.nextTick(callback);
+            util.tick(callback);
 
             assert.strictEqual(called, false);
 
@@ -37,7 +37,7 @@ describe('Util', function () {
 
             count = 0;
 
-            Util.each(array, function(){
+            util.each(array, function(){
                 count++;
             });
 
@@ -52,7 +52,7 @@ describe('Util', function () {
             object.propB = 'B';
             count = 0;
 
-            Util.each(object, function(){
+            util.each(object, function(){
                 count++;
             });
 
@@ -64,7 +64,7 @@ describe('Util', function () {
 
             count = 0;
 
-            Util.each(array, function(){
+            util.each(array, function(){
                 count++;
                 if(count === 50){
                     return arguments[3];
@@ -97,7 +97,7 @@ describe('Util', function () {
             count.total = 0;
             count.maxDepth = 0;
 
-            Util.traverse(array, function(){
+            util.traverse(array, function(){
                 count.total++;
                 count.maxDepth++;
             });
@@ -112,7 +112,7 @@ describe('Util', function () {
             count.total = 0;
             count.maxDepth = 0;
 
-            Util.traverse(object, function(){
+            util.traverse(object, function(){
                 count.total++;
                 count.maxDepth++;
             });
@@ -134,7 +134,7 @@ describe('Util', function () {
             sourceObj.propA = 'a';
             sourceObj.propB = {};
 
-            Util.extend(targetObj, sourceObj);
+            util.extend(targetObj, sourceObj);
 
             assert.strictEqual(targetObj.propA, 'a');
             assert.strictEqual(targetObj.propB, sourceObj.propB);
@@ -162,7 +162,7 @@ describe('Util', function () {
 
         it('should inherit the superConstructor prototype', function(){
 
-            Util.inherit(classA, classB);
+            util.inherit(classA, classB);
             var inherited = new classA();
 
             assert.strictEqual(classA.prototype.propC, 'c');

@@ -1,3 +1,7 @@
+var util = require('./util'),
+    Observer = require('./observer'),
+    inherit = util.inherit;
+
 var defines = Object.defineProperties;
 
 //An object literal module with factory methods for constructing new value objects
@@ -116,5 +120,96 @@ var node = {
     }
 
 };
+
+//consider adding jsonml and observer stuff in windsock not here
+//still need to have parser in here though
+
+function Node(){
+    this._jsonml = [];
+    this._documentNode = null;
+    this.value = Observer.observe({
+        name: null,
+        attributes: null,
+        parent: null,
+
+    });
+    this.events = {};
+}
+
+Node.prototype = {
+    _event: function(event){
+        if(!this.events[event]) {
+            this.events[event] = new Signals();
+            if(this._documentNode) this._documentNode.addEventListener(event, this._dispatch());
+        }
+        return this.events[event];
+    },
+    _dispatch: function(){
+        var _this = this;
+        return function(event){
+            _this._event(event.type).dispatch(event, _this);
+        };
+    },
+    observe: function(){},
+    transform: function(){},
+    clone: function(){},
+    find: function(){},
+    append: function(){},
+    prepend: function(){},
+    remove: function(){},
+    before: function(){},
+    after: function(){},
+    on: function(event, callback){
+
+        this._event(event).queue(callback, this);
+
+    },
+    off: function(){},
+    jsonml: function(){
+
+        return JSON.stringify(this);
+
+    },
+    valueOf: function(){
+
+        return this._jsonml;
+
+    }
+};
+
+defines(Node.prototype, {
+
+    parent:{
+        get: function(){
+
+        },
+        set: function(parent){
+            this.value.parent = parent;
+        }
+    },
+    children:{
+        get: function(){},
+        set: function(){}
+    }
+
+});
+
+function Text(){
+    Node.call(this);
+}
+
+inherit(Text, Node);
+
+function Element(){
+    Node.call(this);
+}
+
+inherit(Element, Node);
+
+function Fragment(){
+    Node.call(this);
+}
+
+inherit(Fragment, Node);
 
 module.exports = node;

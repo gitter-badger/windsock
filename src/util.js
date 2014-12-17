@@ -3,14 +3,14 @@ var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTi
 
 var util = {
 
-    nextTick: function(fn, context){
+    tick: function(fn, context){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
         return tick(util.bind(fn, context), 1);
 
     },
 
-    nextPaint: function(fn, context){
+    paint: function(fn, context){
 
         return paint(util.bind(fn, context), 1);
 
@@ -98,6 +98,8 @@ var util = {
         var args = Array.prototype.slice.call(arguments, 1);
 
         util.each(args, function mergeArgIterator(val, i){
+
+            if(!val) return;
 
             util.each(obj, function mergeTargetKeyIterator(value, key){
 

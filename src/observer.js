@@ -92,7 +92,7 @@ function defineConfigurableProperties(descriptor, target){
 
     each(Object.getOwnPropertyNames(target), function(prop){
 
-        if(descriptor._recursive) observable(target[prop]);
+        if(descriptor._recursive.value) observable(target[prop]);
 
         if(Object.getOwnPropertyDescriptor(target, prop).configurable) defineAccessors(descriptor, prop, target[prop]);
 
@@ -236,7 +236,7 @@ function observableObject(descriptor){
 
 function observable(target, recursive){
 
-    if(is(target, 'null') || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
+    if(!target || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
 
     var descriptor = {
 

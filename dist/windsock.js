@@ -1,299 +1,155 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var paint = require('./util').nextPaint;
+var util = require('../util'),
+    Node = require('./node'),
+    Observer = require('../observer'),
+    is = util.is,
+    inherit = util.inherit;
 
-function Batch(fn){
+function Element(jsonml){
 
-    this._done();
-    this.callback = fn;
+    var childrenIndex = is(jsonml[1], 'object') && !(jsonml[1] instanceof Node) ? 2 : 1;
+
+    Node.call(this, {
+        name: jsonml[0],
+        attributes: childrenIndex === 2 ? jsonml[1] : {},
+        children: jsonml.slice(childrenIndex)
+    });
+
+    this._jsonml = jsonml;
+    //observer mutations to update _jsonml
+    Observer.observe(this._value.attributes)
+            .observers.add(function(mutation){
+
+                if(is(mutation.object, 'empty') && is(this._jsonml[1], 'object')){
+
+                    this._jsonml.splice(1, 1);
+
+                }else if(this._jsonml[1] !== mutation.object){
+
+                    this._jsonml.splice(1, 0, mutation.object);
+
+                }
+
+            }, this);
 
 }
 
-Batch.prototype = {
+inherit(Element, Node);
 
-    add: function(fn){
+Object.defineProperties(Element.prototype, {
 
-        this.queue.push(fn);
-
-        if(!this.requested) {
-
-            this.id = paint(this._run, this);
-            this.requested = true;
-
+    name:{
+        get: function(){
+            return this._value.name;
+        },
+        set: function(name){
+            this._value.name = name;
         }
-
     },
-
-    cancel: function(){
-
-        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
-        this._done();
-
-    },
-
-    _run: function(){
-
-        this.running = true;
-
-        for(var i = 0; i < this.queue.length; i++){
-
-            this.queue[i].call(this);
-
+    attributes:{
+        get: function(){
+            return this._value.attributes;
+        },
+        set: function(attributes){
+            this._value.attributes = attributes;
         }
-
-        this._done();
-
-    },
-
-    _done: function(){
-
-        this.queue = [];
-        this.requested = false;
-        this.running = false;
-        this.id = null;
-        if(this.callback) this.callback.call(this);
-
     }
 
+});
+
+Element.prototype.valueOf = function(){
+    return this._jsonml;
 };
 
-module.exports = Batch;
-
-},{"./util":8}],2:[function(require,module,exports){
-var util = require('./util'),
-    Signals = require('./signals'),
-    noop = util.noop,
-    merge = util.merge,
-    extend = util.extend,
-    each = util.each,
-    accessors = util.accessors,
-    define = Object.defineProperty;
-
-function Binding(options){
-
-    this.options = options || {};
-
-}
-
-Binding.prototype = {
-
-    
-
+Element.prototype.toJSON = function(){
+    return this._jsonml;
 };
 
-
-
-Binding.create = function(config){
-
-    var binding = Object.create(Object.prototype, {
-
-        update:{
-
-            value: new Signals,
-            enumerable: false,
-            writable: true
-
-        }
-
-    });
-
-    config = merge({
-
-        view: null,
-        model: null,
-        directive: noop
-
-    }, config || Object.create(null));
-
-    each(config, function(value, key){
-
-        define(binding, key, accessors(value, function(val, last){
-
-            binding.update.dispatch(val, last);
-
-        }, {
-
-            enumerable: true
-
-        }));
-
-    });
-
-    return binding;
-
+Element.prototype.clone = function(){
+    return new Element(this.valueOf());
 };
 
-module.exports = Binding;
+module.exports = Element;
 
-},{"./signals":7,"./util":8}],3:[function(require,module,exports){
-var util = require('./util'),
+},{"../observer":5,"../util":8,"./node":3}],2:[function(require,module,exports){
+var Text = require('./text'),
+    Element = require('./element');
+
+module.exports = {
+    text: function(value){
+        return new Text(value);
+    },
+    element: function(name){
+        if(!name) throw new Error('failed to create element, name required');
+        return new Element([name].concat(Array.prototype.slice.call(arguments, 1)));
+    }
+};
+
+},{"./element":1,"./text":4}],3:[function(require,module,exports){
+var util = require('../util'),
+    Observer = require('../observer'),
     extend = util.extend;
 
-function Directive(){
-    //e.g. fragmentNode of a few li's ['li'], ['li'], ['li']
-    //model [1,2,3]
+function Node(value){
+
+    this._value = extend({
+        value: null,
+        data: {}
+    }, value);
+
+    Observer.observe(this._value);
+
 }
 
-Directive.extend = function(directive){
-
-    var e = directive.prototype.constructor;
-    e.prototype = extend(Object.create(Directive.prototype), directive.prototype);
-    return e;
-
-};
-
-Directive.prototype.init = function(view, model){
-
-    this.view = view;
-    this.model = model;
-
-};
-
-Directive.prototype.update = function(mutation){
-
-    //called when model changes
-    //normalizes mutation and invokes callbacks accordingly
-
-
-};
-
-Directive.prototype.bind = function(){
-
-    //called once
-    this.model._observers.add(this.update, this);
-
-};
-
-Directive.prototype.destroy = function(){
-
-    this.model._observers.remove();
-
-};
-
-module.exports = Directive;
-
-},{"./util":8}],4:[function(require,module,exports){
-var defines = Object.defineProperties;
-
-//An object literal module with factory methods for constructing new value objects
-//representing uncompiled jsonml compliant virtual dom nodes
-var node = {
-
-    //Creates an array literal and defines property to hold reference to fragmentNode
-    fragment: function(documentNode){
-
-        return Object.create(Object.prototype, {
-
-            documentNode: {
-
-                value: documentNode || {},
-
-                enumerable: true,
-
-                writable: true
-
-            },
-
-        });
-
-    },
-
-    //Extends fragment by defining name and attribute properties
-    element: function(name, attributes, documentNode){
-
-        return defines(node.fragment(documentNode), {
-
-            name: {
-
-                value: name,
-
-                enumerable: true
-
-            },
-
-            attributes: {
-
-                value: attributes || {},
-
-                enumerable: true
-
-            }
-
-        });
-
-    },
-
-    //Creates an object that represents the text value
-    text: function(value, documentNode){
-
-        return Object.create(Object.prototype, {
-
-            documentNode: {
-
-                value: documentNode || {},
-
-                enumerable: false,
-
-                writable: true
-
-            },
-
-            toString: {
-
-                value: function(){
-
-                    return this.value;
-
-                },
-
-                enumerable: false
-
-            },
-
-            valueOf: {
-
-                value: function(){
-
-                    return this.value;
-
-                },
-
-                enumerable: false
-
-            },
-
-            toJSON: {
-
-                value: function(){
-
-                    return this.value;
-
-                },
-
-                enumerable: false
-
-            },
-
-            value: {
-
-                value: value,
-
-                enumerable: false,
-
-                writable: true,
-
-                configurable: true
-
-            }
-
-        });
-
+Node.prototype = {
+    valueOf: function(){
+        return this._value;
     }
-
 };
 
-module.exports = node;
+Object.defineProperties(Node.prototype, {
+    value: {
+        get: function(){
+            return this._value.value;
+        },
+        set: function(value){
+            this._value.value = value;
+        }
+    }
+});
 
-},{}],5:[function(require,module,exports){
+module.exports = Node;
+
+},{"../observer":5,"../util":8}],4:[function(require,module,exports){
+var util = require('../util'),
+    Node = require('./node'),
+    inherit = util.inherit;
+
+function Text(value){
+
+    Node.call(this, {
+        value: value || ''
+    });
+
+}
+
+inherit(Text, Node);
+
+Text.prototype.valueOf = function(){
+    return this._value.value;
+};
+
+Text.prototype.toJSON = function(){
+    return this._value.value;
+};
+
+Text.prototype.clone = function(){
+    return new Text(this.valueOf());
+};
+
+module.exports = Text;
+
+},{"../util":8,"./node":3}],5:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -352,7 +208,7 @@ function mutation(obj){
 
 function defineAccessors(descriptor, prop, value){
 
-    return descriptor[prop] = {
+    return (descriptor[prop] = {
 
         get: function(){return value;},
 
@@ -380,7 +236,7 @@ function defineAccessors(descriptor, prop, value){
 
         configurable: true
 
-    };
+    });
 
 }
 
@@ -388,7 +244,7 @@ function defineConfigurableProperties(descriptor, target){
 
     each(Object.getOwnPropertyNames(target), function(prop){
 
-        if(descriptor._recursive) observable(target[prop]);
+        if(descriptor._recursive.value) observable(target[prop]);
 
         if(Object.getOwnPropertyDescriptor(target, prop).configurable) defineAccessors(descriptor, prop, target[prop]);
 
@@ -424,7 +280,7 @@ function observableArray(descriptor){
                         mutationRecord.name = this.length - 1;
                         mutationRecord.oldValue = this.slice(this.length - 1);
 
-                    break
+                    break;
 
                     case 'push':
 
@@ -436,6 +292,7 @@ function observableArray(descriptor){
 
                         mutationRecord.oldValue = this.slice(0, 1);
 
+                        /* falls through */
                     case 'unshift':
 
                         mutationRecord.name = 0;
@@ -531,7 +388,7 @@ function observableObject(descriptor){
 
 function observable(target, recursive){
 
-    if(is(target, 'null') || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
+    if(!target || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
 
     var descriptor = {
 
@@ -563,16 +420,6 @@ function observable(target, recursive){
 
 }
 
-function only(object, callback){
-
-    return function(mutation){
-
-        if(mutation.object === object) callback.call(this, mutation);
-
-    };
-
-}
-
 function limit(callback, query){
 
     return function(mutation){
@@ -585,8 +432,8 @@ function limit(callback, query){
 
 function Observer(){
 
-    this.observers = new Signals;
-    this.transforms = new Signals;
+    this.observers = new Signals();
+    this.transforms = new Signals();
     this._observed = [];
 }
 
@@ -668,7 +515,7 @@ Observer.prototype = {
 };
 
 Observer.observe = function(target, callback){
-    var observer = new Observer;
+    var observer = new Observer();
     observer.observe(target, callback);
     return observer;
 };
@@ -737,17 +584,17 @@ function eventValueObject(options){
 
 function hasChildren(source, callback){
 
-   if(source.hasChildNodes()){
+    if(source.hasChildNodes()){
 
-       var childNodes = source.childNodes;
+        var childNodes = source.childNodes;
 
-       for (var i = 0, l = childNodes.length; i < l; i++) {
+        for (var i = 0, l = childNodes.length; i < l; i++) {
 
-           parseDOM(childNodes[i], callback);
+            parseDOM(childNodes[i], callback);
 
-       }
+        }
 
-   }
+    }
 
 }
 
@@ -791,7 +638,7 @@ function parseTag (tag){
 }
 
 //cloneNode prior to avoid heavy dom reads
-exports.parseDOM = function(source, callback){
+function parseDOM(source, callback){
 
     var node;
 
@@ -833,7 +680,7 @@ exports.parseDOM = function(source, callback){
 
         node.attributes = {};
 
-        each(source.attributes, function(attribute, index){
+        each(source.attributes, function(attribute){
 
             node.attributes[attribute.name] = attribute.value;
 
@@ -853,9 +700,9 @@ exports.parseDOM = function(source, callback){
 
     callback(node);
 
-};
+}
 
-exports.parseJSONML = function(source, callback){
+function parseJSONML(source, callback){
 
     var index = 1, node;
 
@@ -909,7 +756,7 @@ exports.parseJSONML = function(source, callback){
 
         }
 
-        index++
+        index++;
 
     }
 
@@ -921,9 +768,9 @@ exports.parseJSONML = function(source, callback){
 
     callback(node);
 
-};
+}
 
-exports.parseHTML = function(source, callback){
+function parseHTML(source, callback){
 
     var endOfTagIndex,
         startTag,
@@ -1007,7 +854,11 @@ exports.parseHTML = function(source, callback){
 
     }
 
-};
+}
+
+exports.parseDOM = parseDOM;
+exports.parseHTML = parseHTML;
+exports.parseJSONML = parseJSONML;
 
 },{"./util":8}],7:[function(require,module,exports){
 var util = require('./util'),
@@ -1124,30 +975,32 @@ var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTi
 
 var util = {
 
-    nextTick: function(fn, context){
+    tick: function(fn, context){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
         return tick(util.bind(fn, context), 1);
 
     },
 
-    nextPaint: function(fn, context){
+    paint: function(fn, context){
 
         return paint(util.bind(fn, context), 1);
 
     },
 
-    each:function(obj, fn){
+    each: function(obj, fn){
 
         var halt = Object.create(null),
-            keys;
+            keys,
+            i = 0,
+            l;
 
         //duck typing ftw
         if(typeof obj.length === 'undefined'){
 
             keys = Object.keys(obj);
 
-            for(var i = 0, l = keys.length; i < l; i++){
+            for(l = keys.length; i < l; i++){
 
                 if(fn.call(this, obj[keys[i]], keys[i], obj, halt) === halt) return;
 
@@ -1158,7 +1011,7 @@ var util = {
         }
 
         //cached length is faster
-        for(var i = 0, l = obj.length; i < l; i++){
+        for(l = obj.length; i < l; i++){
 
             if (fn.call(this, obj[i], i, obj, halt) === halt) return;
 
@@ -1189,55 +1042,20 @@ var util = {
 
     },
 
-    find: function(list, query){
-
-        var assert = util.noop,
-            result;
-
-        if(util.is(query, 'function')){
-
-            assert = function(){
-
-                if(query.apply(undefined, Array.prototype.slice.call(arguments))){
-
-                    result = arguments[2];
-                    return arguments[3];
-
-                }
-            };
-
-        }else{
-
-            assert = function(value, key, obj, halt){
-
-                var match = true;
-
-                each(query, function(v, k){
-
-
-
-                });
-
-            };
-
-        }
-
-        util.each(list, assert);
-
-        return result;
-
-    },
-
     //adds enumerable properties to object, returns that object
     extend: function(obj){
 
         for(var i = 1, l = arguments.length; i < l; i++){
 
-            if(arguments[i]) util.each(arguments[i], function(value, key){
+            if(arguments[i]){
 
-                obj[key] = value;
+                for(var key in arguments[i]){
 
-            });
+                    obj[key] = arguments[i][key];
+
+                }
+
+            }
 
         }
 
@@ -1252,6 +1070,8 @@ var util = {
         var args = Array.prototype.slice.call(arguments, 1);
 
         util.each(args, function mergeArgIterator(val, i){
+
+            if(!val) return;
 
             util.each(obj, function mergeTargetKeyIterator(value, key){
 
@@ -1314,19 +1134,19 @@ var util = {
 
             case 'empty':
 
-                return Object.keys(obj).length == 0;
+            return Object.keys(obj).length === 0;
 
             case 'undefined':
 
-                return typeof obj === 'undefined';
+            return typeof obj === 'undefined';
 
             case 'null':
 
-                return obj === null;
+            return obj === null;
 
             default:
 
-                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
+            return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
 
         }
 
@@ -1366,7 +1186,7 @@ var util = {
     isEmpty: function(obj){
 
         //converts the operands to numbers then applies strict comparison
-        return Object.keys(obj).length == false;
+        return Object.keys(obj).length === 0;
 
     },
 
@@ -1377,14 +1197,8 @@ var util = {
 module.exports = util;
 
 },{}],9:[function(require,module,exports){
-var util = require('./util'),
-    node = require('./node'),
-    parser = require('./parser'),
-    Observer = require('./observer'),
-    match = util.match,
-    merge = util.merge,
-    each = util.each,
-    is = util.is;
+var node = require('./node'),
+    parser = require('./parser');
 
 function attributesToString(attr){
 
@@ -1402,307 +1216,32 @@ function attributesToString(attr){
 
 }
 
-function create(){
+var windsock = {
 
-    var args = Array.prototype.slice.call(arguments),
-        jsonml = [],
-        n;
+    parse: function(source){
 
-    if(!args.length) throw new Error('failed to create vdom, atleast 1 argument required');
+    },
+    compile: function(){},
+    render: function(){},
+    jsonml: function(node){
+        return JSON.stringify(node);
+    },
+    html: function(node){
+        var html = [];
 
-    if(is(args[0], 'string')){
+        parser.parseJSONML(node._jsonml, function(e){
 
-        n = node.element.apply(undefined, args);
+            switch(e.type){
 
-    }else if(is(args[0], 'object')){
+                case 'text':
 
-        try{
+                    html.push(e.value);
 
-            n = node[args[0].type].apply(args, args.slice(1));
+                    break;
 
-        }catch(e){
+                    case 'start':
 
-            throw new Error('failed to create vdom, node type does not exist');
-
-        }
-
-        if(args[0].type !== 'element') return n;
-        //text can have: parent, before(), after(), and all other methods after jsonml
-        //fragment can have everything but jsonml technically
-
-    }
-
-    Object.defineProperties(jsonml, {
-
-        //accessor properties
-
-        name:{
-
-            get: function(){
-
-                return this._node.name.value;
-
-            },
-            set: function(name){
-
-                this._node.name.value = name;
-
-            },
-
-            enumerable: true
-
-        },
-
-        attributes:{
-
-            get: function(){
-
-                return this._node.attributes;
-
-            },
-            set: function(attributes){
-
-                if(this._node.name.value === null) throw new Error('failed to set attributes on fragment');
-
-                var keys = Object.keys(attributes);
-
-                each.call(this, this._node.attributes, function(val, prop){
-
-                    if(!attributes[prop]) {
-
-                        this._node.attributes.delete(prop);
-                        return;
-                    }
-
-                    if(attributes[prop] !== val) this._node.attributes[prop] = attributes[prop];
-                    keys.splice(keys.indexOf(prop), 1);
-
-                });
-
-                each.call(this, keys, function(prop){
-
-                    this._node.attributes.add(prop, attributes[prop]);
-
-                });
-
-            }
-
-        },
-
-        children:{
-
-            get: function(){
-
-                return this._node.children;
-
-            },
-
-            set: function(node){
-
-                this._node.children = create(node);//need to make this kick off observer
-
-            }
-
-        },
-
-        text:{
-
-            get: function(){
-
-                return this.find(function(child){
-                    return typeof child.attributes === 'undefined';
-                }).join('');
-
-            },
-
-            set: function(value){
-                if(this.text.length){
-
-                    var textNodes = this.find(function(child){
-                        return typeof child.attributes === 'undefined';
-                    });
-
-                    each(textNodes, function(text, i){
-                        if(i === 0){
-                            text.value = value;
-                        }else{
-                            text.remove();
-                        }
-                    });
-
-                }else{
-                    this.append({type:'text'}, value);
-                }
-            }
-
-        },
-
-        parent:{
-
-            value: null,
-            writable: true
-
-        },
-
-        //methods
-
-        find:{
-
-            value: function(query){
-
-                var result = [],
-                    find = query;
-
-                if(!is(query, 'function')){
-                    
-                    if(is(query, 'string')){
-
-                        find = function(child){
-                            return child.name === query;
-                        };
-
-                    }else if(is(query, 'object')){
-
-                        find = function(child){
-                            return match(child.attributes, query);
-                        };
-
-                    }else{
-
-                        throw new Error('failed to find, query not supported');
-
-                    }
-                }
-
-                each(this.children, function(child){
-
-                    if(find(child)) result.push(child);
-                    if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
-
-                });
-
-                return result;
-
-            }
-
-        },
-
-        clone:{
-
-            value: function(fn){
-
-                return parse(this, parser.parseJSONML);
-
-            }
-
-        },
-
-        before:{
-
-            value: function(){
-
-                var elm = create.apply(this, Array.prototype.slice.call(arguments));
-
-                if(!this.name){
-                    this.children.unshift(elm);
-                    return elm;
-                }
-                if(this.parent){
-                    this.parent.children.splice(this.parent.children.indexOf(this), 0, elm);
-                    return elm;
-                }
-
-                throw new Error('failed to resolve parent');
-
-            }
-
-        },
-
-        after:{
-
-            value: function(){
-
-                var elm = create.apply(this, Array.prototype.slice.call(arguments));
-
-                if(!this.name){
-                    this.children.push(elm);
-                    return elm;
-                }
-                if(this.parent){
-                    this.parent.children.splice(this.parent.children.indexOf(this) + 1, 0, elm);
-                    return elm;
-                }
-
-                throw new Error('failed to resolve parent');
-
-            }
-
-        },
-
-        prepend:{
-
-            value: function(){
-
-                this.children.unshift(create.apply(this, Array.prototype.slice.call(arguments)));
-                return this;
-
-            }
-
-        },
-
-        append:{
-
-            value: function(){
-
-                this.children.push(create.apply(this, Array.prototype.slice.call(arguments)));
-                return this;
-
-            }
-
-        },
-
-        remove:{
-
-            value: function(){
-
-                if(this.parent){
-                    this.parent.children.splice(this.parent.children.indexOf(this), 1);
-                    return this.parent
-                }
-
-            }
-
-        },
-
-        jsonml:{
-
-            value:function(){
-
-                //HAWT
-                return JSON.stringify(this);
-
-            }
-        },
-
-        html:{
-
-            value:function(){
-
-                var html = [];
-
-                parser.parseJSONML(this, function(e){
-
-                    switch(e.type){
-
-                        case 'text':
-
-                            html.push(e.value);
-
-                        break;
-
-                        case 'start':
-
-                            html.push('<' + e.name + attributesToString(e.attributes) + '>');
+                        html.push('<' + e.name + attributesToString(e.attributes) + '>');
 
                         break;
 
@@ -1718,550 +1257,20 @@ function create(){
 
                             }
 
-                        break;
+                            break;
 
-                    }
+                        }
 
-                });
+                    });
 
-                return html.join('');
-
-            }
-
-        },
-
-        _compiled:{
-
-            value: false,
-
-            writable: true
-
-        },
-
-        _observer:{
-
-            value: new Observer
-
-        },
-
-        _node:{
-
-            value: {
-
-                name: {
-                    value: null
-                },
-
-                attributes: {},
-
-                children: []
-
-            },
-            configurable: true
-
-        }
-
-    });
-
-    //adding the observers should be here
-    //adding the jsonml specific observers and setting initial values should be another fn
-
-    jsonml._observer.observe(jsonml._node.name, function(mutation){
-
-        if(mutation.oldValue === null){
-
-            jsonml.unshift(mutation.object[mutation.name]);
-
-        }else{
-
-            jsonml[0] = mutation.object[mutation.name];
-
-        }
-
-    });
-
-    jsonml._observer.observe(jsonml._node.attributes, function(mutation){
-
-        if(is(mutation.object, 'empty') && is(jsonml[1], 'object')){
-
-            jsonml.splice(1, 1);
-
-        }else if(jsonml[1] !== mutation.object){
-
-            jsonml.splice(1, 0, mutation.object);
-
-        }
-
-    });
-
-    jsonml._observer.observe(jsonml._node.children, function(mutation){
-
-        Array.prototype[mutation.type].apply(jsonml, mutation.transformed);
-
-    });
-
-    jsonml.name = n.name;
-    if(!is(n.attributes, 'empty')) jsonml.attributes = n.attributes;
-
-    return jsonml;
-
-}
-
-function compile(jsonml){
-
-    if(jsonml._compiled) throw new Error('failed to compile, already compiled');
-
-    var compiled = jsonml.clone(compileJSONML);
-
-    compiled._compiled = true;
-
-}
-
-exports.parse = function (source){
-
-    var method, fragment;
-
-    if(is(source, 'string')){
-
-        method = parser.parseHTML;
-
-    }else if(source.nodeName){
-
-        method = parser.parseDOM;
-
-    }else{
-
-        method = parser.parseJSONML;
-
-    }
-
-    method(source, function(e){
-
-        switch(e.type){
-
-            case 'text':
-
-                fragment.append(e);
-
-            break;
-
-            case 'start':
-
-                e.type = 'element';
-                fragment = fragment ? fragment.after(e) : create(e);
-
-            break;
-
-            case 'end':
-
-                if(e.void){
-
-                    e.type = 'element';
-                    fragment.append(e);
-
-                }else{
-
-                    fragment = fragment.parent;
-
-                }
-
-            break;
-
-        }
-
-    });
-
-    return fragment;
-
-};
-
-exports.create = create;
-
-},{"./node":4,"./observer":5,"./parser":6,"./util":8}],10:[function(require,module,exports){
-var util = require('./util'),
-    node = require('./node'),
-    parser = require('./parser'),
-    Observer = require('./observer'),
-    Batch = require('./batch'),
-    traverse = util.traverse,
-    bind = util.bind,
-    each = util.each,
-    is = util.is;
-
-//Instance of view is a jsonml spec compliant virtual dom
-//Mutations on nodes are observed and batched for dom manipulation
-//API:
-//var jsonml = View.parser.parse(source)
-//Parses markup source and converts it to an array
-//
-//View.compile(jsonml)
-//Compiles observers to batch changes
-
-//var fragment = View.render(jsonml)
-//Compiles and returns the parent document fragment
-
-function View(obj){}
-
-View.parser = parser;
-
-function bind(element){
-
-    if(!element.name && !element.value && element.length){
-
-        each(element, View.parser.bind);
-
-    }
-
-    Observer.observe(element);
-
-}
-
-function parse(e){
-
-    if(!this.active) this.active = this;
-    if(!this.parent) this.parent = this;
-
-    switch(e.type){
-
-        case 'text':
-            this.active.push(node.text(e.value, e.textNode));
-            break;
-        case 'start':
-            this.parent = this.active;
-            this.active = this.active[this.active.push(node.element(e.name, e.attributes, e.documentElement)) - 1];
-            break;
-        case 'end':
-            if(e.void){
-                this.active.push(node.element(e.name, e.attributes, e.documentElement));
-            }else{
-                //set active to parent
-                this.active = this.parent;
-            }
-            break;
-
+                    return html.join('');
     }
 
 };
 
-//Determines which method to use for parsing
-//cloneNode is used for DOM nodes
-//documentNodes are created for string and array source types
-//parent node is appended to a documentFragment
-//returns virtualdom
-View.parser.parse = function(source){
+windsock.node = node;
 
-    var virtualDOM = node.fragment(document.createDocumentFragment()),
-        method;
+module.exports = windsock;
 
-    if(is(source, 'string')){
-
-        method = 'parseHTML';
-
-    }else if(source.nodeName){
-
-        method = 'parseDOM';
-        source = source.cloneNode();
-
-    }else{
-
-        method = 'parseJSONML';
-
-    }
-
-    View.parser[method].call(undefined, source, bind(parse, virtualDOM));
-
-    delete virtualDOM.active;
-    delete virtualDOM.parent;
-
-    return virtualDOM;
-
-};
-
-View.prototype._compile = function(){
-
-    //traverse this._node
-    //add observers to each element to batch changes to dom nodes
-    traverse.call(this, this._node, function compileView(value){
-
-        console.log(value);
-
-    });
-
-};
-
-View.prototype._parse = function(obj){
-
-    //parse the obj and convert to virtual dom at this._node
-    //takes anything compatible with parser.parse
-    //a node list
-    //or an array of anything compatible with parser.parse
-
-    var parser = new Parser,
-        dom = typeof obj.nodeName !== 'undefined',
-        createElement,
-        setActive,
-        active,
-        parent;
-
-
-
-    parser.start.add(function(node){
-
-        node = Node.element(node);
-
-        if(is(node.documentNode, 'empty') && !dom){
-            node.documentNode = document.createElement(node.name);
-            if(node.attributes){
-                each(node.attributes, function(value, key){
-                    node.documentNode.setAttribute(key, value);
-                })
-            }
-        }
-
-        node.attributes._observers.add( function(mutation){
-
-            if(mutation.method == 'remove'){
-
-                this.documentNode.removeAttribute(mutation.args[0]);
-
-            }else{
-
-                this.documentNode.setAttribute(mutation.args[0], mutation.args[1]);
-
-            }
-
-        }, node);
-
-        if(!this._node){
-
-            active = this._node = node;
-
-        }else{
-
-            active.push(node);
-
-            parent = active;
-
-            active = active[active.length - 1];
-
-        }
-
-
-
-        if(!dom) active.documentNode.appendChild(node.documentNode);
-
-
-
-    }, this);
-
-    parser.content.add(function(text){
-
-        text = Node.text(text);
-
-        if(!dom){
-
-            text.textNode = document.createTextNode(text.nodeValue);
-
-        }
-
-        text._observers.add( function(mutation){
-
-            console.log('here');
-
-            if(mutation.method == 'remove'){
-
-                //remove text node
-
-            }else{
-
-                this.textNode.nodeValue = mutation.value;
-
-            }
-
-        }, text);
-
-        active.push(text);
-
-        if(!dom) active.documentNode.appendChild(text.textNode);
-
-    });
-
-    parser.end.add(function(node, isVoid){
-
-        if(isVoid){
-
-            node = Node.element(node);
-
-            if(is(node.documentNode, 'empty') && !dom){
-                node.documentNode = document.createElement(node.name);
-                if(node.attributes){
-                    each(node.attributes, function(value, key){
-                        node.documentNode.setAttribute(key, value);
-                    })
-                }
-            }
-
-            active.push(node);
-
-            if(!dom) active.documentNode.appendChild(node.documentNode);
-
-        }else{
-
-            active = parent;
-
-        }
-
-    });
-
-    parser.done.add(function(){
-
-        parser.reset();
-        parser = null;
-
-    });
-
-    parser.parse(obj);
-
-};
-
-
-
-View.prototype.json = function(){
-
-    if(!this._node) return;
-
-    return JSON.stringify(this._node, function jsonReplacer(key, value){
-
-        if(value.nodeValue){
-
-            return value.toString();
-
-        }
-
-        return value;
-
-    });
-
-};
-
-View.prototype.find = function(query, target){
-
-    var self = this, result = [];
-
-    target = target || this._node;
-
-    if(is(query, 'object')){
-
-        each(target, function viewFind(element){
-
-            var match = true;
-
-            if(!element.attributes) return;
-
-            each(query, function(value, key, q, halt){
-
-                if(!element.attributes[key] || element.attributes[key] !== value){
-
-                    match = false;
-                    return halt;
-
-                }
-
-            });
-
-            if(match) result.push(element);
-
-            if(element.children.length){
-
-                result = result.concat(self.find(query, element.children));
-
-            }
-
-        });
-
-    }
-
-    return result;
-
-};
-
-module.exports = View;
-
-},{"./batch":1,"./node":4,"./observer":5,"./parser":6,"./util":8}],11:[function(require,module,exports){
-var util = require('./util'),
-    Signals = require('./signals'),
-    Parser = require('./parser'),
-    Observer = require('./observer'),
-    Directive = require('./directive'),
-    Binding = require('./binding'),
-    View = require('./view'),
-    vdom = require('./vdom'),
-    find = util.find,
-    inherit = util.inherit,
-    extend = util.extend,
-    each = util.each,
-    is = util.is;
-
-function Windsock(options){
-
-    this.options = options = options || Object.create(null);
-
-    this._observer = new Observer;
-
-    if(options.model) this.model = options.model;
-
-    if(options.view) this.view = options.view;
-
-}
-
-Windsock.prototype = {
-
-    _setModel: function(data){
-
-        if(this._model) this._observer.unobserve();
-        this._observer.observe(data);
-        this._model = data;
-
-    },
-
-    _setView: function(view){
-
-
-    }
-
-
-};
-
-
-Object.defineProperties(Windsock.prototype, {
-
-    model:{
-        get:function(){
-            return this._model;
-        },
-        set:function(m){
-            this._setModel(m);
-        },
-        enumerable: true
-    },
-    view:{
-        get:function(){
-            return this._view;
-        },
-        set:function(v){
-            this._setView(v);
-        },
-        enumerable: true
-    }
-
-});
-
-
-Windsock.observer = Observer;
-
-Windsock.vdom = vdom;
-
-module.exports = Windsock;
-
-},{"./binding":2,"./directive":3,"./observer":5,"./parser":6,"./signals":7,"./util":8,"./vdom":9,"./view":10}]},{},[11])(11)
+},{"./node":2,"./parser":6}]},{},[9])(9)
 });

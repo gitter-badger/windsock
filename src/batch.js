@@ -1,4 +1,4 @@
-var paint = require('./util').nextPaint;
+var paint = require('./util').paint;
 
 function Batch(fn){
 
