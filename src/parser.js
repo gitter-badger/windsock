@@ -66,7 +66,7 @@ function hasChildren(source, callback){
 
 function parseTag (tag){
 
-    var node = eventValueObject({
+    var event = eventValueObject({
 
         documentElement: {}
 
@@ -76,7 +76,7 @@ function parseTag (tag){
 
     match = tag.match(reg);
 
-    if(match.length > 1) node.attributes = {};
+    if(match.length > 1) event.attributes = {};
 
     for(var i = 0, l = match.length; i < l; i++){
 
@@ -84,29 +84,29 @@ function parseTag (tag){
 
         if(i === 0) {
 
-            //node.name = keyVal[0].replace('/','').replace('>','').trim();
-            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
+            //event.name = keyVal[0].replace('/','').replace('>','').trim();
+            event.name = keyVal[0].replace(/[\/>]/g, '').trim();
 
         }else if(keyVal.length > 1){
 
-            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
+            event.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
 
         }else{
 
-            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
+            event.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
 
         }
 
     }
 
-    return node;
+    return event;
 
 }
 
 //cloneNode prior to avoid heavy dom reads
 function parseDOM(source, callback){
 
-    var node;
+    var event;
 
     if(ignoreTags.indexOf(source.nodeName.toLowerCase()) !== -1) return;
 
@@ -132,7 +132,7 @@ function parseDOM(source, callback){
 
     }
 
-    node = eventValueObject({
+    event = eventValueObject({
 
         documentElement: source,
 
@@ -140,37 +140,37 @@ function parseDOM(source, callback){
 
     });
 
-    node.void = isVoid(node.name);
+    event.void = isVoid(event.name);
 
     if(source.attributes.length){
 
-        node.attributes = {};
+        event.attributes = {};
 
         each(source.attributes, function(attribute){
 
-            node.attributes[attribute.name] = attribute.value;
+            event.attributes[attribute.name] = attribute.value;
 
         });
 
     }
 
-    node.type = 'start';
+    event.type = 'start';
 
-    if(!node.void) callback(node);
+    if(!event.void) callback(event);
 
     hasChildren(source, callback);
 
-    if(node.attributes && !node.void) delete node.attributes;
+    if(event.attributes && !event.void) delete event.attributes;
 
-    node.type = 'end';
+    event.type = 'end';
 
-    callback(node);
+    callback(event);
 
 }
 
 function parseJSONML(source, callback){
 
-    var index = 1, node;
+    var index = 1, event;
 
     if((is(source[0], 'array') || is(source[0], 'object')) && typeof source[0].length !== 'undefined'){
 
@@ -178,7 +178,7 @@ function parseJSONML(source, callback){
 
     }else{
 
-        node = eventValueObject({
+        event = eventValueObject({
 
             documentElement: {},
 
@@ -190,15 +190,15 @@ function parseJSONML(source, callback){
         if(source.length > 1 && source[1].toString() === '[object Object]'){
 
             index++;
-            node.attributes = extend(Object.create(null), source[1]);
+            event.attributes = extend(Object.create(null), source[1]);
 
         }
 
-        node.void = isVoid(node.name);
+        event.void = isVoid(event.name);
 
-        node.type = 'start';
+        event.type = 'start';
 
-        if(!node.void) callback(node);
+        if(!event.void) callback(event);
 
     }
 
@@ -226,13 +226,13 @@ function parseJSONML(source, callback){
 
     }
 
-    if(typeof node === 'undefined') return;
+    if(typeof event === 'undefined') return;
 
-    if(node.attributes && !node.void) delete node.attributes;
+    if(event.attributes && !event.void) delete event.attributes;
 
-    node.type = 'end';
+    event.type = 'end';
 
-    callback(node);
+    callback(event);
 
 }
 
@@ -240,7 +240,7 @@ function parseHTML(source, callback){
 
     var endOfTagIndex,
         startTag,
-        node;
+        event;
 
     //nodejs buffer and remove all line breaks aka dirty
     source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
@@ -252,7 +252,7 @@ function parseHTML(source, callback){
         if(nextTagIndex >= 0 ){
 
             //start element exists in string
-            //need to convert content to node
+            //need to convert content to event
             if(nextTagIndex > 0) {
 
                 callback(eventValueObject({
@@ -274,27 +274,27 @@ function parseHTML(source, callback){
 
             startTag = source.substring(0, endOfTagIndex);
 
-            node = parseTag(startTag);
+            event = parseTag(startTag);
 
             //if not xhtml void tag check tagname for html5 valid void tags
-            node.void = (source[startTag.length - 2] === '/') || isVoid(node.name);
+            event.void = (source[startTag.length - 2] === '/') || isVoid(event.name);
 
             if(startTag[1] === '!'){
 
                 //comment, ignore?
                 endOfTagIndex = source.indexOf('-->') + 1;
 
-            }else if(startTag[1] === '/' || node.void){
+            }else if(startTag[1] === '/' || event.void){
 
                 //void tag or end tag. start is never called for void tags
-                node.type = 'end';
-                callback(node);
+                event.type = 'end';
+                callback(event);
 
             }else{
 
                 //start tag
-                node.type = 'start';
-                callback(node);
+                event.type = 'start';
+                callback(event);
 
             }
 

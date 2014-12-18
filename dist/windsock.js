@@ -1,22 +1,97 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var paint = require('./util').paint;
+
+function Batch(fn){
+
+    this._done();
+    this.callback = fn;
+
+}
+
+Batch.prototype = {
+
+    add: function(fn){
+
+        this.queue.push(fn);
+
+        if(!this.requested) {
+
+            this.id = paint(this._run, this);
+            this.requested = true;
+
+        }
+
+    },
+
+    cancel: function(){
+
+        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
+        this._done();
+
+    },
+
+    _run: function(){
+
+        this.running = true;
+
+        for(var i = 0; i < this.queue.length; i++){
+
+            this.queue[i].call(this);
+
+        }
+
+        this._done();
+
+    },
+
+    _done: function(){
+
+        this.queue = [];
+        this.requested = false;
+        this.running = false;
+        this.id = null;
+        if(this.callback) this.callback.call(this);
+
+    }
+
+};
+
+module.exports = Batch;
+
+},{"./util":10}],2:[function(require,module,exports){
+var util = require('./util'),
+    Batch = require('./batch');
+
+module.exports = {
+    compile: function(){},
+    transclude: function(){}
+};
+
+},{"./batch":1,"./util":10}],3:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
+    Text = require('./text'),
     Observer = require('../observer'),
     is = util.is,
+    each = util.each,
+    match = util.match,
     inherit = util.inherit;
 
-function Element(jsonml){
-
-    var childrenIndex = is(jsonml[1], 'object') && !(jsonml[1] instanceof Node) ? 2 : 1;
+function Element(value){
 
     Node.call(this, {
-        name: jsonml[0],
-        attributes: childrenIndex === 2 ? jsonml[1] : {},
-        children: jsonml.slice(childrenIndex)
+        name: value.name,
+        attributes: value.attributes || {},
+        children: value.children || []
     });
 
-    this._jsonml = jsonml;
+    this._jsonml = [];
+
+    this._value.attributes._recursive = false;
+    this._value.children._recursive = false;
+
     //observer mutations to update _jsonml
+    //these are anonymous observers
     Observer.observe(this._value.attributes)
             .observers.add(function(mutation){
 
@@ -32,95 +107,396 @@ function Element(jsonml){
 
             }, this);
 
+    Observer.observe(this._value.children)
+            .observers.add(function(mutation){
+
+            }, this);
+
 }
 
 inherit(Element, Node);
 
+Element.prototype.find = function(query){
+
+    var result = [],
+        find;
+
+    if(!is(query, 'function')){
+
+        if(is(query, 'string')){
+
+            find = function(child){
+
+                return child.name === query;
+
+            };
+
+        }else if(is(query, 'object')){
+
+            find = function(child){
+
+                return match(child.attributes, query);
+
+            };
+
+        }else{
+
+            throw new Error('failed to find, query not supported');
+
+        }
+
+    }else{
+
+        find = query;
+
+    }
+
+    each(this.children, function(child){
+
+        if(find(child)) result.push(child);
+
+        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+
+    });
+
+    return result;
+
+};
+
+Element.prototype.toString = function(){
+
+    //should do?
+    return JSON.stringify(this._jsonml);
+
+};
+
 Object.defineProperties(Element.prototype, {
 
     name:{
+
         get: function(){
+
             return this._value.name;
+
         },
+
         set: function(name){
+
             this._value.name = name;
+
         }
+
     },
+
     attributes:{
+
         get: function(){
+
             return this._value.attributes;
+
         },
+
         set: function(attributes){
+
             this._value.attributes = attributes;
+
         }
+
+    },
+
+    children:{
+
+        get: function(){
+
+            return this._value.children;
+
+        },
+
+        set: function(children){
+
+            this._value.children = children;
+
+        }
+
+    },
+
+    text:{
+
+        get: function(){
+
+            return this.find(function(child){
+
+                return child instanceof Text;
+
+            }).join('');
+
+        },
+
+        set: function(value){
+
+            if(this.text.length){
+
+                var textNodes = this.find(function(child){
+
+                    return child instanceof Text;
+
+                });
+
+                each(textNodes, function(text, i){
+
+                    if(i === 0){
+
+                        text.value = value;
+
+                    }else{
+
+                        text.remove();
+
+                    }
+
+                });
+
+            }else{
+
+                this.append(new Text(value));
+
+            }
+
+        }
+
     }
 
 });
 
-Element.prototype.valueOf = function(){
-    return this._jsonml;
-};
-
-Element.prototype.toJSON = function(){
-    return this._jsonml;
-};
-
-Element.prototype.clone = function(){
-    return new Element(this.valueOf());
-};
-
 module.exports = Element;
 
-},{"../observer":5,"../util":8,"./node":3}],2:[function(require,module,exports){
-var Text = require('./text'),
-    Element = require('./element');
+},{"../observer":7,"../util":10,"./node":5,"./text":6}],4:[function(require,module,exports){
+var util = require('../util'),
+    Text = require('./text'),
+    Element = require('./element'),
+    is = util.is;
 
+//factory for creating nodes
+//normalize params to value objects
 module.exports = {
+
     text: function(value){
+
+        //text node value object is just a string :)
         return new Text(value);
+
     },
-    element: function(name){
+    
+    element: function(name, attributes, children){
+
         if(!name) throw new Error('failed to create element, name required');
-        return new Element([name].concat(Array.prototype.slice.call(arguments, 1)));
+
+        return new Element({
+
+            name: name,
+
+            attributes: attributes,
+
+            children: children
+
+        });
+
     }
+
 };
 
-},{"./element":1,"./text":4}],3:[function(require,module,exports){
+},{"../util":10,"./element":3,"./text":6}],5:[function(require,module,exports){
 var util = require('../util'),
+    Signals = require('../signals'),
     Observer = require('../observer'),
     extend = util.extend;
 
 function Node(value){
 
+    this._events = {};
+
     this._value = extend({
+
         value: null,
+        parent: null,
         data: {}
+
     }, value);
 
-    Observer.observe(this._value);
+    this._observer = Observer.observe(this._value);
+
+    this._jsonml = [];
+
+    this._compiled = false;
+
+    this._documentNode = null;
 
 }
 
 Node.prototype = {
+
+    _event: function(name){
+
+        if(!this._events[name]) this._events[name] = new Signals();
+        return this._events[name];
+
+    },
+
+    _dispatch: function(name){
+
+        this._event(name).dispatch.apply(undefined, Array.prototype.slice.call(arguments));
+
+    },
+
+    on: function(name, callback){
+
+        return this._event(name).queue(callback, this);
+
+    },
+
+    off: function(name, signal){
+
+        if(this._events[name]) this._events.remove(signal);
+
+    },
+
+    remove: function(){
+
+        if(this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1);
+
+    },
+
+    append: function(node){
+
+        this.children.push(node);
+        node.parent = this;
+
+    },
+
+    prepend: function(node){
+
+        this.children.unshift(node);
+        node.parent = this;
+
+    },
+
+    before: function(node){
+
+        if(this.parent){
+            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
+            node.parent = this.parent;
+        }
+
+    },
+
+    after: function(node){
+
+        if(this.parent){
+            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
+            node.parent = this.parent;
+        }
+
+    },
+
+    clone: function(){
+
+        return new this.constructor(this.valueOf());
+
+    },
+
     valueOf: function(){
+
         return this._value;
+
+    },
+
+    toJSON: function(){
+
+        return this._jsonml;
+
     }
+
 };
 
 Object.defineProperties(Node.prototype, {
+
     value: {
+
         get: function(){
+
             return this._value.value;
+
         },
+
         set: function(value){
+
             this._value.value = value;
-        }
+
+        },
+
+        enumerable: true
+
+    },
+
+    parent: {
+
+        get: function(){
+
+            return this._value.parent;
+
+        },
+
+        set: function(parent){
+
+            this._value.parent = parent;
+
+        },
+
+        enumerable: true
+
+    },
+
+    observers: {
+
+        get: function(){
+
+            return this._observer.observers;
+
+        },
+
+        enumerable: true
+
+    },
+
+    transforms: {
+
+        get: function(){
+
+            return this._observer.transforms;
+
+        },
+
+        enumerable: true
+
+    },
+
+    events:{
+
+        get:function(){
+
+            return this._events;
+
+        },
+
+        enumerable: true
+
     }
+
 });
 
 module.exports = Node;
 
-},{"../observer":5,"../util":8}],4:[function(require,module,exports){
+},{"../observer":7,"../signals":9,"../util":10}],6:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     inherit = util.inherit;
@@ -128,28 +504,50 @@ var util = require('../util'),
 function Text(value){
 
     Node.call(this, {
+
         value: value || ''
+
     });
+
+    this.observers.add(function(mutation){
+
+        if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
+
+    }, this);
+
+    this._jsonml = this._value.value;
 
 }
 
 inherit(Text, Node);
 
+Text.prototype.append = function(value){
+
+    this._value.value = this._value.value + value;
+
+};
+
+Text.prototype.prepend = function(value){
+
+    this._value.value = value + this._value.value;
+
+};
+
 Text.prototype.valueOf = function(){
+
     return this._value.value;
+
 };
 
-Text.prototype.toJSON = function(){
-    return this._value.value;
-};
+Text.prototype.toString = function(){
 
-Text.prototype.clone = function(){
-    return new Text(this.valueOf());
+    return this._value.value;
+
 };
 
 module.exports = Text;
 
-},{"../util":8,"./node":3}],5:[function(require,module,exports){
+},{"../util":10,"./node":5}],7:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -531,7 +929,7 @@ Observer.unobserve = function(target){
 
 module.exports = Observer;
 
-},{"./signals":7,"./util":8}],6:[function(require,module,exports){
+},{"./signals":9,"./util":10}],8:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend,
     each = util.each,
@@ -600,7 +998,7 @@ function hasChildren(source, callback){
 
 function parseTag (tag){
 
-    var node = eventValueObject({
+    var event = eventValueObject({
 
         documentElement: {}
 
@@ -610,7 +1008,7 @@ function parseTag (tag){
 
     match = tag.match(reg);
 
-    if(match.length > 1) node.attributes = {};
+    if(match.length > 1) event.attributes = {};
 
     for(var i = 0, l = match.length; i < l; i++){
 
@@ -618,29 +1016,29 @@ function parseTag (tag){
 
         if(i === 0) {
 
-            //node.name = keyVal[0].replace('/','').replace('>','').trim();
-            node.name = keyVal[0].replace(/[\/>]/g, '').trim();
+            //event.name = keyVal[0].replace('/','').replace('>','').trim();
+            event.name = keyVal[0].replace(/[\/>]/g, '').trim();
 
         }else if(keyVal.length > 1){
 
-            node.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
+            event.attributes[keyVal[0].trim()] = keyVal[1].replace(/["'>]/g, '').trim();
 
         }else{
 
-            node.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
+            event.attributes[keyVal[0].replace(/[>]/g, '').trim()] = null;
 
         }
 
     }
 
-    return node;
+    return event;
 
 }
 
 //cloneNode prior to avoid heavy dom reads
 function parseDOM(source, callback){
 
-    var node;
+    var event;
 
     if(ignoreTags.indexOf(source.nodeName.toLowerCase()) !== -1) return;
 
@@ -666,7 +1064,7 @@ function parseDOM(source, callback){
 
     }
 
-    node = eventValueObject({
+    event = eventValueObject({
 
         documentElement: source,
 
@@ -674,37 +1072,37 @@ function parseDOM(source, callback){
 
     });
 
-    node.void = isVoid(node.name);
+    event.void = isVoid(event.name);
 
     if(source.attributes.length){
 
-        node.attributes = {};
+        event.attributes = {};
 
         each(source.attributes, function(attribute){
 
-            node.attributes[attribute.name] = attribute.value;
+            event.attributes[attribute.name] = attribute.value;
 
         });
 
     }
 
-    node.type = 'start';
+    event.type = 'start';
 
-    if(!node.void) callback(node);
+    if(!event.void) callback(event);
 
     hasChildren(source, callback);
 
-    if(node.attributes && !node.void) delete node.attributes;
+    if(event.attributes && !event.void) delete event.attributes;
 
-    node.type = 'end';
+    event.type = 'end';
 
-    callback(node);
+    callback(event);
 
 }
 
 function parseJSONML(source, callback){
 
-    var index = 1, node;
+    var index = 1, event;
 
     if((is(source[0], 'array') || is(source[0], 'object')) && typeof source[0].length !== 'undefined'){
 
@@ -712,7 +1110,7 @@ function parseJSONML(source, callback){
 
     }else{
 
-        node = eventValueObject({
+        event = eventValueObject({
 
             documentElement: {},
 
@@ -724,15 +1122,15 @@ function parseJSONML(source, callback){
         if(source.length > 1 && source[1].toString() === '[object Object]'){
 
             index++;
-            node.attributes = extend(Object.create(null), source[1]);
+            event.attributes = extend(Object.create(null), source[1]);
 
         }
 
-        node.void = isVoid(node.name);
+        event.void = isVoid(event.name);
 
-        node.type = 'start';
+        event.type = 'start';
 
-        if(!node.void) callback(node);
+        if(!event.void) callback(event);
 
     }
 
@@ -760,13 +1158,13 @@ function parseJSONML(source, callback){
 
     }
 
-    if(typeof node === 'undefined') return;
+    if(typeof event === 'undefined') return;
 
-    if(node.attributes && !node.void) delete node.attributes;
+    if(event.attributes && !event.void) delete event.attributes;
 
-    node.type = 'end';
+    event.type = 'end';
 
-    callback(node);
+    callback(event);
 
 }
 
@@ -774,7 +1172,7 @@ function parseHTML(source, callback){
 
     var endOfTagIndex,
         startTag,
-        node;
+        event;
 
     //nodejs buffer and remove all line breaks aka dirty
     source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
@@ -786,7 +1184,7 @@ function parseHTML(source, callback){
         if(nextTagIndex >= 0 ){
 
             //start element exists in string
-            //need to convert content to node
+            //need to convert content to event
             if(nextTagIndex > 0) {
 
                 callback(eventValueObject({
@@ -808,27 +1206,27 @@ function parseHTML(source, callback){
 
             startTag = source.substring(0, endOfTagIndex);
 
-            node = parseTag(startTag);
+            event = parseTag(startTag);
 
             //if not xhtml void tag check tagname for html5 valid void tags
-            node.void = (source[startTag.length - 2] === '/') || isVoid(node.name);
+            event.void = (source[startTag.length - 2] === '/') || isVoid(event.name);
 
             if(startTag[1] === '!'){
 
                 //comment, ignore?
                 endOfTagIndex = source.indexOf('-->') + 1;
 
-            }else if(startTag[1] === '/' || node.void){
+            }else if(startTag[1] === '/' || event.void){
 
                 //void tag or end tag. start is never called for void tags
-                node.type = 'end';
-                callback(node);
+                event.type = 'end';
+                callback(event);
 
             }else{
 
                 //start tag
-                node.type = 'start';
-                callback(node);
+                event.type = 'start';
+                callback(event);
 
             }
 
@@ -860,7 +1258,7 @@ exports.parseDOM = parseDOM;
 exports.parseHTML = parseHTML;
 exports.parseJSONML = parseJSONML;
 
-},{"./util":8}],7:[function(require,module,exports){
+},{"./util":10}],9:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -969,7 +1367,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":8}],8:[function(require,module,exports){
+},{"./util":10}],10:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
@@ -1196,9 +1594,13 @@ var util = {
 
 module.exports = util;
 
-},{}],9:[function(require,module,exports){
-var node = require('./node'),
-    parser = require('./parser');
+},{}],11:[function(require,module,exports){
+var util = require('./util'),
+    node = require('./node'),
+    parser = require('./parser'),
+    compiler = require('./compiler'),
+    each = util.each,
+    is = util.is;
 
 function attributesToString(attr){
 
@@ -1218,15 +1620,102 @@ function attributesToString(attr){
 
 var windsock = {
 
+    util: util,
+
     parse: function(source){
 
+        //retain real document node if exists
+
+        var method, parsed, parent;
+
+        if(is(source, 'string')){
+
+            method = parser.parseHTML;
+
+        }else if(source.nodeName){
+
+            if(source.parentNode) parent = source.parentNode;
+            method = parser.parseDOM;
+
+        }else{
+
+            method = parser.parseJSONML;
+
+        }
+
+        method(source, function(e){
+
+            var n;
+
+            switch(e.type){
+
+                case 'text':
+
+                    parsed.append(node.text(e.value));
+
+                break;
+
+                case 'start':
+
+                    n = node.element(e.name, e.attributes);
+                    if(parsed) parsed.append(n);
+                    parsed = n;
+
+                break;
+
+                case 'end':
+
+                    if(e.void){
+
+                        parsed.append(node.element(e.name, e.attributes));
+
+                    }else{
+
+                        if(parsed.parent) parsed = parsed.parent;
+
+                    }
+
+                break;
+
+            }
+
+            n = null;
+
+        });
+
+        if(parent) parsed._parentDocumentNode = parent;
+
+        return parsed;
+
     },
-    compile: function(){},
-    render: function(){},
+
+    compile: function(node){
+
+        var fragment = node.fragment();
+        compiler.compile(fragment);
+        // parser.parseNode(node, function(){
+        //     //build fragment
+        //     //observe and batch
+        // });
+        return fragment;
+
+    },
+
+    render: function(node){
+
+        //optionally clone?
+        return compiler.transclude(node);
+
+    },
+
     jsonml: function(node){
+
         return JSON.stringify(node);
+
     },
+
     html: function(node){
+
         var html = [];
 
         parser.parseJSONML(node._jsonml, function(e){
@@ -1237,33 +1726,34 @@ var windsock = {
 
                     html.push(e.value);
 
-                    break;
+                break;
 
-                    case 'start':
+                case 'start':
 
-                        html.push('<' + e.name + attributesToString(e.attributes) + '>');
+                    html.push('<' + e.name + attributesToString(e.attributes) + '>');
 
-                        break;
+                break;
 
-                        case 'end':
+                case 'end':
 
-                            if(e.void){
+                    if(e.void){
 
-                                html.push('<' + e.name + attributesToString(e.attributes) + '/>');
+                        html.push('<' + e.name + attributesToString(e.attributes) + '/>');
 
-                            }else{
+                    }else{
 
-                                html.push('</' + e.name + '>');
+                        html.push('</' + e.name + '>');
 
-                            }
+                    }
 
-                            break;
+                break;
 
-                        }
+            }
 
-                    });
+        });
 
-                    return html.join('');
+        return html.join('');
+
     }
 
 };
@@ -1272,5 +1762,5 @@ windsock.node = node;
 
 module.exports = windsock;
 
-},{"./node":2,"./parser":6}]},{},[9])(9)
+},{"./compiler":2,"./node":4,"./parser":8,"./util":10}]},{},[11])(11)
 });

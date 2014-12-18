@@ -5,23 +5,45 @@ var util = require('../util'),
 function Text(value){
 
     Node.call(this, {
+
         value: value || ''
+
     });
+
+    this.observers.add(function(mutation){
+
+        if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
+
+    }, this);
+
+    this._jsonml = this._value.value;
 
 }
 
 inherit(Text, Node);
 
+Text.prototype.append = function(value){
+
+    this._value.value = this._value.value + value;
+
+};
+
+Text.prototype.prepend = function(value){
+
+    this._value.value = value + this._value.value;
+
+};
+
 Text.prototype.valueOf = function(){
+
     return this._value.value;
+
 };
 
-Text.prototype.toJSON = function(){
-    return this._value.value;
-};
+Text.prototype.toString = function(){
 
-Text.prototype.clone = function(){
-    return new Text(this.valueOf());
+    return this._value.value;
+
 };
 
 module.exports = Text;

@@ -1,5 +1,9 @@
-var node = require('./node'),
-    parser = require('./parser');
+var util = require('./util'),
+    node = require('./node'),
+    parser = require('./parser'),
+    compiler = require('./compiler'),
+    each = util.each,
+    is = util.is;
 
 function attributesToString(attr){
 
@@ -19,15 +23,102 @@ function attributesToString(attr){
 
 var windsock = {
 
+    util: util,
+
     parse: function(source){
 
+        //retain real document node if exists
+
+        var method, parsed, parent;
+
+        if(is(source, 'string')){
+
+            method = parser.parseHTML;
+
+        }else if(source.nodeName){
+
+            if(source.parentNode) parent = source.parentNode;
+            method = parser.parseDOM;
+
+        }else{
+
+            method = parser.parseJSONML;
+
+        }
+
+        method(source, function(e){
+
+            var n;
+
+            switch(e.type){
+
+                case 'text':
+
+                    parsed.append(node.text(e.value));
+
+                break;
+
+                case 'start':
+
+                    n = node.element(e.name, e.attributes);
+                    if(parsed) parsed.append(n);
+                    parsed = n;
+
+                break;
+
+                case 'end':
+
+                    if(e.void){
+
+                        parsed.append(node.element(e.name, e.attributes));
+
+                    }else{
+
+                        if(parsed.parent) parsed = parsed.parent;
+
+                    }
+
+                break;
+
+            }
+
+            n = null;
+
+        });
+
+        if(parent) parsed._parentDocumentNode = parent;
+
+        return parsed;
+
     },
-    compile: function(){},
-    render: function(){},
+
+    compile: function(node){
+
+        var fragment = node.fragment();
+        compiler.compile(fragment);
+        // parser.parseNode(node, function(){
+        //     //build fragment
+        //     //observe and batch
+        // });
+        return fragment;
+
+    },
+
+    render: function(node){
+
+        //optionally clone?
+        return compiler.transclude(node);
+
+    },
+
     jsonml: function(node){
+
         return JSON.stringify(node);
+
     },
+
     html: function(node){
+
         var html = [];
 
         parser.parseJSONML(node._jsonml, function(e){
@@ -38,33 +129,34 @@ var windsock = {
 
                     html.push(e.value);
 
-                    break;
+                break;
 
-                    case 'start':
+                case 'start':
 
-                        html.push('<' + e.name + attributesToString(e.attributes) + '>');
+                    html.push('<' + e.name + attributesToString(e.attributes) + '>');
 
-                        break;
+                break;
 
-                        case 'end':
+                case 'end':
 
-                            if(e.void){
+                    if(e.void){
 
-                                html.push('<' + e.name + attributesToString(e.attributes) + '/>');
+                        html.push('<' + e.name + attributesToString(e.attributes) + '/>');
 
-                            }else{
+                    }else{
 
-                                html.push('</' + e.name + '>');
+                        html.push('</' + e.name + '>');
 
-                            }
+                    }
 
-                            break;
+                break;
 
-                        }
+            }
 
-                    });
+        });
 
-                    return html.join('');
+        return html.join('');
+
     }
 
 };

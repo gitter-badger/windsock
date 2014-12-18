@@ -1,21 +1,27 @@
 var util = require('../util'),
     Node = require('./node'),
+    Text = require('./text'),
     Observer = require('../observer'),
     is = util.is,
+    each = util.each,
+    match = util.match,
     inherit = util.inherit;
 
-function Element(jsonml){
-
-    var childrenIndex = is(jsonml[1], 'object') && !(jsonml[1] instanceof Node) ? 2 : 1;
+function Element(value){
 
     Node.call(this, {
-        name: jsonml[0],
-        attributes: childrenIndex === 2 ? jsonml[1] : {},
-        children: jsonml.slice(childrenIndex)
+        name: value.name,
+        attributes: value.attributes || {},
+        children: value.children || []
     });
 
-    this._jsonml = jsonml;
+    this._jsonml = [];
+
+    this._value.attributes._recursive = false;
+    this._value.children._recursive = false;
+
     //observer mutations to update _jsonml
+    //these are anonymous observers
     Observer.observe(this._value.attributes)
             .observers.add(function(mutation){
 
@@ -31,41 +37,165 @@ function Element(jsonml){
 
             }, this);
 
+    Observer.observe(this._value.children)
+            .observers.add(function(mutation){
+
+            }, this);
+
 }
 
 inherit(Element, Node);
 
+Element.prototype.find = function(query){
+
+    var result = [],
+        find;
+
+    if(!is(query, 'function')){
+
+        if(is(query, 'string')){
+
+            find = function(child){
+
+                return child.name === query;
+
+            };
+
+        }else if(is(query, 'object')){
+
+            find = function(child){
+
+                return match(child.attributes, query);
+
+            };
+
+        }else{
+
+            throw new Error('failed to find, query not supported');
+
+        }
+
+    }else{
+
+        find = query;
+
+    }
+
+    each(this.children, function(child){
+
+        if(find(child)) result.push(child);
+
+        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+
+    });
+
+    return result;
+
+};
+
+Element.prototype.toString = function(){
+
+    //should do?
+    return JSON.stringify(this._jsonml);
+
+};
+
 Object.defineProperties(Element.prototype, {
 
     name:{
+
         get: function(){
+
             return this._value.name;
+
         },
+
         set: function(name){
+
             this._value.name = name;
+
         }
+
     },
+
     attributes:{
+
         get: function(){
+
             return this._value.attributes;
+
         },
+
         set: function(attributes){
+
             this._value.attributes = attributes;
+
         }
+
+    },
+
+    children:{
+
+        get: function(){
+
+            return this._value.children;
+
+        },
+
+        set: function(children){
+
+            this._value.children = children;
+
+        }
+
+    },
+
+    text:{
+
+        get: function(){
+
+            return this.find(function(child){
+
+                return child instanceof Text;
+
+            }).join('');
+
+        },
+
+        set: function(value){
+
+            if(this.text.length){
+
+                var textNodes = this.find(function(child){
+
+                    return child instanceof Text;
+
+                });
+
+                each(textNodes, function(text, i){
+
+                    if(i === 0){
+
+                        text.value = value;
+
+                    }else{
+
+                        text.remove();
+
+                    }
+
+                });
+
+            }else{
+
+                this.append(new Text(value));
+
+            }
+
+        }
+
     }
 
 });
-
-Element.prototype.valueOf = function(){
-    return this._jsonml;
-};
-
-Element.prototype.toJSON = function(){
-    return this._jsonml;
-};
-
-Element.prototype.clone = function(){
-    return new Element(this.valueOf());
-};
 
 module.exports = Element;
