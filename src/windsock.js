@@ -2,7 +2,6 @@ var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
     compiler = require('./compiler'),
-    each = util.each,
     is = util.is;
 
 function attributesToString(attr){
@@ -27,9 +26,9 @@ var windsock = {
 
     parse: function(source){
 
-        //retain real document node if exists
-
-        var method, parsed, parent;
+        var method,
+            parsed,
+            DOMNode;
 
         if(is(source, 'string')){
 
@@ -37,7 +36,13 @@ var windsock = {
 
         }else if(source.nodeName){
 
-            if(source.parentNode) parent = source.parentNode;
+            if(document.contains(source)){
+
+                DOMNode = source; //retain for transcluding
+                source = source.cloneNode(true); //going to be doing some heavy reads...
+
+            }
+
             method = parser.parseDOM;
 
         }else{
@@ -86,7 +91,9 @@ var windsock = {
 
         });
 
-        if(parent) parsed._parentDocumentNode = parent;
+        source = null;
+
+        if(DOMNode) parsed._documentNode = DOMNode;
 
         return parsed;
 
@@ -94,13 +101,9 @@ var windsock = {
 
     compile: function(node){
 
-        var fragment = node.fragment();
-        compiler.compile(fragment);
-        // parser.parseNode(node, function(){
-        //     //build fragment
-        //     //observe and batch
-        // });
-        return fragment;
+        var clone = node.clone();
+        compiler.compile(clone);
+        return clone;
 
     },
 
@@ -118,6 +121,8 @@ var windsock = {
     },
 
     html: function(node){
+
+        if(!node || !node._jsonml.length) return '';
 
         var html = [];
 

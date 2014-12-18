@@ -1,73 +1,22 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
-var paint = require('./util').paint;
-
-function Batch(fn){
-
-    this._done();
-    this.callback = fn;
-
-}
-
-Batch.prototype = {
-
-    add: function(fn){
-
-        this.queue.push(fn);
-
-        if(!this.requested) {
-
-            this.id = paint(this._run, this);
-            this.requested = true;
-
-        }
-
-    },
-
-    cancel: function(){
-
-        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
-        this._done();
-
-    },
-
-    _run: function(){
-
-        this.running = true;
-
-        for(var i = 0; i < this.queue.length; i++){
-
-            this.queue[i].call(this);
-
-        }
-
-        this._done();
-
-    },
-
-    _done: function(){
-
-        this.queue = [];
-        this.requested = false;
-        this.running = false;
-        this.id = null;
-        if(this.callback) this.callback.call(this);
-
-    }
-
-};
-
-module.exports = Batch;
-
-},{"./util":10}],2:[function(require,module,exports){
 var util = require('./util'),
-    Batch = require('./batch');
+    each = util.each;
 
 module.exports = {
-    compile: function(){},
-    transclude: function(){}
+    compile: function(node){
+        //if node has documentNode it will be where we transclude the parent
+        each(node.children, function(){
+
+
+
+        });
+    },
+    transclude: function(){
+
+    }
 };
 
-},{"./batch":1,"./util":10}],3:[function(require,module,exports){
+},{"./util":9}],2:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     Text = require('./text'),
@@ -85,7 +34,9 @@ function Element(value){
         children: value.children || []
     });
 
-    this._jsonml = [];
+    this._jsonml = [this.name];
+    if(!is(this.attributes, 'empty')) this._jsonml.push(this.attributes);
+    if(this.children.length) Array.prototype.push.apply(this._jsonml, this.children);
 
     this._value.attributes._recursive = false;
     this._value.children._recursive = false;
@@ -109,6 +60,12 @@ function Element(value){
 
     Observer.observe(this._value.children)
             .observers.add(function(mutation){
+
+                var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
+
+                Array.prototype[mutation.type].apply(children, mutation.transformed);
+
+                Array.prototype.push.apply(this._jsonml, children);
 
             }, this);
 
@@ -184,7 +141,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.name = name;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -200,7 +159,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.attributes = attributes;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -216,7 +177,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.children = children;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -262,7 +225,9 @@ Object.defineProperties(Element.prototype, {
 
             }
 
-        }
+        },
+
+        enumerable: true
 
     }
 
@@ -270,11 +235,9 @@ Object.defineProperties(Element.prototype, {
 
 module.exports = Element;
 
-},{"../observer":7,"../util":10,"./node":5,"./text":6}],4:[function(require,module,exports){
-var util = require('../util'),
-    Text = require('./text'),
-    Element = require('./element'),
-    is = util.is;
+},{"../observer":6,"../util":9,"./node":4,"./text":5}],3:[function(require,module,exports){
+var Text = require('./text'),
+    Element = require('./element');
 
 //factory for creating nodes
 //normalize params to value objects
@@ -286,7 +249,7 @@ module.exports = {
         return new Text(value);
 
     },
-    
+
     element: function(name, attributes, children){
 
         if(!name) throw new Error('failed to create element, name required');
@@ -305,7 +268,7 @@ module.exports = {
 
 };
 
-},{"../util":10,"./element":3,"./text":6}],5:[function(require,module,exports){
+},{"./element":2,"./text":5}],4:[function(require,module,exports){
 var util = require('../util'),
     Signals = require('../signals'),
     Observer = require('../observer'),
@@ -496,7 +459,7 @@ Object.defineProperties(Node.prototype, {
 
 module.exports = Node;
 
-},{"../observer":7,"../signals":9,"../util":10}],6:[function(require,module,exports){
+},{"../observer":6,"../signals":8,"../util":9}],5:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     inherit = util.inherit;
@@ -547,7 +510,7 @@ Text.prototype.toString = function(){
 
 module.exports = Text;
 
-},{"../util":10,"./node":5}],7:[function(require,module,exports){
+},{"../util":9,"./node":4}],6:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -929,7 +892,7 @@ Observer.unobserve = function(target){
 
 module.exports = Observer;
 
-},{"./signals":9,"./util":10}],8:[function(require,module,exports){
+},{"./signals":8,"./util":9}],7:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend,
     each = util.each,
@@ -1258,7 +1221,7 @@ exports.parseDOM = parseDOM;
 exports.parseHTML = parseHTML;
 exports.parseJSONML = parseJSONML;
 
-},{"./util":10}],9:[function(require,module,exports){
+},{"./util":9}],8:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -1367,7 +1330,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":10}],10:[function(require,module,exports){
+},{"./util":9}],9:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
@@ -1594,12 +1557,11 @@ var util = {
 
 module.exports = util;
 
-},{}],11:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
     compiler = require('./compiler'),
-    each = util.each,
     is = util.is;
 
 function attributesToString(attr){
@@ -1624,9 +1586,9 @@ var windsock = {
 
     parse: function(source){
 
-        //retain real document node if exists
-
-        var method, parsed, parent;
+        var method,
+            parsed,
+            DOMNode;
 
         if(is(source, 'string')){
 
@@ -1634,7 +1596,13 @@ var windsock = {
 
         }else if(source.nodeName){
 
-            if(source.parentNode) parent = source.parentNode;
+            if(document.contains(source)){
+
+                DOMNode = source; //retain for transcluding
+                source = source.cloneNode(true); //going to be doing some heavy reads...
+
+            }
+
             method = parser.parseDOM;
 
         }else{
@@ -1683,7 +1651,9 @@ var windsock = {
 
         });
 
-        if(parent) parsed._parentDocumentNode = parent;
+        source = null;
+
+        if(DOMNode) parsed._documentNode = DOMNode;
 
         return parsed;
 
@@ -1691,13 +1661,9 @@ var windsock = {
 
     compile: function(node){
 
-        var fragment = node.fragment();
-        compiler.compile(fragment);
-        // parser.parseNode(node, function(){
-        //     //build fragment
-        //     //observe and batch
-        // });
-        return fragment;
+        var clone = node.clone();
+        compiler.compile(clone);
+        return clone;
 
     },
 
@@ -1715,6 +1681,8 @@ var windsock = {
     },
 
     html: function(node){
+
+        if(!node || !node._jsonml.length) return '';
 
         var html = [];
 
@@ -1762,5 +1730,5 @@ windsock.node = node;
 
 module.exports = windsock;
 
-},{"./compiler":2,"./node":4,"./parser":8,"./util":10}]},{},[11])(11)
+},{"./compiler":1,"./node":3,"./parser":7,"./util":9}]},{},[10])(10)
 });

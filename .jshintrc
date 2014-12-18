@@ -1,6 +1,8 @@
 {
     "browser": true,
     "globals": {
+        "Node":true,
+        "Element":true,
         "console": true,
         "DocumentFragment": true
     },

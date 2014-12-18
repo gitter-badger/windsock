@@ -15,7 +15,9 @@ function Element(value){
         children: value.children || []
     });
 
-    this._jsonml = [];
+    this._jsonml = [this.name];
+    if(!is(this.attributes, 'empty')) this._jsonml.push(this.attributes);
+    if(this.children.length) Array.prototype.push.apply(this._jsonml, this.children);
 
     this._value.attributes._recursive = false;
     this._value.children._recursive = false;
@@ -39,6 +41,12 @@ function Element(value){
 
     Observer.observe(this._value.children)
             .observers.add(function(mutation){
+
+                var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
+
+                Array.prototype[mutation.type].apply(children, mutation.transformed);
+
+                Array.prototype.push.apply(this._jsonml, children);
 
             }, this);
 
@@ -114,7 +122,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.name = name;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -130,7 +140,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.attributes = attributes;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -146,7 +158,9 @@ Object.defineProperties(Element.prototype, {
 
             this._value.children = children;
 
-        }
+        },
+
+        enumerable: true
 
     },
 
@@ -192,7 +206,9 @@ Object.defineProperties(Element.prototype, {
 
             }
 
-        }
+        },
+
+        enumerable: true
 
     }
 
