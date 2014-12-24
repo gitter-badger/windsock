@@ -10,11 +10,11 @@ function Text(value){
 
     });
 
-    this.observers.add(function(mutation){
+    this._observer.observers.add(function(mutation){
 
         if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
 
-    }, this);
+    }, this); //observe this.value
 
     this._jsonml = this._value.value;
 
@@ -31,6 +31,12 @@ Text.prototype.append = function(value){
 Text.prototype.prepend = function(value){
 
     this._value.value = value + this._value.value;
+
+};
+
+Text.prototype.find = function(query){
+
+    return this._value.indexOf(query);
 
 };
 

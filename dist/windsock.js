@@ -1,133 +1,183 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var util = require('./util'),
+    //batch = require('./batch'),
+    //Observer = require('./observer'),
+    Text = require('./node/Text'),
+    Element = require('./node/element'),
     each = util.each;
 
+function compile(node){
+
+    if(!node._documentNode){
+
+        if(node instanceof Element){
+
+            node._documentNode = document.createElement(node.name);
+
+            if(node.attributes) {
+
+                each(node.attributes, function(val, key){
+
+                    node._documentNode.setAttribute(key, val);
+
+                });
+
+            }
+
+        }else if(node instanceof Text){
+
+            node._documentNode = document.createTextNode(node.value);
+
+        }
+
+    }
+
+    if(node.children){
+
+        each(node.children, function(n){
+
+            node._documentNode.append(compile(n));
+
+        });
+
+    }
+
+    node._compiled = true;
+
+    return node;
+}
+
 module.exports = {
+
     compile: function(node){
-        //if node has documentNode it will be where we transclude the parent
-        each(node.children, function(){
+
+        node.observers.add(function(){
 
 
 
         });
+
+        //if node has _documentNode it will be where we transclude
+        compile(node);
+
+
     },
+
     transclude: function(){
 
     }
 };
 
-},{"./util":9}],2:[function(require,module,exports){
+},{"./node/Text":2,"./node/element":3,"./util":11}],2:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
-    Text = require('./text'),
-    Observer = require('../observer'),
+    inherit = util.inherit;
+
+function Text(value){
+
+    Node.call(this, {
+
+        value: value || ''
+
+    });
+
+    this._observer.observers.add(function(mutation){
+
+        if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
+
+    }, this); //observe this.value
+
+    this._jsonml = this._value.value;
+
+}
+
+inherit(Text, Node);
+
+Text.prototype.append = function(value){
+
+    this._value.value = this._value.value + value;
+
+};
+
+Text.prototype.prepend = function(value){
+
+    this._value.value = value + this._value.value;
+
+};
+
+Text.prototype.find = function(query){
+
+    return this._value.indexOf(query);
+
+};
+
+Text.prototype.valueOf = function(){
+
+    return this._value.value;
+
+};
+
+Text.prototype.toString = function(){
+
+    return this._value.value;
+
+};
+
+module.exports = Text;
+
+},{"../util":11,"./node":6}],3:[function(require,module,exports){
+var util = require('../util'),
+    Fragment = require('./fragment'),
     is = util.is,
-    each = util.each,
-    match = util.match,
     inherit = util.inherit;
 
 function Element(value){
 
-    Node.call(this, {
+    var selfie = this;
+
+    Fragment.call(this, {
+
         name: value.name,
+
         attributes: value.attributes || {},
+
         children: value.children || []
+
     });
 
-    this._jsonml = [this.name];
-    if(!is(this.attributes, 'empty')) this._jsonml.push(this.attributes);
-    if(this.children.length) Array.prototype.push.apply(this._jsonml, this.children);
+    this._jsonml.unshift(this.name);
 
-    this._value.attributes._recursive = false;
-    this._value.children._recursive = false;
+    if(!is(this.attributes, 'empty')) this._jsonml.splice(1, 0, this.attributes);
 
-    //observer mutations to update _jsonml
-    //these are anonymous observers
-    Observer.observe(this._value.attributes)
-            .observers.add(function(mutation){
+    //any change to attributes or children will kick off observers
+    this._observer.observe(this._value.attributes, false, function(mutation){
 
-                if(is(mutation.object, 'empty') && is(this._jsonml[1], 'object')){
+        if(is(mutation.object, 'empty') && is(selfie._jsonml[1], 'object')){
 
-                    this._jsonml.splice(1, 1);
+            selfie._jsonml.splice(1, 1);
 
-                }else if(this._jsonml[1] !== mutation.object){
+        }else if(selfie._jsonml[1] !== mutation.object){
 
-                    this._jsonml.splice(1, 0, mutation.object);
-
-                }
-
-            }, this);
-
-    Observer.observe(this._value.children)
-            .observers.add(function(mutation){
-
-                var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
-
-                Array.prototype[mutation.type].apply(children, mutation.transformed);
-
-                Array.prototype.push.apply(this._jsonml, children);
-
-            }, this);
-
-}
-
-inherit(Element, Node);
-
-Element.prototype.find = function(query){
-
-    var result = [],
-        find;
-
-    if(!is(query, 'function')){
-
-        if(is(query, 'string')){
-
-            find = function(child){
-
-                return child.name === query;
-
-            };
-
-        }else if(is(query, 'object')){
-
-            find = function(child){
-
-                return match(child.attributes, query);
-
-            };
-
-        }else{
-
-            throw new Error('failed to find, query not supported');
+            selfie._jsonml.splice(1, 0, mutation.object);
 
         }
 
-    }else{
+    }); //returns attribute signal
 
-        find = query;
+    this._observer.observe(this._value.children, false, function(mutation){
 
-    }
+        var children = is(selfie.attributes, 'empty') ? selfie._jsonml.splice(1) : selfie._jsonml.splice(2);
 
-    each(this.children, function(child){
+        Array.prototype[mutation.type].apply(children, mutation.transformed);
 
-        if(find(child)) result.push(child);
+        //selfie is slow, need iterative push
+        Array.prototype.push.apply(selfie._jsonml, children);
 
-        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+    }); //returns children signal
 
-    });
+}
 
-    return result;
-
-};
-
-Element.prototype.toString = function(){
-
-    //should do?
-    return JSON.stringify(this._jsonml);
-
-};
-
-Object.defineProperties(Element.prototype, {
+inherit(Element, Fragment, {
 
     name:{
 
@@ -163,7 +213,64 @@ Object.defineProperties(Element.prototype, {
 
         enumerable: true
 
-    },
+    }
+
+});
+
+module.exports = Element;
+
+},{"../util":11,"./fragment":4}],4:[function(require,module,exports){
+var util = require('../util'),
+    Node = require('./node'),
+    Text = require('./text'),
+    each = util.each,
+    extend = util.extend,
+    inherit = util.inherit;
+
+function Fragment(value){
+
+    Node.call(this, extend({
+
+        children: []
+
+    }, value));
+
+    // Object.defineProperties(this._value.children, {
+    //
+    //     observe: {
+    //         value: function(fn){
+    //             if(!this._observer){
+    //                 this._observer = Observer.observe(this, false, fn);
+    //             }else{
+    //                 this._observer
+    //             }
+    //         }
+    //     }
+    //
+    // });
+
+    //move this and observers for jsonml off to an extension
+    if(this._value.children.length){
+
+        //faster than concat and Array.p.push.apply
+        for(var i = 0, l = this._value.children.length; i < l; i++){
+
+            this._jsonml.push(this._value.children[i]);
+
+        }
+
+    }
+
+    // Observer.observe(this._value.children, false)
+    //         .observers.add(function(mutation){
+    //
+    //             Array.prototype[mutation.type].apply(this._jsonml, mutation.transformed);
+    //
+    //         }, this);
+
+}
+
+inherit(Fragment, Node, {
 
     children:{
 
@@ -233,11 +340,12 @@ Object.defineProperties(Element.prototype, {
 
 });
 
-module.exports = Element;
+module.exports = Fragment;
 
-},{"../observer":6,"../util":9,"./node":4,"./text":5}],3:[function(require,module,exports){
+},{"../util":11,"./node":6,"./text":7}],5:[function(require,module,exports){
 var Text = require('./text'),
-    Element = require('./element');
+    Element = require('./element'),
+    Fragment = require('./fragment');
 
 //factory for creating nodes
 //normalize params to value objects
@@ -264,15 +372,28 @@ module.exports = {
 
         });
 
+    },
+
+    fragment: function(){
+
+        return new Fragment({
+
+            children: Array.prototype.slice.call(arguments)
+
+        });
+
     }
 
 };
 
-},{"./element":2,"./text":5}],4:[function(require,module,exports){
+},{"./element":3,"./fragment":4,"./text":7}],6:[function(require,module,exports){
 var util = require('../util'),
     Signals = require('../signals'),
     Observer = require('../observer'),
-    extend = util.extend;
+    is = util.is,
+    extend = util.extend,
+    match = util.match,
+    each = util.each;
 
 function Node(value){
 
@@ -286,7 +407,9 @@ function Node(value){
 
     }, value);
 
-    this._observer = Observer.observe(this._value);
+    this._observer = Observer.observe(this._value, false);
+
+    this._observer.observe(this._value.data, false);
 
     this._jsonml = [];
 
@@ -346,8 +469,10 @@ Node.prototype = {
     before: function(node){
 
         if(this.parent){
+
             this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
             node.parent = this.parent;
+
         }
 
     },
@@ -355,15 +480,90 @@ Node.prototype = {
     after: function(node){
 
         if(this.parent){
+
             this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
             node.parent = this.parent;
+
         }
+
+    },
+
+    find: function(query){
+
+        var result = [],
+            find;
+
+        if(!is(query, 'function')){
+
+            if(is(query, 'string')){
+
+                find = function(child){
+
+                    return child.name === query;
+
+                };
+
+            }else if(is(query, 'object')){
+
+                find = function(child){
+
+                    return match(child.attributes, query);
+
+                };
+
+            }else{
+
+                throw new Error('failed to find, query not supported');
+
+            }
+
+        }else{
+
+            find = query;
+
+        }
+
+        each(this.children, function(child){
+
+            if(find(child)) result.push(child);
+
+            if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+
+        });
+
+        return result;
 
     },
 
     clone: function(){
 
-        return new this.constructor(this.valueOf());
+        var clone = new this.constructor(this.valueOf());
+
+        if(clone.children){
+
+            each(clone.children, function(child, i){
+
+                clone.children.splice(i, 1, child.clone());
+
+            });
+
+        }
+
+        return clone;
+
+    },
+
+    observe: function(fn){
+
+        //returns an observer that observers changes to this._value
+        //could be used to observe similar nodes
+        return Observer.observe(this._value, false, fn);
+
+    },
+
+    transform: function(fn){
+
+        return Observer.transform(this._value, false, fn);
 
     },
 
@@ -376,6 +576,13 @@ Node.prototype = {
     toJSON: function(){
 
         return this._jsonml;
+
+    },
+
+    toString: function(){
+
+        //fragments aren't valid jsonml
+        return JSON.stringify(this._jsonml);
 
     }
 
@@ -401,6 +608,24 @@ Object.defineProperties(Node.prototype, {
 
     },
 
+    data: {
+
+        get: function(){
+
+            return this._value.data;
+
+        },
+
+        set: function(data){
+
+            this._value.data = data;
+
+        },
+
+        enumerable: true
+
+    },
+
     parent: {
 
         get: function(){
@@ -412,30 +637,6 @@ Object.defineProperties(Node.prototype, {
         set: function(parent){
 
             this._value.parent = parent;
-
-        },
-
-        enumerable: true
-
-    },
-
-    observers: {
-
-        get: function(){
-
-            return this._observer.observers;
-
-        },
-
-        enumerable: true
-
-    },
-
-    transforms: {
-
-        get: function(){
-
-            return this._observer.transforms;
 
         },
 
@@ -459,58 +660,9 @@ Object.defineProperties(Node.prototype, {
 
 module.exports = Node;
 
-},{"../observer":6,"../signals":8,"../util":9}],5:[function(require,module,exports){
-var util = require('../util'),
-    Node = require('./node'),
-    inherit = util.inherit;
-
-function Text(value){
-
-    Node.call(this, {
-
-        value: value || ''
-
-    });
-
-    this.observers.add(function(mutation){
-
-        if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
-
-    }, this);
-
-    this._jsonml = this._value.value;
-
-}
-
-inherit(Text, Node);
-
-Text.prototype.append = function(value){
-
-    this._value.value = this._value.value + value;
-
-};
-
-Text.prototype.prepend = function(value){
-
-    this._value.value = value + this._value.value;
-
-};
-
-Text.prototype.valueOf = function(){
-
-    return this._value.value;
-
-};
-
-Text.prototype.toString = function(){
-
-    return this._value.value;
-
-};
-
-module.exports = Text;
-
-},{"../util":9,"./node":4}],6:[function(require,module,exports){
+},{"../observer":8,"../signals":10,"../util":11}],7:[function(require,module,exports){
+module.exports=require(2)
+},{"../util":11,"./node":6,"/Users/bensawyer/projects/sandbox/windsock/src/node/Text.js":2}],8:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -623,9 +775,10 @@ function observableArray(descriptor){
 
                 var mutationRecord = mutation({
                         object: this,
-                        type: method
+                        type: method,
+                        transformed: Array.prototype.slice.call(arguments)
                     }),
-                    args = Array.prototype.slice.call(arguments);
+                    args = mutationRecord.transformed;
 
                 switch(method){
 
@@ -669,11 +822,11 @@ function observableArray(descriptor){
 
                 }
 
-                mutationRecord.transformed = args;
+                //mutationRecord.transformed = args;
 
                 mutate(mutationRecord, function(){
 
-                    if(this._recursive) each(this.transformed, observable);
+                    if(this.object._recursive) each(this.transformed, observable);
 
                     Array.prototype[this.type].apply(this.object, this.transformed);
 
@@ -758,7 +911,11 @@ function observable(target, recursive){
         },
 
         _recursive: {
-            value: !is(recursive, 'boolean') ? true : recursive
+
+            value: !is(recursive, 'boolean') ? true : recursive,
+            configurable: true,
+            writable: true
+
         }
 
     };
@@ -800,9 +957,13 @@ function Observer(){
 
 Observer.prototype = {
 
-    observe: function(target, callback){
+    //it's possible to:
+    //var o = new Observer(), o.observers.add(fn), o.observe(targetA), o.observe(targetB)
+    //fn will be dispatched for both targets
+    //passing a callback to observe or transform will limit it to that object
+    observe: function(target, recursive, callback){
 
-        observable(target);
+        observable(target, recursive);
 
         if(!this.observing(target)){
 
@@ -819,9 +980,9 @@ Observer.prototype = {
 
     },
 
-    transform: function(target, callback){
+    transform: function(target, recursive, callback){
 
-        this.observe(target);
+        this.observe(target, recursive);
 
         if(callback){
 
@@ -875,24 +1036,43 @@ Observer.prototype = {
 
 };
 
-Observer.observe = function(target, callback){
+Observer.observe = function(target, recursive, callback){
+
     var observer = new Observer();
-    observer.observe(target, callback);
+
+    observer.observe(target, recursive, callback);
+
     return observer;
+
+};
+
+Observer.transform = function(target, recursive, callback){
+
+    var observer = new Observer();
+
+    observer.transform(target, recursive, callback);
+
+    return observer;
+
 };
 
 Observer.unobserve = function(target){
+
     if(target._observers){
+
         each(target._observers, function(observer){
+
             observer.unobserve(target);
+
         });
+
     }
-    return target;
+
 };
 
 module.exports = Observer;
 
-},{"./signals":8,"./util":9}],7:[function(require,module,exports){
+},{"./signals":10,"./util":11}],9:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend,
     each = util.each,
@@ -930,6 +1110,20 @@ function isVoid(name){
     }
 
     return false;
+
+}
+
+function isWhitespace(str){
+
+    //tab, line feed, carriage return, and space
+    return !(/[^\t\n\r ]/.test(str));
+
+}
+
+function clean(source){
+
+    //removes tabs, line feeds, carriage returns, and any more than 2 or greater spaces
+    return source.toString().replace(/[\t\n\r]|\s{2,}/g,'');
 
 }
 
@@ -1015,13 +1209,15 @@ function parseDOM(source, callback){
 
     if(source.nodeType === 3){
 
+        if(isWhitespace(source.nodeValue) || !clean(source.nodeValue).length) return;
+
         return callback(eventValueObject({
 
             type: 'text',
 
             textNode: source,
 
-            value: source.nodeValue
+            value: clean(source.nodeValue)
 
         }));
 
@@ -1138,7 +1334,8 @@ function parseHTML(source, callback){
         event;
 
     //nodejs buffer and remove all line breaks aka dirty
-    source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
+    //source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
+    source = clean(source);
 
     while(source){
 
@@ -1221,7 +1418,7 @@ exports.parseDOM = parseDOM;
 exports.parseHTML = parseHTML;
 exports.parseJSONML = parseJSONML;
 
-},{"./util":9}],8:[function(require,module,exports){
+},{"./util":11}],10:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -1330,7 +1527,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":9}],9:[function(require,module,exports){
+},{"./util":11}],11:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
@@ -1557,7 +1754,7 @@ var util = {
 
 module.exports = util;
 
-},{}],10:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
@@ -1585,6 +1782,10 @@ var windsock = {
     util: util,
 
     parse: function(source){
+
+        //either always return a fragment
+        //only allow a single parent element source
+        //try to figure out if fragment child length is one return that
 
         var method,
             parsed,
@@ -1619,14 +1820,26 @@ var windsock = {
 
                 case 'text':
 
-                    parsed.append(node.text(e.value));
+                    n = node.text(e.value);
+                    //if parsed is undefined create fragment and append to that - nix
+                    if(!parsed){
+
+                        parsed = n; //will break if more
+
+                    }else{
+
+                        parsed.append(n);
+
+                    }
 
                 break;
 
                 case 'start':
 
                     n = node.element(e.name, e.attributes);
+
                     if(parsed) parsed.append(n);
+                    
                     parsed = n;
 
                 break;
@@ -1640,6 +1853,7 @@ var windsock = {
                     }else{
 
                         if(parsed.parent) parsed = parsed.parent;
+                        //scenario where text is last event so we don't have a parent
 
                     }
 
@@ -1730,5 +1944,5 @@ windsock.node = node;
 
 module.exports = windsock;
 
-},{"./compiler":1,"./node":3,"./parser":7,"./util":9}]},{},[10])(10)
+},{"./compiler":1,"./node":5,"./parser":9,"./util":11}]},{},[12])(12)
 });

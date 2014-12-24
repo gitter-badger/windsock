@@ -110,9 +110,10 @@ function observableArray(descriptor){
 
                 var mutationRecord = mutation({
                         object: this,
-                        type: method
+                        type: method,
+                        transformed: Array.prototype.slice.call(arguments)
                     }),
-                    args = Array.prototype.slice.call(arguments);
+                    args = mutationRecord.transformed;
 
                 switch(method){
 
@@ -156,11 +157,11 @@ function observableArray(descriptor){
 
                 }
 
-                mutationRecord.transformed = args;
+                //mutationRecord.transformed = args;
 
                 mutate(mutationRecord, function(){
 
-                    if(this._recursive) each(this.transformed, observable);
+                    if(this.object._recursive) each(this.transformed, observable);
 
                     Array.prototype[this.type].apply(this.object, this.transformed);
 
@@ -245,7 +246,11 @@ function observable(target, recursive){
         },
 
         _recursive: {
-            value: !is(recursive, 'boolean') ? true : recursive
+
+            value: !is(recursive, 'boolean') ? true : recursive,
+            configurable: true,
+            writable: true
+
         }
 
     };
@@ -287,9 +292,13 @@ function Observer(){
 
 Observer.prototype = {
 
-    observe: function(target, callback){
+    //it's possible to:
+    //var o = new Observer(), o.observers.add(fn), o.observe(targetA), o.observe(targetB)
+    //fn will be dispatched for both targets
+    //passing a callback to observe or transform will limit it to that object
+    observe: function(target, recursive, callback){
 
-        observable(target);
+        observable(target, recursive);
 
         if(!this.observing(target)){
 
@@ -306,9 +315,9 @@ Observer.prototype = {
 
     },
 
-    transform: function(target, callback){
+    transform: function(target, recursive, callback){
 
-        this.observe(target);
+        this.observe(target, recursive);
 
         if(callback){
 
@@ -362,19 +371,38 @@ Observer.prototype = {
 
 };
 
-Observer.observe = function(target, callback){
+Observer.observe = function(target, recursive, callback){
+
     var observer = new Observer();
-    observer.observe(target, callback);
+
+    observer.observe(target, recursive, callback);
+
     return observer;
+
+};
+
+Observer.transform = function(target, recursive, callback){
+
+    var observer = new Observer();
+
+    observer.transform(target, recursive, callback);
+
+    return observer;
+
 };
 
 Observer.unobserve = function(target){
+
     if(target._observers){
+
         each(target._observers, function(observer){
+
             observer.unobserve(target);
+
         });
+
     }
-    return target;
+
 };
 
 module.exports = Observer;

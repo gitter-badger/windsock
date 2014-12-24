@@ -1,5 +1,6 @@
 var Text = require('./text'),
-    Element = require('./element');
+    Element = require('./element'),
+    Fragment = require('./fragment');
 
 //factory for creating nodes
 //normalize params to value objects
@@ -23,6 +24,16 @@ module.exports = {
             attributes: attributes,
 
             children: children
+
+        });
+
+    },
+
+    fragment: function(){
+
+        return new Fragment({
+
+            children: Array.prototype.slice.call(arguments)
 
         });
 

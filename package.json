@@ -17,15 +17,22 @@
     "jscs": "^1.8.1",
     "mocha": "^2.0.1",
     "browserify": "^7.0.2",
-    "uglify-js": "^2.4.16"
+    "uglify-js": "^2.4.16",
+    "watch": "latest"
   },
   "scripts": {
     "jshint": "jshint src/",
     "jscs": "jscs src/",
-    "mocha": "mocha",
-    "test": "npm run jshint && npm run jscs && npm run mocha",
+    "mocha": "mocha test/",
+    "pretest": "npm run jshint && npm run jscs",
+    "test": "npm run mocha",
+    "clean": "rm -rf dist/*",
     "browserify": "browserify src/windsock.js --no-detect-globals --standalone windsock > dist/windsock.js",
     "uglifyjs": "uglifyjs dist/windsock.js -o dist/windsock.min.js",
-    "dist": "npm run browserify && npm run uglifyjs"
+    "predist": "npm run clean",
+    "dist": "npm run browserify && npm run uglifyjs",
+    "prebuild": "npm run test",
+    "build": "npm run dist",
+    "build:watch": "watch 'npm run build' src/"
   }
 }

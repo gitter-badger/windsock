@@ -1,114 +1,55 @@
 var util = require('../util'),
-    Node = require('./node'),
-    Text = require('./text'),
-    Observer = require('../observer'),
+    Fragment = require('./fragment'),
     is = util.is,
-    each = util.each,
-    match = util.match,
     inherit = util.inherit;
 
 function Element(value){
 
-    Node.call(this, {
+    var selfie = this;
+
+    Fragment.call(this, {
+
         name: value.name,
+
         attributes: value.attributes || {},
+
         children: value.children || []
+
     });
 
-    this._jsonml = [this.name];
-    if(!is(this.attributes, 'empty')) this._jsonml.push(this.attributes);
-    if(this.children.length) Array.prototype.push.apply(this._jsonml, this.children);
+    this._jsonml.unshift(this.name);
 
-    this._value.attributes._recursive = false;
-    this._value.children._recursive = false;
+    if(!is(this.attributes, 'empty')) this._jsonml.splice(1, 0, this.attributes);
 
-    //observer mutations to update _jsonml
-    //these are anonymous observers
-    Observer.observe(this._value.attributes)
-            .observers.add(function(mutation){
+    //any change to attributes or children will kick off observers
+    this._observer.observe(this._value.attributes, false, function(mutation){
 
-                if(is(mutation.object, 'empty') && is(this._jsonml[1], 'object')){
+        if(is(mutation.object, 'empty') && is(selfie._jsonml[1], 'object')){
 
-                    this._jsonml.splice(1, 1);
+            selfie._jsonml.splice(1, 1);
 
-                }else if(this._jsonml[1] !== mutation.object){
+        }else if(selfie._jsonml[1] !== mutation.object){
 
-                    this._jsonml.splice(1, 0, mutation.object);
-
-                }
-
-            }, this);
-
-    Observer.observe(this._value.children)
-            .observers.add(function(mutation){
-
-                var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
-
-                Array.prototype[mutation.type].apply(children, mutation.transformed);
-
-                Array.prototype.push.apply(this._jsonml, children);
-
-            }, this);
-
-}
-
-inherit(Element, Node);
-
-Element.prototype.find = function(query){
-
-    var result = [],
-        find;
-
-    if(!is(query, 'function')){
-
-        if(is(query, 'string')){
-
-            find = function(child){
-
-                return child.name === query;
-
-            };
-
-        }else if(is(query, 'object')){
-
-            find = function(child){
-
-                return match(child.attributes, query);
-
-            };
-
-        }else{
-
-            throw new Error('failed to find, query not supported');
+            selfie._jsonml.splice(1, 0, mutation.object);
 
         }
 
-    }else{
+    }); //returns attribute signal
 
-        find = query;
+    this._observer.observe(this._value.children, false, function(mutation){
 
-    }
+        var children = is(selfie.attributes, 'empty') ? selfie._jsonml.splice(1) : selfie._jsonml.splice(2);
 
-    each(this.children, function(child){
+        Array.prototype[mutation.type].apply(children, mutation.transformed);
 
-        if(find(child)) result.push(child);
+        //selfie is slow, need iterative push
+        Array.prototype.push.apply(selfie._jsonml, children);
 
-        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+    }); //returns children signal
 
-    });
+}
 
-    return result;
-
-};
-
-Element.prototype.toString = function(){
-
-    //should do?
-    return JSON.stringify(this._jsonml);
-
-};
-
-Object.defineProperties(Element.prototype, {
+inherit(Element, Fragment, {
 
     name:{
 
@@ -139,72 +80,6 @@ Object.defineProperties(Element.prototype, {
         set: function(attributes){
 
             this._value.attributes = attributes;
-
-        },
-
-        enumerable: true
-
-    },
-
-    children:{
-
-        get: function(){
-
-            return this._value.children;
-
-        },
-
-        set: function(children){
-
-            this._value.children = children;
-
-        },
-
-        enumerable: true
-
-    },
-
-    text:{
-
-        get: function(){
-
-            return this.find(function(child){
-
-                return child instanceof Text;
-
-            }).join('');
-
-        },
-
-        set: function(value){
-
-            if(this.text.length){
-
-                var textNodes = this.find(function(child){
-
-                    return child instanceof Text;
-
-                });
-
-                each(textNodes, function(text, i){
-
-                    if(i === 0){
-
-                        text.value = value;
-
-                    }else{
-
-                        text.remove();
-
-                    }
-
-                });
-
-            }else{
-
-                this.append(new Text(value));
-
-            }
 
         },
 

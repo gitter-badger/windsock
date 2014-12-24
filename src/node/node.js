@@ -1,7 +1,10 @@
 var util = require('../util'),
     Signals = require('../signals'),
     Observer = require('../observer'),
-    extend = util.extend;
+    is = util.is,
+    extend = util.extend,
+    match = util.match,
+    each = util.each;
 
 function Node(value){
 
@@ -15,7 +18,9 @@ function Node(value){
 
     }, value);
 
-    this._observer = Observer.observe(this._value);
+    this._observer = Observer.observe(this._value, false);
+
+    this._observer.observe(this._value.data, false);
 
     this._jsonml = [];
 
@@ -75,8 +80,10 @@ Node.prototype = {
     before: function(node){
 
         if(this.parent){
+
             this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
             node.parent = this.parent;
+
         }
 
     },
@@ -84,15 +91,90 @@ Node.prototype = {
     after: function(node){
 
         if(this.parent){
+
             this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
             node.parent = this.parent;
+
         }
+
+    },
+
+    find: function(query){
+
+        var result = [],
+            find;
+
+        if(!is(query, 'function')){
+
+            if(is(query, 'string')){
+
+                find = function(child){
+
+                    return child.name === query;
+
+                };
+
+            }else if(is(query, 'object')){
+
+                find = function(child){
+
+                    return match(child.attributes, query);
+
+                };
+
+            }else{
+
+                throw new Error('failed to find, query not supported');
+
+            }
+
+        }else{
+
+            find = query;
+
+        }
+
+        each(this.children, function(child){
+
+            if(find(child)) result.push(child);
+
+            if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+
+        });
+
+        return result;
 
     },
 
     clone: function(){
 
-        return new this.constructor(this.valueOf());
+        var clone = new this.constructor(this.valueOf());
+
+        if(clone.children){
+
+            each(clone.children, function(child, i){
+
+                clone.children.splice(i, 1, child.clone());
+
+            });
+
+        }
+
+        return clone;
+
+    },
+
+    observe: function(fn){
+
+        //returns an observer that observers changes to this._value
+        //could be used to observe similar nodes
+        return Observer.observe(this._value, false, fn);
+
+    },
+
+    transform: function(fn){
+
+        return Observer.transform(this._value, false, fn);
 
     },
 
@@ -105,6 +187,13 @@ Node.prototype = {
     toJSON: function(){
 
         return this._jsonml;
+
+    },
+
+    toString: function(){
+
+        //fragments aren't valid jsonml
+        return JSON.stringify(this._jsonml);
 
     }
 
@@ -130,6 +219,24 @@ Object.defineProperties(Node.prototype, {
 
     },
 
+    data: {
+
+        get: function(){
+
+            return this._value.data;
+
+        },
+
+        set: function(data){
+
+            this._value.data = data;
+
+        },
+
+        enumerable: true
+
+    },
+
     parent: {
 
         get: function(){
@@ -141,30 +248,6 @@ Object.defineProperties(Node.prototype, {
         set: function(parent){
 
             this._value.parent = parent;
-
-        },
-
-        enumerable: true
-
-    },
-
-    observers: {
-
-        get: function(){
-
-            return this._observer.observers;
-
-        },
-
-        enumerable: true
-
-    },
-
-    transforms: {
-
-        get: function(){
-
-            return this._observer.transforms;
 
         },
 

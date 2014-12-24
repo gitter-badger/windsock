@@ -38,6 +38,20 @@ function isVoid(name){
 
 }
 
+function isWhitespace(str){
+
+    //tab, line feed, carriage return, and space
+    return !(/[^\t\n\r ]/.test(str));
+
+}
+
+function clean(source){
+
+    //removes tabs, line feeds, carriage returns, and any more than 2 or greater spaces
+    return source.toString().replace(/[\t\n\r]|\s{2,}/g,'');
+
+}
+
 function eventValueObject(options){
 
     return extend({
@@ -120,13 +134,15 @@ function parseDOM(source, callback){
 
     if(source.nodeType === 3){
 
+        if(isWhitespace(source.nodeValue) || !clean(source.nodeValue).length) return;
+
         return callback(eventValueObject({
 
             type: 'text',
 
             textNode: source,
 
-            value: source.nodeValue
+            value: clean(source.nodeValue)
 
         }));
 
@@ -243,7 +259,8 @@ function parseHTML(source, callback){
         event;
 
     //nodejs buffer and remove all line breaks aka dirty
-    source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
+    //source = source.toString().replace(/\n/g,'').replace(/\r/g,'');
+    source = clean(source);
 
     while(source){
 

@@ -26,6 +26,10 @@ var windsock = {
 
     parse: function(source){
 
+        //either always return a fragment
+        //only allow a single parent element source
+        //try to figure out if fragment child length is one return that
+
         var method,
             parsed,
             DOMNode;
@@ -59,14 +63,26 @@ var windsock = {
 
                 case 'text':
 
-                    parsed.append(node.text(e.value));
+                    n = node.text(e.value);
+                    //if parsed is undefined create fragment and append to that - nix
+                    if(!parsed){
+
+                        parsed = n; //will break if more
+
+                    }else{
+
+                        parsed.append(n);
+
+                    }
 
                 break;
 
                 case 'start':
 
                     n = node.element(e.name, e.attributes);
+
                     if(parsed) parsed.append(n);
+                    
                     parsed = n;
 
                 break;
@@ -80,6 +96,7 @@ var windsock = {
                     }else{
 
                         if(parsed.parent) parsed = parsed.parent;
+                        //scenario where text is last event so we don't have a parent
 
                     }
 
