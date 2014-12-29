@@ -1,10 +1,96 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
+var paint = require('./util').paint;
+
+function Batch(fn){
+
+    this._done();
+    this.callback = fn;
+
+}
+
+Batch.prototype = {
+
+    add: function(fn){
+
+        this.queue.push(fn);
+
+        if(!this.requested) {
+
+            this.id = paint(this._run, this);
+            this.requested = true;
+
+        }
+
+    },
+
+    cancel: function(){
+
+        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
+        this._done();
+
+    },
+
+    _run: function(){
+
+        this.running = true;
+
+        for(var i = 0; i < this.queue.length; i++){
+
+            this.queue[i].call(this);
+
+        }
+
+        this._done();
+
+    },
+
+    _done: function(){
+
+        this.queue = [];
+        this.requested = false;
+        this.running = false;
+        this.id = null;
+        if(this.callback) this.callback.call(this);
+
+    }
+
+};
+
+module.exports = Batch;
+
+},{"./util":12}],2:[function(require,module,exports){
 var util = require('./util'),
-    //batch = require('./batch'),
+    Batch = require('./batch'),
     //Observer = require('./observer'),
     Text = require('./node/Text'),
     Element = require('./node/element'),
-    each = util.each;
+    each = util.each,
+    is = util.is;
+
+function addEvent(){
+
+    var node = this;
+
+    each(Array.prototype.slice.call(arguments), function(event){
+
+        node._documentNode.addEventListener(event, function compiledNodeDispatch(e){
+
+            node._dispatch(event, e);
+
+        });
+
+    });
+
+
+}
+
+function removeEvent(event){
+
+    var node = this;
+
+    node._documentNode.removeEventListener(event);
+
+}
 
 function compile(node){
 
@@ -22,9 +108,61 @@ function compile(node){
 
         }
 
+        node.observe('attributes', function(mutation){
+
+            switch(mutation.type){
+                case 'add':
+                case 'update':
+                    this._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
+                break;
+                case 'delete':
+                    this._documentNode.removeAttribute(mutation.name);
+                break;
+            }
+
+        });
+
+        node.observe('children', function(mutation){
+
+            switch(mutation.type){
+
+                case 'push':
+
+                    each.call(this, mutation.transformed, function(n){
+
+                        this._documentNode.appendChild(n._documentNode);
+
+                    });
+
+                break;
+
+                case 'slice':
+
+                    
+
+                break;
+            }
+
+        });
+
     }else if(node instanceof Text){
 
         node._documentNode = document.createTextNode(node.value);
+
+        //scope this callback to node as context not node.value
+        node.observe(function(mutation){
+
+            if(mutation.name === 'value'){
+
+                node._batch.add(function(){
+
+                    node._documentNode.textContent = mutation.object.value;
+
+                });
+
+            }
+
+        });
 
     }
 
@@ -38,9 +176,29 @@ function compile(node){
 
     }
 
+    if(!is(node.events, 'empty')) addEvent.apply(node, Object.keys(node.events));
+
+    node.observe('events', function(mutation){
+
+        switch(mutation.type){
+
+            case 'add':
+                addEvent.call(this, mutation.name);
+            break;
+            case 'delete':
+                removeEvent.call(this, mutation.name);
+            break;
+
+        }
+
+    });
+
+    node._batch = new Batch();
+
     node._compiled = true;
 
     return node;
+
 }
 
 module.exports = {
@@ -66,7 +224,7 @@ module.exports = {
     }
 };
 
-},{"./node/Text":2,"./node/element":3,"./util":11}],2:[function(require,module,exports){
+},{"./batch":1,"./node/Text":3,"./node/element":4,"./util":12}],3:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     inherit = util.inherit;
@@ -79,11 +237,11 @@ function Text(value){
 
     });
 
-    this._observer.observers.add(function(mutation){
+    this.observe(function(mutation){
 
         if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
 
-    }, this); //observe this.value
+    });
 
     this._jsonml = this._value.value;
 
@@ -123,15 +281,13 @@ Text.prototype.toString = function(){
 
 module.exports = Text;
 
-},{"../util":11,"./node":6}],3:[function(require,module,exports){
+},{"../util":12,"./node":7}],4:[function(require,module,exports){
 var util = require('../util'),
     Fragment = require('./fragment'),
     is = util.is,
     inherit = util.inherit;
 
 function Element(value){
-
-    var selfie = this;
 
     Fragment.call(this, {
 
@@ -148,28 +304,28 @@ function Element(value){
     if(!is(this.attributes, 'empty')) this._jsonml.splice(1, 0, this.attributes);
 
     //any change to attributes or children will kick off observers
-    this._observer.observe(this._value.attributes, false, function(mutation){
+    this.observe('attributes', function(mutation){
 
-        if(is(mutation.object, 'empty') && is(selfie._jsonml[1], 'object')){
+        if(is(mutation.object, 'empty') && is(this._jsonml[1], 'object')){
 
-            selfie._jsonml.splice(1, 1);
+            this._jsonml.splice(1, 1);
 
-        }else if(selfie._jsonml[1] !== mutation.object){
+        }else if(this._jsonml[1] !== mutation.object){
 
-            selfie._jsonml.splice(1, 0, mutation.object);
+            this._jsonml.splice(1, 0, mutation.object);
 
         }
 
     }); //returns attribute signal
 
-    this._observer.observe(this._value.children, false, function(mutation){
+    this.observe('children', function(mutation){
 
-        var children = is(selfie.attributes, 'empty') ? selfie._jsonml.splice(1) : selfie._jsonml.splice(2);
+        var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
 
         Array.prototype[mutation.type].apply(children, mutation.transformed);
 
-        //selfie is slow, need iterative push
-        Array.prototype.push.apply(selfie._jsonml, children);
+        //this is slow, need iterative push
+        Array.prototype.push.apply(this._jsonml, children);
 
     }); //returns children signal
 
@@ -217,7 +373,7 @@ inherit(Element, Fragment, {
 
 module.exports = Element;
 
-},{"../util":11,"./fragment":4}],4:[function(require,module,exports){
+},{"../util":12,"./fragment":5}],5:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     Text = require('./text'),
@@ -340,7 +496,7 @@ inherit(Fragment, Node, {
 
 module.exports = Fragment;
 
-},{"../util":11,"./node":6,"./text":7}],5:[function(require,module,exports){
+},{"../util":12,"./node":7,"./text":8}],6:[function(require,module,exports){
 var Text = require('./text'),
     Element = require('./element'),
     Fragment = require('./fragment');
@@ -384,7 +540,7 @@ module.exports = {
 
 };
 
-},{"./element":3,"./fragment":4,"./text":7}],6:[function(require,module,exports){
+},{"./element":4,"./fragment":5,"./text":8}],7:[function(require,module,exports){
 var util = require('../util'),
     Signals = require('../signals'),
     Observer = require('../observer'),
@@ -397,6 +553,14 @@ function Node(value){
 
     this._events = {};
 
+    this._observers = {
+
+        value: new Observer(),
+
+        events: new Observer()
+
+    };
+
     this._value = extend({
 
         value: null,
@@ -405,13 +569,19 @@ function Node(value){
 
     }, value);
 
-    this._observer = Observer.observe(this._value, false);
+    this._observers.value.observe(this._value);
 
-    this._observer.observe(this._value.data, false);
+    this._observers.events.observe(this._events);
+
+    this._observer('data');
 
     this._jsonml = [];
 
     this._compiled = false;
+
+    this._batch = null;
+
+    this._transclude = null;
 
     this._documentNode = null;
 
@@ -421,14 +591,30 @@ Node.prototype = {
 
     _event: function(name){
 
-        if(!this._events[name]) this._events[name] = new Signals();
+        if(!this._events[name]) this._events.add(name, new Signals());
         return this._events[name];
 
     },
 
-    _dispatch: function(name){
+    _observer: function(prop){
 
-        this._event(name).dispatch.apply(undefined, Array.prototype.slice.call(arguments));
+        if(is(this._value[prop], 'undefined') && is(this._observers[prop], 'undefined')) return;
+
+        //assume the key is an observable object on this._value
+        if(!this._observers[prop]) {
+
+            this._observers[prop] = new Observer();
+            this._observers[prop].observe(this._value[prop], true);
+
+        }
+
+        return this._observers[prop];
+
+    },
+
+    _dispatch: function(name, e){
+
+        this._event(name).dispatch(e);
 
     },
 
@@ -440,7 +626,28 @@ Node.prototype = {
 
     off: function(name, signal){
 
-        if(this._events[name]) this._events.remove(signal);
+        if(this._events[name]) {
+
+            if(signal) return this._events[name].remove(signal);
+            this._events.delete(name);
+
+        }
+
+    },
+
+    observe: function(prop, fn){
+
+        if(is(prop, 'function')) return this._observers.value.observers.queue(prop, this);
+
+        return this._observer(prop).observers.queue(fn, this);
+
+    },
+
+    transform: function(prop, fn){
+
+        if(is(prop, 'function')) return this._observers.value.transforms.queue(prop, this);
+
+        return this._observer(prop).transforms.queue(fn, this);
 
     },
 
@@ -452,15 +659,16 @@ Node.prototype = {
 
     append: function(node){
 
-        this.children.push(node);
         node.parent = this;
+        this.children.push(node);
+
 
     },
 
     prepend: function(node){
 
-        this.children.unshift(node);
         node.parent = this;
+        this.children.unshift(node);
 
     },
 
@@ -468,8 +676,8 @@ Node.prototype = {
 
         if(this.parent){
 
-            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
             node.parent = this.parent;
+            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
 
         }
 
@@ -479,8 +687,8 @@ Node.prototype = {
 
         if(this.parent){
 
-            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
             node.parent = this.parent;
+            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
 
         }
 
@@ -533,9 +741,23 @@ Node.prototype = {
 
     },
 
-    clone: function(){
+    clone: function(events){
 
         var clone = new this.constructor(this.valueOf());
+
+        if(events){
+
+            each(this.events, function(signals, event){
+
+                signals.each(function(signal){
+
+                    clone.on(event, signal.binding);
+
+                });
+
+            });
+
+        }
 
         if(clone.children){
 
@@ -548,20 +770,6 @@ Node.prototype = {
         }
 
         return clone;
-
-    },
-
-    observe: function(fn){
-
-        //returns an observer that observers changes to this._value
-        //could be used to observe similar nodes
-        return Observer.observe(this._value, false, fn);
-
-    },
-
-    transform: function(fn){
-
-        return Observer.transform(this._value, false, fn);
 
     },
 
@@ -658,9 +866,9 @@ Object.defineProperties(Node.prototype, {
 
 module.exports = Node;
 
-},{"../observer":8,"../signals":10,"../util":11}],7:[function(require,module,exports){
-module.exports=require(2)
-},{"../util":11,"./node":6,"/Users/bensawyer/projects/sandbox/windsock/src/node/Text.js":2}],8:[function(require,module,exports){
+},{"../observer":9,"../signals":11,"../util":12}],8:[function(require,module,exports){
+module.exports=require(3)
+},{"../util":12,"./node":7,"/Users/bensawyer/projects/sandbox/windsock/src/node/Text.js":3}],9:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -1073,7 +1281,7 @@ Observer.unobserve = function(target){
 
 module.exports = Observer;
 
-},{"./signals":10,"./util":11}],9:[function(require,module,exports){
+},{"./signals":11,"./util":12}],10:[function(require,module,exports){
 var util = require('./util'),
     extend = util.extend,
     each = util.each,
@@ -1419,7 +1627,7 @@ exports.parseDOM = parseDOM;
 exports.parseHTML = parseHTML;
 exports.parseJSONML = parseJSONML;
 
-},{"./util":11}],10:[function(require,module,exports){
+},{"./util":12}],11:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -1544,7 +1752,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":11}],11:[function(require,module,exports){
+},{"./util":12}],12:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
 
@@ -1771,7 +1979,7 @@ var util = {
 
 module.exports = util;
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var util = require('./util'),
     node = require('./node'),
     parser = require('./parser'),
@@ -1893,7 +2101,7 @@ var windsock = {
     compile: function(node){
 
         var transclude = node._documentNode,
-            clone = node.clone();
+            clone = node.clone(true);
         compiler.compile(clone);
         clone._transclude = transclude;
         return clone;
@@ -1902,6 +2110,10 @@ var windsock = {
 
     render: function(node){
 
+        //because node at this point is atleast one clone deep off the original
+        //subsequent clones of the original will still have a reference to the original dom element
+        //even if it has been removed by transclude
+        //this is a memory bug
         return compiler.transclude(node);
 
     },
@@ -1962,5 +2174,5 @@ windsock.node = node;
 
 module.exports = windsock;
 
-},{"./compiler":1,"./node":5,"./parser":9,"./util":11}]},{},[12])(12)
+},{"./compiler":2,"./node":6,"./parser":10,"./util":12}]},{},[13])(13)
 });

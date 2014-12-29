@@ -18,7 +18,9 @@
 <script charset="utf-8">
     var ul = windsock.parse(document.getElementById('grab'));
     ul.attributes.add('class', 'yuss');
+    ul.on('click', function(){console.log(arguments)});
     var ulDOM = windsock.compile(ul);
     windsock.render(ulDOM);
+
 </script>
 </html>

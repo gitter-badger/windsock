@@ -10,11 +10,11 @@ function Text(value){
 
     });
 
-    this._observer.observers.add(function(mutation){
+    this.observe(function(mutation){
 
         if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
 
-    }, this); //observe this.value
+    });
 
     this._jsonml = this._value.value;
 

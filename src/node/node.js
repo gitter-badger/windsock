@@ -10,6 +10,14 @@ function Node(value){
 
     this._events = {};
 
+    this._observers = {
+
+        value: new Observer(),
+
+        events: new Observer()
+
+    };
+
     this._value = extend({
 
         value: null,
@@ -18,13 +26,19 @@ function Node(value){
 
     }, value);
 
-    this._observer = Observer.observe(this._value, false);
+    this._observers.value.observe(this._value);
 
-    this._observer.observe(this._value.data, false);
+    this._observers.events.observe(this._events);
+
+    this._observer('data');
 
     this._jsonml = [];
 
     this._compiled = false;
+
+    this._batch = null;
+
+    this._transclude = null;
 
     this._documentNode = null;
 
@@ -34,14 +48,30 @@ Node.prototype = {
 
     _event: function(name){
 
-        if(!this._events[name]) this._events[name] = new Signals();
+        if(!this._events[name]) this._events.add(name, new Signals());
         return this._events[name];
 
     },
 
-    _dispatch: function(name){
+    _observer: function(prop){
 
-        this._event(name).dispatch.apply(undefined, Array.prototype.slice.call(arguments));
+        if(is(this._value[prop], 'undefined') && is(this._observers[prop], 'undefined')) return;
+
+        //assume the key is an observable object on this._value
+        if(!this._observers[prop]) {
+
+            this._observers[prop] = new Observer();
+            this._observers[prop].observe(this._value[prop], true);
+
+        }
+
+        return this._observers[prop];
+
+    },
+
+    _dispatch: function(name, e){
+
+        this._event(name).dispatch(e);
 
     },
 
@@ -53,7 +83,28 @@ Node.prototype = {
 
     off: function(name, signal){
 
-        if(this._events[name]) this._events.remove(signal);
+        if(this._events[name]) {
+
+            if(signal) return this._events[name].remove(signal);
+            this._events.delete(name);
+
+        }
+
+    },
+
+    observe: function(prop, fn){
+
+        if(is(prop, 'function')) return this._observers.value.observers.queue(prop, this);
+
+        return this._observer(prop).observers.queue(fn, this);
+
+    },
+
+    transform: function(prop, fn){
+
+        if(is(prop, 'function')) return this._observers.value.transforms.queue(prop, this);
+
+        return this._observer(prop).transforms.queue(fn, this);
 
     },
 
@@ -65,15 +116,16 @@ Node.prototype = {
 
     append: function(node){
 
-        this.children.push(node);
         node.parent = this;
+        this.children.push(node);
+
 
     },
 
     prepend: function(node){
 
-        this.children.unshift(node);
         node.parent = this;
+        this.children.unshift(node);
 
     },
 
@@ -81,8 +133,8 @@ Node.prototype = {
 
         if(this.parent){
 
-            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
             node.parent = this.parent;
+            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
 
         }
 
@@ -92,8 +144,8 @@ Node.prototype = {
 
         if(this.parent){
 
-            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
             node.parent = this.parent;
+            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
 
         }
 
@@ -146,9 +198,23 @@ Node.prototype = {
 
     },
 
-    clone: function(){
+    clone: function(events){
 
         var clone = new this.constructor(this.valueOf());
+
+        if(events){
+
+            each(this.events, function(signals, event){
+
+                signals.each(function(signal){
+
+                    clone.on(event, signal.binding);
+
+                });
+
+            });
+
+        }
 
         if(clone.children){
 
@@ -161,20 +227,6 @@ Node.prototype = {
         }
 
         return clone;
-
-    },
-
-    observe: function(fn){
-
-        //returns an observer that observers changes to this._value
-        //could be used to observe similar nodes
-        return Observer.observe(this._value, false, fn);
-
-    },
-
-    transform: function(fn){
-
-        return Observer.transform(this._value, false, fn);
 
     },
 

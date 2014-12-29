@@ -119,7 +119,7 @@ var windsock = {
     compile: function(node){
 
         var transclude = node._documentNode,
-            clone = node.clone();
+            clone = node.clone(true);
         compiler.compile(clone);
         clone._transclude = transclude;
         return clone;
@@ -128,6 +128,10 @@ var windsock = {
 
     render: function(node){
 
+        //because node at this point is atleast one clone deep off the original
+        //subsequent clones of the original will still have a reference to the original dom element
+        //even if it has been removed by transclude
+        //this is a memory bug
         return compiler.transclude(node);
 
     },

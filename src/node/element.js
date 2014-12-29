@@ -5,8 +5,6 @@ var util = require('../util'),
 
 function Element(value){
 
-    var selfie = this;
-
     Fragment.call(this, {
 
         name: value.name,
@@ -22,28 +20,28 @@ function Element(value){
     if(!is(this.attributes, 'empty')) this._jsonml.splice(1, 0, this.attributes);
 
     //any change to attributes or children will kick off observers
-    this._observer.observe(this._value.attributes, false, function(mutation){
+    this.observe('attributes', function(mutation){
 
-        if(is(mutation.object, 'empty') && is(selfie._jsonml[1], 'object')){
+        if(is(mutation.object, 'empty') && is(this._jsonml[1], 'object')){
 
-            selfie._jsonml.splice(1, 1);
+            this._jsonml.splice(1, 1);
 
-        }else if(selfie._jsonml[1] !== mutation.object){
+        }else if(this._jsonml[1] !== mutation.object){
 
-            selfie._jsonml.splice(1, 0, mutation.object);
+            this._jsonml.splice(1, 0, mutation.object);
 
         }
 
     }); //returns attribute signal
 
-    this._observer.observe(this._value.children, false, function(mutation){
+    this.observe('children', function(mutation){
 
-        var children = is(selfie.attributes, 'empty') ? selfie._jsonml.splice(1) : selfie._jsonml.splice(2);
+        var children = is(this.attributes, 'empty') ? this._jsonml.splice(1) : this._jsonml.splice(2);
 
         Array.prototype[mutation.type].apply(children, mutation.transformed);
 
-        //selfie is slow, need iterative push
-        Array.prototype.push.apply(selfie._jsonml, children);
+        //this is slow, need iterative push
+        Array.prototype.push.apply(this._jsonml, children);
 
     }); //returns children signal
 
