@@ -8,7 +8,7 @@
 <body>
     <ul id="grab">
         <li class="bye">
-            hi oh crap
+            hello
             </li>
         <li>
             text <img src="cats.jpg" alt="meow" />
@@ -17,6 +17,8 @@
 </body>
 <script charset="utf-8">
     var ul = windsock.parse(document.getElementById('grab'));
-
+    ul.attributes.add('class', 'yuss');
+    var ulDOM = windsock.compile(ul);
+    windsock.render(ulDOM);
 </script>
 </html>

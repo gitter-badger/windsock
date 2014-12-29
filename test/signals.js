@@ -20,6 +20,21 @@ describe('Signals', function () {
 
     });
 
+    describe('count', function(){
+
+        var signals = new Signals();
+
+        it('should return the length of signals', function(){
+
+            var signal = signals.queue(function(){});
+            assert.strictEqual(signals._signals.length, 1);
+            assert.strictEqual(signals.count, 1);
+
+        });
+
+
+    });
+
     describe('add(fn)', function(){
 
         var signals = new Signals();
@@ -79,6 +94,8 @@ describe('Signals', function () {
         });
 
     });
+
+    describe('each(fn)', function(){});
 
     describe('remove(signal)', function(){
 

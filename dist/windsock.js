@@ -8,27 +8,23 @@ var util = require('./util'),
 
 function compile(node){
 
-    if(!node._documentNode){
+    if(node instanceof Element){
 
-        if(node instanceof Element){
+        node._documentNode = document.createElement(node.name);
 
-            node._documentNode = document.createElement(node.name);
+        if(node.attributes) {
 
-            if(node.attributes) {
+            each(node.attributes, function(val, key){
 
-                each(node.attributes, function(val, key){
+                node._documentNode.setAttribute(key, val);
 
-                    node._documentNode.setAttribute(key, val);
-
-                });
-
-            }
-
-        }else if(node instanceof Text){
-
-            node._documentNode = document.createTextNode(node.value);
+            });
 
         }
+
+    }else if(node instanceof Text){
+
+        node._documentNode = document.createTextNode(node.value);
 
     }
 
@@ -36,7 +32,7 @@ function compile(node){
 
         each(node.children, function(n){
 
-            node._documentNode.append(compile(n));
+            node._documentNode.appendChild(compile(n)._documentNode);
 
         });
 
@@ -51,19 +47,21 @@ module.exports = {
 
     compile: function(node){
 
-        node.observers.add(function(){
-
-
-
-        });
-
-        //if node has _documentNode it will be where we transclude
-        compile(node);
-
+        return compile(node);
 
     },
 
-    transclude: function(){
+    transclude: function(node){
+
+        //one off action, nullifies transclude
+
+        var parent = node._transclude.parentNode;
+
+        parent.insertBefore(node._documentNode, node._transclude);
+
+        parent.removeChild(node._transclude);
+
+        node._transclude = null;
 
     }
 };
@@ -911,8 +909,9 @@ function observable(target, recursive){
         },
 
         _recursive: {
-
-            value: !is(recursive, 'boolean') ? true : recursive,
+            //not fully implemented. should do: when updating an existing observed object
+            //with a new object and the observers are recursive, make that object oversable and clone the observer list
+            value: !is(recursive, 'boolean') ? false : recursive,
             configurable: true,
             writable: true
 
@@ -962,6 +961,8 @@ Observer.prototype = {
     //fn will be dispatched for both targets
     //passing a callback to observe or transform will limit it to that object
     observe: function(target, recursive, callback){
+
+        if(!target) return;
 
         observable(target, recursive);
 
@@ -1492,6 +1493,12 @@ Signals.prototype = {
 
     },
 
+    index: function(signal){
+
+        return this._signals.indexOf(signal);
+
+    },
+
     remove: function(signal){
 
         if(!signal){
@@ -1503,7 +1510,7 @@ Signals.prototype = {
 
         //can add the same function with different context or priority
         //so pass signal ref returned by add
-        var i = this._signals.indexOf(signal);
+        var i = this.index(signal);
 
         if(i !== -1){
 
@@ -1522,6 +1529,16 @@ Signals.prototype = {
     }
 
 };
+
+Object.defineProperty(Signals.prototype, 'count', {
+
+    get: function(){
+
+        return this._signals.length;
+
+    }
+
+});
 
 Signals.signal = Signal;
 
@@ -1839,7 +1856,7 @@ var windsock = {
                     n = node.element(e.name, e.attributes);
 
                     if(parsed) parsed.append(n);
-                    
+
                     parsed = n;
 
                 break;
@@ -1875,15 +1892,16 @@ var windsock = {
 
     compile: function(node){
 
-        var clone = node.clone();
+        var transclude = node._documentNode,
+            clone = node.clone();
         compiler.compile(clone);
+        clone._transclude = transclude;
         return clone;
 
     },
 
     render: function(node){
 
-        //optionally clone?
         return compiler.transclude(node);
 
     },

@@ -71,6 +71,12 @@ Signals.prototype = {
 
     },
 
+    index: function(signal){
+
+        return this._signals.indexOf(signal);
+
+    },
+
     remove: function(signal){
 
         if(!signal){
@@ -82,7 +88,7 @@ Signals.prototype = {
 
         //can add the same function with different context or priority
         //so pass signal ref returned by add
-        var i = this._signals.indexOf(signal);
+        var i = this.index(signal);
 
         if(i !== -1){
 
@@ -101,6 +107,16 @@ Signals.prototype = {
     }
 
 };
+
+Object.defineProperty(Signals.prototype, 'count', {
+
+    get: function(){
+
+        return this._signals.length;
+
+    }
+
+});
 
 Signals.signal = Signal;
 

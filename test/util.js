@@ -45,7 +45,7 @@ describe('util', function () {
 
         });
 
-        it('should iterate over only an objects enumerable and non inherited properties', function(){
+        it('should iterate over an objects enumerable and non inherited properties', function(){
 
             var object = Object.create(Object.prototype);
             object.propA = 'A';

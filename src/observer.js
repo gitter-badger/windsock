@@ -246,8 +246,9 @@ function observable(target, recursive){
         },
 
         _recursive: {
-
-            value: !is(recursive, 'boolean') ? true : recursive,
+            //not fully implemented. should do: when updating an existing observed object
+            //with a new object and the observers are recursive, make that object oversable and clone the observer list
+            value: !is(recursive, 'boolean') ? false : recursive,
             configurable: true,
             writable: true
 
@@ -297,6 +298,8 @@ Observer.prototype = {
     //fn will be dispatched for both targets
     //passing a callback to observe or transform will limit it to that object
     observe: function(target, recursive, callback){
+
+        if(!target) return;
 
         observable(target, recursive);
 

@@ -7,27 +7,23 @@ var util = require('./util'),
 
 function compile(node){
 
-    if(!node._documentNode){
+    if(node instanceof Element){
 
-        if(node instanceof Element){
+        node._documentNode = document.createElement(node.name);
 
-            node._documentNode = document.createElement(node.name);
+        if(node.attributes) {
 
-            if(node.attributes) {
+            each(node.attributes, function(val, key){
 
-                each(node.attributes, function(val, key){
+                node._documentNode.setAttribute(key, val);
 
-                    node._documentNode.setAttribute(key, val);
-
-                });
-
-            }
-
-        }else if(node instanceof Text){
-
-            node._documentNode = document.createTextNode(node.value);
+            });
 
         }
+
+    }else if(node instanceof Text){
+
+        node._documentNode = document.createTextNode(node.value);
 
     }
 
@@ -35,7 +31,7 @@ function compile(node){
 
         each(node.children, function(n){
 
-            node._documentNode.append(compile(n));
+            node._documentNode.appendChild(compile(n)._documentNode);
 
         });
 
@@ -50,19 +46,21 @@ module.exports = {
 
     compile: function(node){
 
-        node.observers.add(function(){
-
-
-
-        });
-
-        //if node has _documentNode it will be where we transclude
-        compile(node);
-
+        return compile(node);
 
     },
 
-    transclude: function(){
+    transclude: function(node){
+
+        //one off action, nullifies transclude
+
+        var parent = node._transclude.parentNode;
+
+        parent.insertBefore(node._documentNode, node._transclude);
+
+        parent.removeChild(node._transclude);
+
+        node._transclude = null;
 
     }
 };

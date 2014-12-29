@@ -82,7 +82,7 @@ var windsock = {
                     n = node.element(e.name, e.attributes);
 
                     if(parsed) parsed.append(n);
-                    
+
                     parsed = n;
 
                 break;
@@ -118,15 +118,16 @@ var windsock = {
 
     compile: function(node){
 
-        var clone = node.clone();
+        var transclude = node._documentNode,
+            clone = node.clone();
         compiler.compile(clone);
+        clone._transclude = transclude;
         return clone;
 
     },
 
     render: function(node){
 
-        //optionally clone?
         return compiler.transclude(node);
 
     },
