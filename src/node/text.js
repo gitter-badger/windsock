@@ -4,45 +4,57 @@ var util = require('../util'),
 
 function Text(value){
 
-    Node.call(this, {
-
-        value: value || ''
-
-    });
-
-    this.observe(function(mutation){
-
-        if(mutation.name === 'value') this._jsonml = mutation.object[mutation.name];
-
-    });
-
-    this._jsonml = this._value.value;
+    Node.call(this, value);
+    this._parent = null;
 
 }
 
-inherit(Text, Node);
+Text.value = {
 
-Text.prototype.append = function(value){
-
-    this._value.value = this._value.value + value;
+    value: ''
 
 };
 
-Text.prototype.prepend = function(value){
+inherit(Text, Node, {
 
-    this._value.value = value + this._value.value;
+    value: {
 
-};
+        get: function(){
 
-Text.prototype.find = function(query){
+            return this._value.value;
 
-    return this._value.indexOf(query);
+        },
 
-};
+        set: function(value){
 
-Text.prototype.valueOf = function(){
+            this._value.value = value;
 
-    return this._value.value;
+        }
+
+    },
+
+    parent: {
+
+        get: function(){
+
+            return this._parent;
+
+        },
+
+        set: function(parent){
+
+            //remove from previous parent first
+            this._parent = parent;
+
+        }
+
+    }
+
+});
+
+Text.prototype.remove = function(){
+
+    if(this.parent) return this.parent.children.splice(this.parent.children.indexOf(this), 1);
 
 };
 

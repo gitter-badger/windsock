@@ -1,71 +1,49 @@
 var util = require('../util'),
     Signals = require('../signals'),
-    Observer = require('../observer'),
-    is = util.is,
     extend = util.extend,
-    match = util.match,
+    clone = util.clone,
     each = util.each;
 
 function Node(value){
 
+    this._value = extend(Object.create(this.constructor.value), value);
+    this._documentNode = null;
+    this._transclude = null;
+    this._compiled = false;
     this._events = {};
-
-    this._observers = {
-
-        value: new Observer(),
-
-        events: new Observer()
-
-    };
-
-    this._value = extend({
-
-        value: null,
-        parent: null,
-        data: {}
-
-    }, value);
-
-    this._observers.value.observe(this._value);
-
-    this._observers.events.observe(this._events);
-
-    this._observer('data');
-
     this._jsonml = [];
 
-    this._compiled = false;
-
-    this._batch = null;
-
-    this._transclude = null;
-
-    this._documentNode = null;
-
 }
+
+Node.value = {};
 
 Node.prototype = {
 
     _event: function(name){
 
-        if(!this._events[name]) this._events.add(name, new Signals());
-        return this._events[name];
+        var signals;
 
-    },
+        if(!this._events[name]) {
 
-    _observer: function(prop){
+            signals = new Signals();
 
-        if(is(this._value[prop], 'undefined') && is(this._observers[prop], 'undefined')) return;
+            if(this._compiled){
 
-        //assume the key is an observable object on this._value
-        if(!this._observers[prop]) {
+                this._events.add(name, signals);
 
-            this._observers[prop] = new Observer();
-            this._observers[prop].observe(this._value[prop], true);
+            }else{
+
+                this._events[name] = signals;
+
+            }
+
+        }else{
+
+            signals = this._events[name];
 
         }
 
-        return this._observers[prop];
+        return signals;
 
     },
 
@@ -85,148 +63,69 @@ Node.prototype = {
 
         if(this._events[name]) {
 
-            if(signal) return this._events[name].remove(signal);
-            this._events.delete(name);
+            if(signal) {
 
-        }
-
-    },
-
-    observe: function(prop, fn){
-
-        if(is(prop, 'function')) return this._observers.value.observers.queue(prop, this);
-
-        return this._observer(prop).observers.queue(fn, this);
-
-    },
-
-    transform: function(prop, fn){
-
-        if(is(prop, 'function')) return this._observers.value.transforms.queue(prop, this);
-
-        return this._observer(prop).transforms.queue(fn, this);
-
-    },
-
-    remove: function(){
-
-        if(this.parent) this.parent.children.splice(this.parent.children.indexOf(this), 1);
-
-    },
-
-    append: function(node){
-
-        node.parent = this;
-        this.children.push(node);
-
-
-    },
-
-    prepend: function(node){
-
-        node.parent = this;
-        this.children.unshift(node);
-
-    },
-
-    before: function(node){
-
-        if(this.parent){
-
-            node.parent = this.parent;
-            this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
-
-        }
-
-    },
-
-    after: function(node){
-
-        if(this.parent){
-
-            node.parent = this.parent;
-            this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
-
-        }
-
-    },
-
-    find: function(query){
-
-        var result = [],
-            find;
-
-        if(!is(query, 'function')){
-
-            if(is(query, 'string')){
-
-                find = function(child){
-
-                    return child.name === query;
-
-                };
-
-            }else if(is(query, 'object')){
-
-                find = function(child){
-
-                    return match(child.attributes, query);
-
-                };
+                this._events[name].remove(signal);
 
             }else{
 
-                throw new Error('failed to find, query not supported');
+                this._events[name].remove();
+
+            }
+
+            if(!this._events[name].count){
+
+                if(this._compiled){
+
+                    this._events.delete(name);
+
+                }else{
+
+                    delete this._events[name];
+
+                }
 
             }
 
         }else{
 
-            find = query;
+            //remove ALL THE EVENTS
 
         }
-
-        each(this.children, function(child){
-
-            if(find(child)) result.push(child);
-
-            if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
-
-        });
-
-        return result;
 
     },
 
-    clone: function(events){
+    clone: function(deep){
 
-        var clone = new this.constructor(this.valueOf());
+        var cloned = new this.constructor(clone(this._value));
 
-        if(events){
+        if(deep && this.children){
 
-            each(this.events, function(signals, event){
+            each(this.children, function(child){
 
-                signals.each(function(signal){
-
-                    clone.on(event, signal.binding);
-
-                });
+                cloned.append(child.clone(true));
 
             });
 
         }
 
-        if(clone.children){
+        each(this._events, function(signals, event){
 
-            each(clone.children, function(child, i){
+            signals.each(function(signal){
 
-                clone.children.splice(i, 1, child.clone());
+                cloned.on(event, signal.binding);
 
             });
 
-        }
+        });
 
-        return clone;
+        return cloned;
+
+    },
+
+    render: function(){
+
+        return this._documentNode;
 
     },
 
@@ -244,81 +143,10 @@ Node.prototype = {
 
     toString: function(){
 
-        //fragments aren't valid jsonml
         return JSON.stringify(this._jsonml);
 
     }
 
 };
-
-Object.defineProperties(Node.prototype, {
-
-    value: {
-
-        get: function(){
-
-            return this._value.value;
-
-        },
-
-        set: function(value){
-
-            this._value.value = value;
-
-        },
-
-        enumerable: true
-
-    },
-
-    data: {
-
-        get: function(){
-
-            return this._value.data;
-
-        },
-
-        set: function(data){
-
-            this._value.data = data;
-
-        },
-
-        enumerable: true
-
-    },
-
-    parent: {
-
-        get: function(){
-
-            return this._value.parent;
-
-        },
-
-        set: function(parent){
-
-            this._value.parent = parent;
-
-        },
-
-        enumerable: true
-
-    },
-
-    events:{
-
-        get:function(){
-
-            return this._events;
-
-        },
-
-        enumerable: true
-
-    }
-
-});
 
 module.exports = Node;

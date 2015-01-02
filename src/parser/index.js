@@ -1,4 +1,4 @@
-var util = require('./util'),
+var util = require('../util'),
     extend = util.extend,
     each = util.each,
     is = util.is;

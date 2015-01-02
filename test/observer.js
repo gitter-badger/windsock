@@ -20,6 +20,47 @@ describe('Observer', function () {
 
     });
 
+    describe('observe(target, true)', function(){
+
+        var observer = new Observer(),
+            targetObject = {
+                deeply:{
+                    nested: 'yes'
+                }
+            },
+            count = 0;
+
+        it('should recursively observe objects', function(){
+
+            observer.observe(targetObject, true);
+            assert.strictEqual(targetObject._recursive, true);
+            assert.strictEqual(targetObject.deeply._recursive, true);
+
+        });
+
+        it('should add each nested object to observer', function(){
+
+            assert.strictEqual(observer._observed.length, 2);
+            assert.strictEqual(targetObject._observers[0], observer);
+            assert.strictEqual(targetObject.deeply._observers[0], observer);
+
+        });
+
+        it('should call observer signal for both objects', function(){
+
+            observer.observers.add(function(){
+                count++;
+            });
+
+            targetObject.deeply.add('another', 'value');
+            targetObject.add('another', 'value');
+
+            assert.strictEqual(count, 2);
+
+        });
+
+    });
+
     describe('observe(target, recursive, callback)', function(){
 
         var observer = new Observer(),

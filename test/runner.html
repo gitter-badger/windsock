@@ -6,21 +6,29 @@
     <script src="../dist/windsock.js"></script>
 </head>
 <body>
-    <ul id="grab">
-        <li class="bye">
-            hello
-            </li>
-        <li>
-            text <img src="cats.jpg" alt="meow" />
-        </li>
-    </ul>
+
 </body>
 <script charset="utf-8">
-    var ul = windsock.parse(document.getElementById('grab'));
-    ul.attributes.add('class', 'yuss');
-    ul.on('click', function(){console.log(arguments)});
-    var ulDOM = windsock.compile(ul);
-    windsock.render(ulDOM);
+
+    var todo = windsock.parse('<ul><li>buy milk</li></ul>');
+    var li = todo.find('li')[0].clone();
+    li.text = 'call mom';
+    todo.append(li);
+
+    var compiled = windsock.compile(todo);
+    compiled.find('li').forEach(function(li){
+        li.on('click', function(){
+            if(!this.attributes.class){
+                this.attributes.add('class', 'done');
+            }else if(this.attributes.class === 'done'){
+                this.attributes.class = 'to-do';
+            }else{
+                this.attributes.class = 'done';
+            }
+        })
+    });
+
+    document.body.appendChild(compiled.render());
 
 </script>
 </html>

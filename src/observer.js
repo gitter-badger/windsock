@@ -34,7 +34,7 @@ function mutate(mutationRecord, m){
 
     dispatch(mutationRecord, 'transforms');
 
-    m.call(mutationRecord);
+    m(mutationRecord);
 
     dispatch(mutationRecord, 'observers');
 
@@ -54,6 +54,56 @@ function mutation(obj){
 
 }
 
+function arrayMutation(m){
+
+    if(m.object._recursive){
+
+        each(m.transformed, function(val){
+
+            observable(val, true);
+
+            observeEach(m.object._observers, val, true);
+
+        });
+
+    }
+
+    //if anything is removed need to clean up _observers
+
+    Array.prototype[m.type].apply(m.object, m.transformed);
+
+}
+
+function objectAddMutation(m){
+
+    if(m.object._recursive){
+
+        observable(m.transformed, true);
+
+        observeEach(m.object._observers, m.transformed, true);
+
+    }
+
+    define(m.object, m.name, defineAccessors({}, m.name, m.transformed));
+
+}
+
+function objectDeleteMutation(m){
+
+    if(m.object[m.name]._observers) {
+
+        each(m.object[m.name]._observers, function(observer){
+
+            observer.unobserve(m.object[m.name]);
+
+        });
+
+    }
+
+    delete m.object[m.name];
+
+}
+
 function defineAccessors(descriptor, prop, value){
 
     return (descriptor[prop] = {
@@ -62,6 +112,7 @@ function defineAccessors(descriptor, prop, value){
 
         set: function(newValue){
 
+            //create the mutation method in this closure to retain value param ref :)
             mutate(mutation({
 
                 name: prop,
@@ -70,31 +121,27 @@ function defineAccessors(descriptor, prop, value){
                 oldValue: value,
                 transformed: newValue
 
-            }), function(){
+            }), function objectSetMutation(m){
 
-                if(this.object._recursive) observable(this.transformed);
+                if(m.object._recursive){
 
-                value = this.transformed;
+                    observable(m.transformed, true);
+
+                    observeEach(m.object._observers, m.transformed, true);
+
+                }
+
+                value = m.transformed;
 
             });
+
+            //if old value was an object clean up observers
 
         },
 
         enumerable: true,
 
         configurable: true
-
-    });
-
-}
-
-function defineConfigurableProperties(descriptor, target){
-
-    each(Object.getOwnPropertyNames(target), function(prop){
-
-        if(descriptor._recursive.value) observable(target[prop]);
-
-        if(Object.getOwnPropertyDescriptor(target, prop).configurable) defineAccessors(descriptor, prop, target[prop]);
 
     });
 
@@ -159,13 +206,7 @@ function observableArray(descriptor){
 
                 //mutationRecord.transformed = args;
 
-                mutate(mutationRecord, function(){
-
-                    if(this.object._recursive) each(this.transformed, observable);
-
-                    Array.prototype[this.type].apply(this.object, this.transformed);
-
-                });
+                mutate(mutationRecord, arrayMutation);
 
                 mutationRecord = null;
 
@@ -194,13 +235,7 @@ function observableObject(descriptor){
                     type: 'add',
                     transformed: value
 
-                }), function(){
-
-                    if(this.object._recursive) observable(this.transformed);
-
-                    define(this.object, this.name, defineAccessors({}, this.name, this.transformed));
-
-                });
+                }), objectAddMutation);
 
             }
 
@@ -219,13 +254,7 @@ function observableObject(descriptor){
                     type: 'delete',
                     oldValue: this[prop]
 
-                }), function(){
-
-                    if(this.object[this.name]._observers) each(this.object[this.name]._observers, function(observer){observer.unobserve();});
-
-                    delete this.object[this.name];
-
-                });
+                }), objectDeleteMutation);
 
             }
 
@@ -237,38 +266,70 @@ function observableObject(descriptor){
 
 function observable(target, recursive){
 
-    if(!target || !is(target._observers, 'undefined') || !(is(target, 'array') || is(target, 'object'))) return target;
+    var props, descriptor;
 
-    var descriptor = {
+    if(is(target, 'array') || is(target, 'object')){
 
-        _observers: {
-            value: []
-        },
+        props = configurableProperties(target);
 
-        _recursive: {
-            //not fully implemented. should do: when updating an existing observed object
-            //with a new object and the observers are recursive, make that object oversable and clone the observer list
-            value: !is(recursive, 'boolean') ? false : recursive,
-            configurable: true,
-            writable: true
+        if(is(target._observers, 'undefined')){
+
+            descriptor = {
+
+                _observers: {
+
+                    value: []
+
+                },
+
+                _recursive: {
+
+                    value: false,
+
+                    configurable: true
+
+                }
+
+            };
+
+            if(is(target, 'array') || !is(target.length, 'undefined')){
+
+                observableArray(descriptor);
+
+            }else{
+
+                observableObject(descriptor);
+
+                each(props, function(prop){
+
+                    defineAccessors(descriptor, prop, target[prop]);
+
+                });
+
+            }
+
+            defines(target, descriptor);
 
         }
 
-    };
+        //target was either observable or is now observable
+        if(target._recursive === false && recursive){
 
-    if(is(target, 'array') || !is(target.length, 'undefined')){
+            Object.defineProperty(target, '_recursive', {
 
-        observableArray(descriptor);
+                value: true
 
-    }else{
+            });
 
-        observableObject(descriptor);
+            each(props, function(prop){
+
+                observable(target[prop], true);
+
+            });
+
+        }
 
     }
-
-    defineConfigurableProperties(descriptor, target);
-
-    defines(target, descriptor);
 
     return target;
 
@@ -284,31 +345,73 @@ function limit(callback, query){
 
 }
 
+function configurableProperties(target){
+
+    var props = [];
+
+    each(Object.getOwnPropertyNames(target), function(prop){
+
+        if(Object.getOwnPropertyDescriptor(target, prop).configurable) props.push(prop);
+
+    });
+
+    return props;
+
+}
+
+function observe(observer, target, recursive){
+
+    if(!target || is(target._observers, 'undefined')) return;
+
+    if(!observer.observing(target)){
+
+        target._observers.push(observer);
+        observer._observed.push(target);
+
+    }
+
+    if(recursive){
+
+        each(configurableProperties(target), function(prop){
+
+            observe(observer, target[prop], true);
+
+        });
+
+    }
+
+
+}
+
+function observeEach(observers, target, recursive){
+
+    if(!target || is(target._observers, 'undefined')) return;
+
+    each(observers, function observeEachIterator(observer){
+
+        observe(observer, target, recursive);
+
+    });
+
+}
+
 function Observer(){
 
     this.observers = new Signals();
     this.transforms = new Signals();
     this._observed = [];
+
 }
 
 Observer.prototype = {
 
-    //it's possible to:
-    //var o = new Observer(), o.observers.add(fn), o.observe(targetA), o.observe(targetB)
-    //fn will be dispatched for both targets
-    //passing a callback to observe or transform will limit it to that object
     observe: function(target, recursive, callback){
 
         if(!target) return;
 
         observable(target, recursive);
 
-        if(!this.observing(target)){
-
-            target._observers.push(this);
-            this._observed.push(target);
-
-        }
+        observe(this, target, recursive);
 
         if(callback){
 
@@ -373,6 +476,8 @@ Observer.prototype = {
     }
 
 };
+
+Observer.observable = observable;
 
 Observer.observe = function(target, recursive, callback){
 

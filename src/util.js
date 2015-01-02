@@ -156,6 +156,20 @@ var util = {
 
     },
 
+    clone: function(obj){
+
+        var clone = Object.create(null);
+
+        for(var key in obj){
+
+            clone[key] = util.is(obj[key], 'object') ? util.clone(obj[key]) : obj[key];
+
+        }
+
+        return clone;
+
+    },
+
     is: function(obj, type){
 
         switch(type){

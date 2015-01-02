@@ -2,7 +2,7 @@
   "name": "windsock",
   "version": "0.0.0",
   "author": "Ben Sawyer",
-  "description": "JSONML compliant observable virtual DOM",
+  "description": "Observable JSONML compliant virtual DOM",
   "license": "MIT",
   "homepage": "https://github.com/bsawyer/windsock",
   "bugs": "https://github.com/bsawyer/windsock/issues",
@@ -10,7 +10,7 @@
     "type": "git",
     "url": "https://github.com/bsawyer/windsock.git"
   },
-  "main": "src/windsock.js",
+  "main": "src/index.js",
   "dependencies": {},
   "devDependencies": {
     "jshint": "^2.5.10",
@@ -27,7 +27,7 @@
     "pretest": "npm run jshint && npm run jscs",
     "test": "npm run mocha",
     "clean": "rm -rf dist/*",
-    "browserify": "browserify src/windsock.js --no-detect-globals --standalone windsock > dist/windsock.js",
+    "browserify": "browserify src/index.js --no-detect-globals --standalone windsock > dist/windsock.js",
     "uglifyjs": "uglifyjs dist/windsock.js -o dist/windsock.min.js",
     "predist": "npm run clean",
     "dist": "npm run browserify && npm run uglifyjs",
