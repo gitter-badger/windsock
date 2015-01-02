@@ -23,19 +23,23 @@ compiled.find('li').forEach(function(li){
 });
 
 document.body.appendChild(compiled.render());
+```
 ## API
 
 windsock.parse
 ```javascript
 var ul = windsock.parse(document.getElementById('transcludeMe'))
+```
 
 windsock.compile
 ```javascript
 var observableList = windsock.compile(ul)
+```
 
 windsock.transclude
 ```javascript
 windsock.transclude(observableList);
+```
 
 windsock.Observer
 
