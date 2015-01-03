@@ -170,18 +170,32 @@ function compileElement(node){
 
     observer.observe(node._children, false, function(mutation){
 
+        //change to switch
         if(mutation.type === 'splice'){
 
-            //meh
-            each(mutation.oldValue, function(child){
+            if(mutation.oldValue){
 
-                batch.add(function(){
+                each(mutation.oldValue, function batchRemoveChild(child){
 
-                    child._documentNode.parentNode.removeChild(child._documentNode);
+                    batch.add(function(){
+
+                        child._documentNode.parentNode.removeChild(child._documentNode);
+
+                    });
 
                 });
 
-            });
+            }
+            if(mutation.transformed.length === 3){
+
+                batch.add(function(){
+
+                    //childNodes returns live list of child nodes need this because like unshift the virtual node.children has already been manip
+                    node._documentNode.insertBefore(mutation.transformed[2]._documentNode, node._documentNode.childNodes[mutation.name]);
+
+                });
+
+            }
 
         }else if(mutation.type == 'push'){
 
@@ -190,6 +204,20 @@ function compileElement(node){
                 batch.add(function(){
 
                     node._documentNode.appendChild(child._documentNode);
+
+                });
+
+            });
+
+        }else if(mutation.type == 'unshift'){
+
+            each(mutation.transformed, function(child){
+
+                batch.add(function(){
+
+                    //have to use elements first child because its already been unshifted to _children array
+
+                    node._documentNode.insertBefore(child._documentNode, node._documentNode.firstChild);
 
                 });
 
@@ -350,6 +378,7 @@ var util = require('./util'),
     parse = require('./parser/parse'),
     compile = require('./compiler/compile'),
     transclude = require('./compiler/transclude'),
+    node = require('./node'),
     html = require('./html'),
     Observer = require('./observer'),
     Batch = require('./batch');
@@ -360,11 +389,12 @@ module.exports = {
     compile: compile,
     transclude: transclude,
     html: html,
+    node: node,
     Observer: Observer,
     Batch: Batch
 };
 
-},{"./batch":1,"./compiler/compile":2,"./compiler/transclude":3,"./html":4,"./observer":10,"./parser/parse":12,"./util":14}],6:[function(require,module,exports){
+},{"./batch":1,"./compiler/compile":2,"./compiler/transclude":3,"./html":4,"./node":7,"./observer":10,"./parser/parse":12,"./util":14}],6:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     Text = require('./text'),
@@ -867,7 +897,7 @@ var define = Object.defineProperty,
 
 function dispatch(mutationRecord, signals){
 
-    each(mutationRecord.object._observers, function(observer){
+    each(mutationRecord.object._observers, function mutationDispatchIterator(observer){
 
         observer[signals].dispatch(mutationRecord);
 
@@ -1182,7 +1212,7 @@ function observable(target, recursive){
 
 function limit(callback, query){
 
-    return function(mutation){
+    return function limitMutation(mutation){
 
         if(match(mutation, query)) callback.call(this, mutation);
 

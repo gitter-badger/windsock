@@ -17,7 +17,8 @@
 
     var compiled = windsock.compile(todo);
     compiled.find('li').forEach(function(li){
-        li.on('click', function(){
+        li.on('click', function(e){
+            if(e.target !== this._documentNode) return;
             if(!this.attributes.class){
                 this.attributes.add('class', 'done');
             }else if(this.attributes.class === 'done'){
@@ -28,7 +29,41 @@
         })
     });
 
+    windsock.Observer.observe(compiled.attributes, false, function(mutation){
+        console.log('woa something changed');
+    });
+
     document.body.appendChild(compiled.render());
+
+    //find
+    var firstChild = compiled.find('li')[0];
+
+    //append
+    firstChild.append(windsock.compile(todo));
+
+    //prepend
+    var baller = li.clone();
+    baller.text = 'continue being baller ...';
+    compiled.prepend(windsock.compile(baller));
+
+    //before
+    baller.text = '... and a boss';
+    firstChild.before(windsock.compile(baller));
+
+    //after
+    baller.text = 'last item'
+    compiled.children[compiled.children.length - 1].after(windsock.compile(baller));
+
+    //remove
+    compiled.find(function(node){
+
+        return node.text === 'call mom';
+
+    }).forEach(function(node){
+
+        node.remove();
+
+    });
 
 </script>
 </html>

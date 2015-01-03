@@ -109,18 +109,32 @@ function compileElement(node){
 
     observer.observe(node._children, false, function(mutation){
 
+        //change to switch
         if(mutation.type === 'splice'){
 
-            //meh
-            each(mutation.oldValue, function(child){
+            if(mutation.oldValue){
 
-                batch.add(function(){
+                each(mutation.oldValue, function batchRemoveChild(child){
 
-                    child._documentNode.parentNode.removeChild(child._documentNode);
+                    batch.add(function(){
+
+                        child._documentNode.parentNode.removeChild(child._documentNode);
+
+                    });
 
                 });
 
-            });
+            }
+            if(mutation.transformed.length === 3){
+
+                batch.add(function(){
+
+                    //childNodes returns live list of child nodes need this because like unshift the virtual node.children has already been manip
+                    node._documentNode.insertBefore(mutation.transformed[2]._documentNode, node._documentNode.childNodes[mutation.name]);
+
+                });
+
+            }
 
         }else if(mutation.type == 'push'){
 
@@ -129,6 +143,20 @@ function compileElement(node){
                 batch.add(function(){
 
                     node._documentNode.appendChild(child._documentNode);
+
+                });
+
+            });
+
+        }else if(mutation.type == 'unshift'){
+
+            each(mutation.transformed, function(child){
+
+                batch.add(function(){
+
+                    //have to use elements first child because its already been unshifted to _children array
+
+                    node._documentNode.insertBefore(child._documentNode, node._documentNode.firstChild);
 
                 });
 

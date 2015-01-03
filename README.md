@@ -25,26 +25,34 @@ compiled.find('li').forEach(function(li){
 document.body.appendChild(compiled.render());
 ```
 ## API
-
-windsock.parse
+## Methods
+### windsock.parse()
+The parse method is used to create and return an uncompiled virtual DOM. It takes either an HTML string, JSONML Array, or DocumentElement.
 ```javascript
 var ul = windsock.parse(document.getElementById('transcludeMe'))
 ```
 
-windsock.compile
+### windsock.compile()
+The compile method is used for compiling a parsed virtual DOM. It returns an observable, JSONML compliant deep clone of the virtual DOM and its events.
 ```javascript
 var observableList = windsock.compile(ul)
 ```
 
-windsock.transclude
+### windsock.transclude()
+The transclude method is used to replace the original live node with the virtual compiled node.
 ```javascript
 windsock.transclude(observableList);
 ```
 
+### windsock.html()
+The html method is used to take a compiled virtual DOM and return and HTML string.
+```javascript
+windsock.html(observableList);
+```
+
+##Utility
 windsock.Observer
 
 windsock.Batch
-
-windsock.html
 
 windsock.util

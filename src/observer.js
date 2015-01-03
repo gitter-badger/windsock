@@ -22,7 +22,7 @@ var define = Object.defineProperty,
 
 function dispatch(mutationRecord, signals){
 
-    each(mutationRecord.object._observers, function(observer){
+    each(mutationRecord.object._observers, function mutationDispatchIterator(observer){
 
         observer[signals].dispatch(mutationRecord);
 
@@ -337,7 +337,7 @@ function observable(target, recursive){
 
 function limit(callback, query){
 
-    return function(mutation){
+    return function limitMutation(mutation){
 
         if(match(mutation, query)) callback.call(this, mutation);
 
