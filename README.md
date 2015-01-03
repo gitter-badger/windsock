@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/bsawyer/windsock.svg)](https://travis-ci.org/bsawyer/windsock)
 
 Observable JSONML compliant virtual DOM
+
 ## tldr;
 ```javascript
 var todo = windsock.parse('<ul><li>buy milk</li></ul>');
@@ -24,7 +25,7 @@ compiled.find('li').forEach(function(li){
 
 document.body.appendChild(compiled.render());
 ```
-## API
+
 ## Methods
 ### windsock.parse()
 The parse method is used to create and return an uncompiled virtual DOM. It takes either an HTML string, JSONML Array, or DocumentElement.
