@@ -6,13 +6,17 @@ Observable JSONML compliant virtual DOM
 ## tldr;
 ```javascript
 var todo = windsock.parse('<ul><li>buy milk</li></ul>');
+
 var li = todo.find('li')[0].clone();
+
 li.text = 'call mom';
+
 todo.append(li);
 
 var compiled = windsock.compile(todo);
-compiled.find('li').forEach(function(li){
-    li.on('click', function(){
+
+compiled.find('li').forEach(function(item){
+    item.on('click', function(){
         if(!this.attributes.class){
             this.attributes.add('class', 'done');
         }else if(this.attributes.class === 'done'){
@@ -46,7 +50,7 @@ windsock.transclude(observableList);
 ```
 
 ### windsock.html()
-The html method is used to take a compiled virtual DOM and return and HTML string.
+The html method is used to take a compiled virtual DOM and return an HTML string.
 ```javascript
 windsock.html(observableList);
 ```
