@@ -9,7 +9,7 @@ var util = require('./util'),
 
 var define = Object.defineProperty,
     defines = Object.defineProperties,
-    arrayMutatorMethods = [
+    ARRAY_MUTATOR_METHODS = [
         'fill',
         'pop',
         'push',
@@ -24,7 +24,7 @@ function dispatch(mutationRecord, signals){
 
     each(mutationRecord.object._observers, function mutationDispatchIterator(observer){
 
-        observer[signals].dispatch(mutationRecord);
+        observer[signals].dispatch(mutationRecord, observer);
 
     });
 
@@ -149,11 +149,11 @@ function defineAccessors(descriptor, prop, value){
 
 function observableArray(descriptor){
 
-    each(arrayMutatorMethods, function arrayMutatorMethodIterator(method){
+    each(ARRAY_MUTATOR_METHODS, function arrayMutatorMethodIterator(method){
 
         descriptor[method] = {
 
-            value: function(){
+            value: function arrayMutationClosure(){
 
                 var mutationRecord = mutation({
                         object: this,
@@ -337,9 +337,9 @@ function observable(target, recursive){
 
 function limit(callback, query){
 
-    return function limitMutation(mutation){
+    return function limitMutation(mutation, observer){
 
-        if(match(mutation, query)) callback.call(this, mutation);
+        if(match(mutation, query)) callback.call(this, mutation, observer);
 
     };
 
@@ -395,11 +395,12 @@ function observeEach(observers, target, recursive){
 
 }
 
-function Observer(){
+function Observer(root){
 
     this.observers = new Signals();
     this.transforms = new Signals();
     this._observed = [];
+    this.root = root; //retain an optional root object to pass to all observers/transforms
 
 }
 
@@ -415,7 +416,7 @@ Observer.prototype = {
 
         if(callback){
 
-            return this.observers.add(limit(callback, {object: target}), target);
+            return this.observers.add(limit(callback, {object: target}), this);
 
         }
 
@@ -427,7 +428,7 @@ Observer.prototype = {
 
         if(callback){
 
-            return this.transforms.queue(limit(callback, {object: target}), target);
+            return this.transforms.queue(limit(callback, {object: target}), this);
 
         }
 
@@ -463,7 +464,12 @@ Observer.prototype = {
             this.observers.remove();
             this.transforms.remove();
 
-            each(this._observed, remove);
+            //each(this._observed, remove);
+            while(this._observed.length > 0){
+
+                remove(this._observed[this._observed.length - 1]);
+
+            }
 
         }
 

@@ -1,5 +1,6 @@
-var parseJSONML = require('./parser').parseJSONML;
+var parseJSONML = require('../parser').parseJSONML;
 
+//parse jsonml to html string
 module.exports = function (node){
 
     if(!node || !node._jsonml.length) return '';

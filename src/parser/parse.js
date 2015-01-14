@@ -2,6 +2,7 @@ var is = require('../util').is,
     node = require('../node'),
     parser = require('./index');
 
+//parse jsonml array, html string, or document element
 module.exports = function parse(source){
 
     var method,

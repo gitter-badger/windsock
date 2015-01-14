@@ -1,4 +1,4 @@
-module.exports = function(node, DOMNode){
+module.exports = function transclude(node, DOMNode){
 
     var parent;
 
@@ -11,5 +11,6 @@ module.exports = function(node, DOMNode){
     parent.removeChild(DOMNode);
 
     node._transclude = null;
+
 
 };

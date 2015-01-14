@@ -6,6 +6,38 @@ var util = require('../util'),
     match = util.match,
     inherit = util.inherit;
 
+function parseQuery(query){
+
+    var predicate;
+
+    if(is(query, 'function')) return query;
+
+    if(is(query, 'string')){
+
+        predicate = function(child){
+
+            return child.name === query;
+
+        };
+
+    }else if(is(query, 'object')){
+
+        predicate = function(child){
+
+            return match(child.attributes, query);
+
+        };
+
+    }else{
+
+        throw new Error('failed to parse query, type not supported');
+
+    }
+
+    return predicate;
+
+}
+
 function Element(value){
 
     Node.call(this, value);
@@ -72,7 +104,7 @@ inherit(Element, Node, {
 
         get: function(){
 
-            return this.find(function(child){
+            return this.filter(function(child){
 
                 return child instanceof Text;
 
@@ -84,7 +116,7 @@ inherit(Element, Node, {
 
             if(this.text.length){
 
-                var textNodes = this.find(function(child){
+                var textNodes = this.filter(function(child){
 
                     return child instanceof Text;
 
@@ -133,46 +165,25 @@ inherit(Element, Node, {
 
 });
 
+//pre-order traversal returns first result or undefined
 Element.prototype.find = function(query){
 
-    var result = [],
-        find;
+    var predicate = parseQuery(query),
+        result;
 
-    if(!is(query, 'function')){
+    each(this.children, function(child, i, children, halt){
 
-        if(is(query, 'string')){
+        if(predicate(child)){
 
-            find = function(child){
+            result = child;
 
-                return child.name === query;
+        }else if(!is(child.children, 'undefined') && child.children.length){
 
-            };
-
-        }else if(is(query, 'object')){
-
-            find = function(child){
-
-                return match(child._value, query);
-
-            };
-
-        }else{
-
-            throw new Error('failed to find, query not supported');
+            result = child.find(predicate);
 
         }
 
-    }else{
-
-        find = query;
-
-    }
-
-    each(this.children, function(child){
-
-        if(find(child)) result.push(child);
-
-        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.find(find));
+        if(result) return halt;
 
     });
 
@@ -180,9 +191,39 @@ Element.prototype.find = function(query){
 
 };
 
-Element.prototype.remove = function(){
+//pre-order traversal returns a flat list result or empty array
+Element.prototype.filter = function(query){
 
-    if(this.parent) return this.parent.children.splice(this.parent.children.indexOf(this), 1);
+    var predicate = parseQuery(query),
+        result = [];
+
+    each(this.children, function(child){
+
+        if(predicate(child)) result.push(child);
+
+        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.filter(predicate));
+
+    });
+
+    return result;
+
+};
+
+Element.prototype.destroy = function(){
+
+    //this.parent = null;
+
+
+    // each(this.children, function(child){
+    //     child.destroy();
+    // });
+    while(this.children.length){
+        this.children[this.children.length-1].destroy();
+    }
+
+    //this.children = [];
+    this.remove();
+    this._destroy();
 
 };
 

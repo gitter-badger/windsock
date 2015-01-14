@@ -1,0 +1,168 @@
+html{
+    font-size:14vw;
+}
+
+@media (orientation: landscape){
+    html{
+        font-size:7vw;
+    }
+}
+
+*{
+    box-sizing:border-box;
+}
+
+body, button{
+    font-family: 'Roboto', sans-serif;
+    font-weight:100;
+    font-size:1rem;
+}
+
+body{
+    margin:0;
+}
+
+.btn{
+    background:transparent;
+    border:0;
+    margin:0;
+    padding:.5em;
+    font-size:.5rem;
+    transition:background 300ms color 300ms;
+    cursor:pointer;
+}
+
+.btn:focus, .btn:active{
+    outline:none;
+    background:transparent;
+}
+
+@-webkit-keyframes dialog{
+    0%{
+        transform:translateY(-100%);
+    }
+    15%{
+        transform:translateY(0%);
+    }
+    85%{
+        transform:translateY(0%);
+    }
+    100%{
+        transform:translateY(-100%);
+    }
+}
+
+.add-timer{
+    width:100%;
+}
+
+.add-timer:after{
+    content:'';
+    background-image:url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbG5zOnhsaW5rPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5L3hsaW5rIiB2ZXJzaW9uPSIxLjEiIGlkPSJMYXllcl8xIiB4PSIwcHgiIHk9IjBweCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGVuYWJsZS1iYWNrZ3JvdW5kPSJuZXcgMCAwIDIwMCAyMDAiIHhtbDpzcGFjZT0icHJlc2VydmUiIGhlaWdodD0iMTAwcHgiIHdpZHRoPSIxMDBweCI+CjxnPgoJPHBhdGggZD0iTTExOC4xLDQxLjVIODUuNGMtNC43LDAtOC41LTMuOC04LjUtOC41di02LjVjMC00LjcsMy44LTguNSw4LjUtOC41aDMyLjdjNC43LDAsOC41LDMuOCw4LjUsOC41VjMzICAgQzEyNi41LDM3LjcsMTIyLjcsNDEuNSwxMTguMSw0MS41eiBNODUuNCwyMi4xYy0yLjUsMC00LjUsMi00LjUsNC41VjMzYzAsMi41LDIsNC41LDQuNSw0LjVoMzIuN2MyLjUsMCw0LjUtMiw0LjUtNC41di02LjUgICBjMC0yLjUtMi00LjUtNC41LTQuNUg4NS40eiIvPgo8L2c+CjxnPgoJPHBhdGggZD0iTTQxLDcwLjdjLTEuNiwwLTMtMC42LTQuMS0xLjdsLTIuNy0yLjdjLTIuMy0yLjMtMi4zLTYsMC04LjNsMTEuNC0xMS40YzEuMS0xLjEsMi42LTEuNyw0LjEtMS43czMsMC42LDQuMSwxLjdsMi43LDIuNyAgIGMyLjMsMi4zLDIuMyw2LDAsOC4zTDQ1LjEsNjguOUM0NCw3MC4xLDQyLjYsNzAuNyw0MSw3MC43eiBNNDkuNiw0OC44Yy0wLjUsMC0xLDAuMi0xLjMsMC41TDM3LDYwLjdjLTAuNywwLjctMC43LDEuOSwwLDIuNyAgIGwyLjcsMi43YzAuNywwLjcsMS45LDAuNywyLjYsMGwxMS40LTExLjRjMC43LTAuNywwLjctMS45LDAtMi43bC0yLjctMi43QzUwLjYsNDksNTAuMSw0OC44LDQ5LjYsNDguOHoiLz4KPC9nPgo8Zz4KCTxwYXRoIGQ9Ik0xMDEuMywxNzguOWMtMzYuMSwwLTY1LjUtMjkuNC02NS41LTY1LjVTNjUuMiw0OCwxMDEuMyw0OHM2NS41LDI5LjQsNjUuNSw2NS41UzEzNy41LDE3OC45LDEwMS4zLDE3OC45eiBNMTAxLjMsNTIgICBjLTMzLjksMC02MS41LDI3LjYtNjEuNSw2MS41YzAsMzMuOSwyNy42LDYxLjUsNjEuNSw2MS41czYxLjUtMjcuNiw2MS41LTYxLjVDMTYyLjgsNzkuNSwxMzUuMiw1MiwxMDEuMyw1MnoiLz4KPC9nPgo8Zz4KCTxwYXRoIGQ9Ik0xMzUuNSwxNjhjLTAuNywwLTEuMy0wLjMtMS43LTFsLTMzLjQtNTYuM2MtMC4yLTAuMy0wLjMtMC43LTAuMy0xVjUwLjNjMC0xLjEsMC45LTIsMi0yczIsMC45LDIsMnY1OC45bDMzLjIsNTUuOCAgIGMwLjYsMSwwLjMsMi4yLTAuNywyLjdDMTM2LjIsMTY4LDEzNS45LDE2OCwxMzUuNSwxNjh6Ii8+CjwvZz4KPC9zdmc+');
+    background-size: contain;
+    width:1rem;
+    height:1rem;
+    display:inline-block;
+    vertical-align:middle;
+}
+
+.timers{
+    list-style:none;
+    margin:0 auto;
+    padding:0;
+    text-align:center;
+}
+
+.timer{
+    margin:0;
+    padding:0;
+    color:#fff;
+    transition: background 300ms;
+    position:relative;
+}
+
+.timer-animate{
+    -webkit-animation: animFlipFront 300ms;
+}
+
+@-webkit-keyframes animFlipFront {
+    0% { -webkit-transform: perspective(1000px) rotate3d(1,0,0,-90deg); }
+    100% { -webkit-transform: perspective(1000px); }
+}
+
+.timer-progress{
+    position:absolute;
+    top:0;
+    left:0;
+    height:100%;
+    content:'';
+    background:rgba(0, 0, 0, 0.11);
+    z-index:0;
+}
+
+.controls{
+    display:table;
+    width:100%;
+    position:relative;
+    z-index:1;
+}
+
+.controls .btn{
+    display:table-cell;
+}
+
+.timer:nth-child(1n){
+    background:#03A9F4;
+}
+
+.timer:nth-child(2n){
+    background:#0288D1;
+}
+
+.js-start, .js-stop{
+    width:50%;
+    font-size:.77rem;
+}
+
+.started{
+    background:#00E676 !important;
+}
+
+.started .js-start{
+    color:#008437;
+    display:none;
+}
+
+.controls .js-stop{
+    display:none;
+}
+
+.started .js-stop{
+    display:table-cell;
+}
+
+.ms,.sec,.min{
+    display:inline-block;
+    padding:.5rem 0;
+    padding-bottom:0;
+    margin-right:.33rem;
+    position:relative;
+    z-index:1;
+}
+
+.ms{
+    font-size:.7rem;
+}
+
+.sec{
+    font-size:1.5rem;
+}
+
+.min{
+    font-size:1.5rem;
+    opacity:.5;
+}
+
+.hr{
+    display:none;
+}

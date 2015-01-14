@@ -1,9 +1,13 @@
-var paint = require('./util').paint;
+var util = require('./util'),
+    bind = util.bind,
+    paint = util.paint,
+    cancel = util.cancel;
 
 function Batch(fn){
 
     this._done();
     this.callback = fn;
+    this.args = Array.prototype.slice.call(arguments, 1);
 
 }
 
@@ -15,7 +19,7 @@ Batch.prototype = {
 
         if(!this.requested) {
 
-            this.id = paint(this._run, this);
+            this.id = paint(bind(this._run, this));
             this.requested = true;
 
         }
@@ -24,7 +28,7 @@ Batch.prototype = {
 
     cancel: function(){
 
-        if(typeof window !== 'undefined' && window.cancelAnimationFrame) window.cancelAnimationFrame(this.id);
+        cancel(this.id);
         this._done();
 
     },
@@ -35,7 +39,7 @@ Batch.prototype = {
 
         for(var i = 0; i < this.queue.length; i++){
 
-            this.queue[i].call(this);
+            this.queue[i].apply(this, this.args);
 
         }
 
@@ -49,7 +53,7 @@ Batch.prototype = {
         this.requested = false;
         this.running = false;
         this.id = null;
-        if(this.callback) this.callback.call(this);
+        if(this.callback) this.callback.apply(this, this.args);
 
     }
 

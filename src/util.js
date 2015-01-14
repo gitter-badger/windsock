@@ -1,18 +1,29 @@
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
-    paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick;
+    paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick,
+    cancel;
+
+if(typeof window !== 'undefined'){
+    cancel = window.cancelAnimationFrame || window.clearTimeout;
+}
 
 var util = {
 
-    tick: function(fn, context){
+    tick: function(fn){
 
         //defer callback to nextTick in node.js otherwise setTimeout in the client
-        return tick(util.bind(fn, context), 1);
+        return tick(fn, 0);
 
     },
 
-    paint: function(fn, context){
+    paint: function(fn){
 
-        return paint(util.bind(fn, context), 1);
+        return paint(fn, 0);
+
+    },
+
+    cancel: function(rafid){
+
+        return cancel ? cancel(rafid) : undefined;
 
     },
 
@@ -50,7 +61,7 @@ var util = {
     //in order synchronous traversal
     traverse: function(list, fn){
 
-        util.each.call(this, list, function(result){
+        util.each.call(this, list, function traversalIterator(result){
 
             var halt;
 
@@ -134,7 +145,7 @@ var util = {
 
         var matched = true;
 
-        util.each(query, function(val, key){
+        util.each(query, function matchIterator(val, key){
 
             if(list[key] !== val) matched = false;
 
@@ -148,7 +159,7 @@ var util = {
 
         var args = Array.prototype.slice.call(arguments, 2);
 
-        return function(){
+        return function bindClosure(){
 
             return fn.apply(context, args.concat(Array.prototype.slice.call(arguments)));
 

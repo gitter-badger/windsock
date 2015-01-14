@@ -12,7 +12,7 @@ module.exports = function compile(node){
 
     clone._transclude = node._transclude;
 
-    node._transclude = null; // for teh memories
+    node._transclude = null;
 
     compileNode(clone);
 
@@ -24,191 +24,25 @@ module.exports = function compile(node){
 
 function compileNode(node){
 
+    node._batch = new Batch(batchCallback, node);
+
+    node._observer = new Observer(node);
+
+    node._observer.observe(node._value, false, observeValue);
+
+    observeEvents(node);
+
     if(node instanceof Text){
 
-        return compileText(node);
+        node._documentNode = document.createTextNode(node._value.value);
+        compileText(node);
 
     }else if(node instanceof Element){
 
-        return compileElement(node);
+        node._documentNode = document.createElement(node._value.name);
+        compileElement(node);
 
     }
-
-}
-
-function compileText(node){
-
-    var batch = new Batch();
-
-    node._documentNode = document.createTextNode(node.value);
-
-    node._jsonml = node.value;
-
-    Observer.observe(node._value, false, function(mutation){
-
-        if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
-
-            batch.add(function(){
-
-                node._documentNode.textContent = mutation.object.value;
-
-            });
-
-            this._jsonml = mutation.object.value;
-
-        }
-
-    });
-
-    if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
-
-    node._compiled = true;
-
-    return node;
-
-}
-
-function compileElement(node){
-
-    var observer = new Observer(),
-        batch = new Batch();
-
-    node._documentNode = document.createElement(node.name);
-
-    node._jsonml = node.children.slice();
-
-    node._jsonml.unshift(node.name);
-
-    if(!is(node.attributes, 'empty')) node._jsonml.splice(1, 0, node.attributes);
-
-    observer.observe(node._value);
-
-    observer.observe(node._value.attributes, false, function(mutation){
-
-        if(node.attributes[mutation.name] !== mutation.oldValue){
-
-            batch.add(function(){
-
-                node._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
-
-            });
-
-        }
-
-        if(is(mutation.object, 'empty') && is(node._jsonml[1], 'object')){
-
-            node._jsonml.splice(1, 1);
-
-        }else if(node._jsonml[1] !== mutation.object){
-
-            node._jsonml.splice(1, 0, mutation.object);
-
-        }
-
-    });
-
-    observer.observe(node._children, false, function(mutation){
-
-        //change to switch
-        if(mutation.type === 'splice'){
-
-            if(mutation.oldValue){
-
-                each(mutation.oldValue, function batchRemoveChild(child){
-
-                    batch.add(function(){
-
-                        child._documentNode.parentNode.removeChild(child._documentNode);
-
-                    });
-
-                });
-
-            }
-            if(mutation.transformed.length === 3){
-
-                batch.add(function(){
-
-                    //childNodes returns live list of child nodes need this because like unshift the virtual node.children has already been manip
-                    node._documentNode.insertBefore(mutation.transformed[2]._documentNode, node._documentNode.childNodes[mutation.name]);
-
-                });
-
-            }
-
-        }else if(mutation.type == 'push'){
-
-            each(mutation.transformed, function(child){
-
-                batch.add(function(){
-
-                    node._documentNode.appendChild(child._documentNode);
-
-                });
-
-            });
-
-        }else if(mutation.type == 'unshift'){
-
-            each(mutation.transformed, function(child){
-
-                batch.add(function(){
-
-                    //have to use elements first child because its already been unshifted to _children array
-
-                    node._documentNode.insertBefore(child._documentNode, node._documentNode.firstChild);
-
-                });
-
-            });
-
-        }
-
-        var children = is(node.attributes, 'empty') ? node._jsonml.splice(1) : node._jsonml.splice(2);
-
-        Array.prototype[mutation.type].apply(children, mutation.transformed);
-
-        for(var i = 0, l = children.length; i < l; i++){
-
-            node._jsonml.push(children[i]);
-
-        }
-
-    });
-
-    observer.observe(node._events, false, function(mutation){
-
-        if(mutation.type === 'add'){
-
-            node._documentNode.addEventListener(mutation.name, function(e){
-
-                node._dispatch(mutation.name, e);
-
-            });
-
-        }else if(mutation.type === 'delete'){
-
-            node._documentNode.removeEventListener(mutation.name);
-
-        }
-
-    });
-
-    each(node._events, function(signals, evt){
-
-        node._documentNode.addEventListener(evt, function(e){
-
-            node._dispatch(evt, e);
-
-        });
-
-    });
-
-    each(node._value.attributes, function(value, key){
-
-        node._documentNode.setAttribute(key, value);
-
-    });
 
     if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
 
@@ -229,5 +63,185 @@ function compileNodes(nodes){
         if(node.children) compileNodes(node.children);
 
     }
+
+}
+
+function batchCallback(node){
+
+    node._dispatch('batch');
+
+}
+
+function dispatchEventListener(n, evt){
+
+    return function eventListenerClosure(e){
+
+        n._dispatch(evt, e);
+
+    };
+
+}
+
+function observeEvents(node){
+
+    node._observer.observe(node._events, false, function(mutation){
+
+        if(mutation.type === 'add'){
+
+            node._documentNode.addEventListener(mutation.name, dispatchEventListener(node, mutation.name));
+
+        }else if(mutation.type === 'delete'){
+
+            node._documentNode.removeEventListener(mutation.name);
+
+        }
+
+    });
+
+    for(var evt in node._events){
+
+        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
+
+    }
+
+}
+
+function observeValue(mutation, observer){
+
+    if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
+
+        observer.root._batch.add(function textContent(){
+
+            observer.root._documentNode.textContent = mutation.object.value;
+
+        });
+
+        observer.root._jsonml = mutation.object.value;
+
+    }else if(mutation.name === 'attributes'){
+
+        //handle setting or deleting attributes
+
+    }
+
+}
+
+function observeAttributes(mutation, observer){
+
+    if(observer.root.attributes[mutation.name] !== mutation.oldValue){
+
+        observer.root._batch.add(function setAttribute(){
+
+            observer.root._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
+
+        });
+
+    }
+
+    if(is(mutation.object, 'empty') && is(observer.root._jsonml[1], 'object')){
+
+        observer.root._jsonml.splice(1, 1);
+
+    }else if(observer.root._jsonml[1] !== mutation.object){
+
+        observer.root._jsonml.splice(1, 0, mutation.object);
+
+    }
+
+}
+
+function observeChildren(mutation, observer){
+
+    var children;
+
+    //splice is used for before, after, and remove
+    //remove() on compiled node is observed on parent and child is destroyed first
+    switch(mutation.type){
+        case 'splice':
+            if(mutation.oldValue){
+
+                each(mutation.oldValue, function batchRemoveChild(child){
+
+                    observer.root._batch.add(function removeChild(){
+
+                        child._documentNode.parentNode.removeChild(child._documentNode);
+
+                    });
+
+                });
+
+            }
+
+            if(mutation.transformed.length === 3){
+
+                observer.root._batch.add(function insertChild(){
+
+                    //childNodes returns live list of child nodes need this because like unshift the virtual node.children has already been manipulated
+                    observer.root._documentNode.insertBefore(mutation.transformed[2]._documentNode, observer.root._documentNode.childNodes[mutation.name]);
+
+                });
+
+            }
+        break;
+        case 'push':
+            each(mutation.transformed, function batchAppendChild(child){
+
+                observer.root._batch.add(function appendChild(){
+
+                    observer.root._documentNode.appendChild(child._documentNode);
+
+                });
+
+            });
+        break;
+        case 'unshift':
+            each(mutation.transformed, function(child){
+
+                observer.root._batch.add(function(){
+
+                    //have to use elements first child because its already been unshifted to _children array
+                    observer.root._documentNode.insertBefore(child._documentNode, observer.root._documentNode.firstChild);
+
+                });
+
+            });
+        break;
+    }
+
+    children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
+
+    Array.prototype[mutation.type].apply(children, mutation.transformed);
+
+    for(var i = 0, l = children.length; i < l; i++){
+
+        observer.root._jsonml.push(children[i]);
+
+    }
+
+}
+
+function compileText(node){
+
+    node._jsonml = node.value;
+
+}
+
+function compileElement(node){
+
+    node._observer.observe(node._value.attributes, false, observeAttributes);
+
+    node._observer.observe(node._children, false, observeChildren);
+
+    for(var key in node._value.attributes){
+
+        node._documentNode.setAttribute(key, node._value.attributes[key]);
+
+    }
+
+    node._jsonml = Array.prototype.slice.call(node._children);
+
+    node._jsonml.unshift(node._value.name);
+
+    if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
 
 }

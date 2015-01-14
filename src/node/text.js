@@ -52,9 +52,11 @@ inherit(Text, Node, {
 
 });
 
-Text.prototype.remove = function(){
+Text.prototype.destroy = function(){
 
-    if(this.parent) return this.parent.children.splice(this.parent.children.indexOf(this), 1);
+    //this.parent = null;
+    this.remove();
+    this._destroy();
 
 };
 

@@ -7,15 +7,13 @@ Observable JSONML compliant virtual DOM
 ```javascript
 var todo = windsock.parse('<ul><li>buy milk</li></ul>');
 
-var li = todo.find('li')[0].clone();
+var li = todo.find('li').clone();
 
 li.text = 'call mom';
 
 todo.append(li);
 
-var compiled = windsock.compile(todo);
-
-compiled.find('li').forEach(function(item){
+todo.filter('li').forEach(function(item){
     item.on('click', function(){
         if(!this.attributes.class){
             this.attributes.add('class', 'done');
@@ -26,6 +24,8 @@ compiled.find('li').forEach(function(item){
         }
     })
 });
+
+var compiled = windsock.compile(todo);
 
 document.body.appendChild(compiled.render());
 ```

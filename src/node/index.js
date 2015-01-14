@@ -1,6 +1,7 @@
 var Text = require('./text'),
     Element = require('./element');
 
+//node factory
 module.exports = {
 
     text: function(value){

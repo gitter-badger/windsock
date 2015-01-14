@@ -7,6 +7,8 @@ var util = require('../util'),
 function Node(value){
 
     this._value = extend(Object.create(this.constructor.value), value);
+    this._observer = null;
+    this._batch = null;
     this._documentNode = null;
     this._transclude = null;
     this._compiled = false;
@@ -18,6 +20,30 @@ function Node(value){
 Node.value = {};
 
 Node.prototype = {
+
+    _destroy: function(){
+
+        this.off(); //remove all events which are observed and then removed from _documentNode
+
+        if(this._compiled){
+
+            this._batch.cancel();
+
+            if(this._documentNode.parentNode) this._documentNode.parentNode.removeChild(this._documentNode);
+
+            this._observer.unobserve();
+
+            this._compiled = false;
+
+        }
+
+        this._documentNode = null;
+
+        this._transclude = null;
+
+        this._jsonml = null;
+
+    },
 
     _event: function(name){
 
@@ -61,37 +87,33 @@ Node.prototype = {
 
     off: function(name, signal){
 
-        if(this._events[name]) {
+        var events = Array.prototype.slice.call(arguments,0,1);
 
-            if(signal) {
+        if(!events.length) events = Object.keys(this._events);
 
-                this._events[name].remove(signal);
+        if(signal){
+
+            this._events[name].remove(signal);
+
+            if(this._events[name].count) return;
+
+        }
+
+        each.call(this, events, function(evt){
+
+            this._events[evt].remove();
+
+            if(this._compiled){
+
+                this._events.delete(evt);
 
             }else{
 
-                this._events[name].remove();
+                delete this._events[evt];
 
             }
 
-            if(!this._events[name].count){
-
-                if(this._compiled){
-
-                    this._events.delete(name);
-
-                }else{
-
-                    delete this._events[name];
-
-                }
-
-            }
-
-        }else{
-
-            //remove ALL THE EVENTS
-
-        }
+        });
 
     },
 
@@ -123,9 +145,23 @@ Node.prototype = {
 
     },
 
-    render: function(){
+    remove: function(){
+        var _this = this;
+        if(this.parent){
+            if(this._compiled){
 
-        return this._documentNode;
+                this.parent.on('batch', function(){
+                    _this.destroy();
+                });
+                this.parent.children.splice(this.parent.children.indexOf(this), 1); //shouldn't matter the batch is on the parent, make sure to destroy children first
+                //Array.prototype.splice.call(this.parent.children, this.parent.children.indexOf(this), 1);
+                //doesn't kick off observers so jsonml will not be modified...
+
+            }else{
+                this.parent.children.splice(this.parent.children.indexOf(this), 1);
+            }
+            this.parent = null;
+        }
 
     },
 
