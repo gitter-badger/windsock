@@ -211,17 +211,12 @@ Element.prototype.filter = function(query){
 
 Element.prototype.destroy = function(){
 
-    //this.parent = null;
-
-
-    // each(this.children, function(child){
-    //     child.destroy();
-    // });
     while(this.children.length){
+
         this.children[this.children.length-1].destroy();
+        
     }
 
-    //this.children = [];
     this.remove();
     this._destroy();
 

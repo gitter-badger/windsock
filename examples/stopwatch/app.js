@@ -1,21 +1,27 @@
 //(function(){
 
-    var perf = {};
+    var perf = {},
+        ws = document.getElementById('ws-timers'),
+        timersList, timerListItem, listItem, compiledTimerList;
 
     perf.beforeParse = window.performance.now();
-    var timersList = windsock.parse(document.getElementById('ws-timers'));
+
+    timersList = windsock.parse(ws);
+
     perf.afterParse = window.performance.now();
 
 
     //var t = timersList._transclude.querySelector('.timer');
 
-    var timerListItem = timersList.find({class:'timer'});
+    timerListItem = timersList.find({class:'timer'});
 
 
 
 
     perf.beforeClone = window.performance.now();
-    var listItem = timerListItem.clone(true);
+
+    listItem = timerListItem.clone(true);
+
     perf.afterClone = window.performance.now();
 
 
@@ -33,12 +39,13 @@
     }
     perf.afterAppend = window.performance.now();
 
-    var compiledTimerList = windsock.compile(timersList);
+    compiledTimerList = windsock.compile(timersList);
 
     perf.afterCompile = window.performance.now();
 
     windsock.transclude(compiledTimerList);
 
+    timersList.destroy();
 
     console.log('parse took ' + (perf.afterParse - perf.beforeParse) + ' milliseconds.');
     console.log('clone took ' + (perf.afterClone - perf.beforeClone) + ' milliseconds.');

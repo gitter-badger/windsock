@@ -2,7 +2,8 @@ var util = require('../util'),
     Signals = require('../signals'),
     extend = util.extend,
     clone = util.clone,
-    each = util.each;
+    each = util.each,
+    is = util.is;
 
 function Node(value){
 
@@ -29,7 +30,7 @@ Node.prototype = {
 
             this._batch.cancel();
 
-            if(this._documentNode.parentNode) this._documentNode.parentNode.removeChild(this._documentNode);
+            if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
 
             this._observer.unobserve();
 
@@ -42,6 +43,8 @@ Node.prototype = {
         this._transclude = null;
 
         this._jsonml = null;
+
+        //loop this._value properties and nullify
 
     },
 

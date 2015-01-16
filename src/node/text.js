@@ -54,7 +54,6 @@ inherit(Text, Node, {
 
 Text.prototype.destroy = function(){
 
-    //this.parent = null;
     this.remove();
     this._destroy();
 

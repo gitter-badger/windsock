@@ -62,14 +62,10 @@ Batch.prototype = {
 
 module.exports = Batch;
 
-},{"./util":13}],2:[function(require,module,exports){
-var util = require('../util'),
-    Text = require('../node/text'),
-    Element = require('../node/element'),
+},{"./util":15}],2:[function(require,module,exports){
+var compiler = require('./index'),
     Observer = require('../observer'),
-    Batch = require('../batch'),
-    each = util.each,
-    is = util.is;
+    Batch = require('../batch');
 
 module.exports = function compile(node){
 
@@ -93,23 +89,9 @@ function compileNode(node){
 
     node._observer = new Observer(node);
 
-    node._observer.observe(node._value, false, observeValue);
+    compiler.compileJSONML(node);
 
-    observeEvents(node);
-
-    if(node instanceof Text){
-
-        node._documentNode = document.createTextNode(node._value.value);
-        compileText(node);
-
-    }else if(node instanceof Element){
-
-        node._documentNode = document.createElement(node._value.name);
-        compileElement(node);
-
-    }
-
-    if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
+    if(typeof document !== 'undefined') compiler.compileDOM(node);
 
     node._compiled = true;
 
@@ -137,41 +119,120 @@ function batchCallback(node){
 
 }
 
-function dispatchEventListener(n, evt){
+},{"../batch":1,"../observer":11,"./index":4}],3:[function(require,module,exports){
+var parseJSONML = require('../parser').parseJSONML;
 
-    return function eventListenerClosure(e){
+//parse jsonml to html string
+module.exports = function (node){
 
-        n._dispatch(evt, e);
+    if(!node || !node._jsonml.length) return '';
 
-    };
+    var html = [];
 
-}
+    parseJSONML(JSON.parse(node.toString()), function(e){
 
-function observeEvents(node){
+        switch(e.type){
 
-    node._observer.observe(node._events, false, function(mutation){
+            case 'text':
 
-        if(mutation.type === 'add'){
+                html.push(e.value);
 
-            node._documentNode.addEventListener(mutation.name, dispatchEventListener(node, mutation.name));
+            break;
 
-        }else if(mutation.type === 'delete'){
+            case 'start':
 
-            node._documentNode.removeEventListener(mutation.name);
+                html.push('<' + e.name + attributesToString(e.attributes) + '>');
+
+            break;
+
+            case 'end':
+
+                if(e.void){
+
+                    html.push('<' + e.name + attributesToString(e.attributes) + '/>');
+
+                }else{
+
+                    html.push('</' + e.name + '>');
+
+                }
+
+            break;
 
         }
 
     });
 
-    for(var evt in node._events){
+    return html.join('');
 
-        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
+};
+
+function attributesToString(attr){
+
+    var attribute = '';
+
+    for(var key in attr){
+
+        attribute += ' ' + key;
+
+        if(attr[key]) attribute+= '="' + attr[key] + '"';
+
+    }
+
+    return attribute;
+
+}
+
+},{"../parser":12}],4:[function(require,module,exports){
+var util = require('../util'),
+    Text = require('../node/text'),
+    Element = require('../node/element'),
+    each = util.each,
+    is = util.is;
+
+function observeJSONMLText(mutation, observer){
+
+    if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
+
+        observer.root._jsonml = mutation.object.value;
 
     }
 
 }
 
-function observeValue(mutation, observer){
+function observeJSONMLELementAttributes(mutation, observer){
+
+    var attributes = observer.root.attributes;
+
+    if(mutation.name !== 'attributes' && mutation.object === observer.root.attributes) return;
+
+    if(is(attributes, 'empty') && is(observer.root._jsonml[1], 'object')){
+
+        observer.root._jsonml.splice(1, 1);
+
+    }else if(observer.root._jsonml[1] !== attributes){
+
+        observer.root._jsonml.splice(1, 0, attributes);
+
+    }
+
+}
+
+function observeJSONMLElementChildren(mutation, observer){
+
+    var children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
+
+    Array.prototype[mutation.type].apply(children, mutation.transformed);
+
+    for(var i = 0, l = children.length; i < l; i++){
+
+        observer.root._jsonml.push(children[i]);
+
+    }
+
+}
+
+function observeDOMTextValue(mutation, observer){
 
     if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
 
@@ -181,43 +242,33 @@ function observeValue(mutation, observer){
 
         });
 
-        observer.root._jsonml = mutation.object.value;
+    }
 
-    }else if(mutation.name === 'attributes'){
+}
 
-        //handle setting or deleting attributes
+function observeDOMElementAttributes(mutation, observer){
+
+    if(mutation.name === 'attributes'){
+
+        //handle adding or deleting attributes
+
+    }else if(mutation.object === observer.root.attributes){
+
+        if(observer.root.attributes[mutation.name] !== mutation.oldValue){
+
+            observer.root._batch.add(function setAttribute(){
+
+                observer.root._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
+
+            });
+
+        }
 
     }
 
 }
 
-function observeAttributes(mutation, observer){
-
-    if(observer.root.attributes[mutation.name] !== mutation.oldValue){
-
-        observer.root._batch.add(function setAttribute(){
-
-            observer.root._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
-
-        });
-
-    }
-
-    if(is(mutation.object, 'empty') && is(observer.root._jsonml[1], 'object')){
-
-        observer.root._jsonml.splice(1, 1);
-
-    }else if(observer.root._jsonml[1] !== mutation.object){
-
-        observer.root._jsonml.splice(1, 0, mutation.object);
-
-    }
-
-}
-
-function observeChildren(mutation, observer){
-
-    var children;
+function observeDOMElementChildren(mutation, observer){
 
     //splice is used for before, after, and remove
     //remove() on compiled node is observed on parent and child is destroyed first
@@ -273,45 +324,106 @@ function observeChildren(mutation, observer){
         break;
     }
 
-    children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
+}
 
-    Array.prototype[mutation.type].apply(children, mutation.transformed);
+function observeDOMElementEvents(mutation, observer){
 
-    for(var i = 0, l = children.length; i < l; i++){
+    if(mutation.type === 'add'){
 
-        observer.root._jsonml.push(children[i]);
+        //double closure on observer.root ref here...
+        observer.root._documentNode.addEventListener(mutation.name, dispatchEventListener(observer.root, mutation.name));
+
+    }else if(mutation.type === 'delete'){
+
+        observer.root._documentNode.removeEventListener(mutation.name);
 
     }
 
 }
 
-function compileText(node){
+//check in compiler.compile whether or not we're in the browser
+function compileDOM(node){
 
-    node._jsonml = node.value;
+    if(node instanceof Text){
 
-}
+        node._documentNode = document.createTextNode(node._value.value);
+        node._observer.observe(node._value, false, observeDOMTextValue);
 
-function compileElement(node){
+    }else if(node instanceof Element){
 
-    node._observer.observe(node._value.attributes, false, observeAttributes);
+        node._documentNode = document.createElement(node._value.name);
 
-    node._observer.observe(node._children, false, observeChildren);
+        for(var key in node._value.attributes){
 
-    for(var key in node._value.attributes){
+            node._documentNode.setAttribute(key, node._value.attributes[key]);
 
-        node._documentNode.setAttribute(key, node._value.attributes[key]);
+        }
+
+        node._observer.observe(node._value, false, observeDOMElementAttributes);
+        node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
+        node._observer.observe(node._children, false, observeDOMElementChildren);
+
+    }else{
+
+        throw new Error('failed to compile node, not an instance of Text or Element');
 
     }
 
-    node._jsonml = Array.prototype.slice.call(node._children);
-
-    node._jsonml.unshift(node._value.name);
-
-    if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
+    if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
 
 }
 
-},{"../batch":1,"../node/element":5,"../node/text":8,"../observer":9,"../util":13}],3:[function(require,module,exports){
+function compileHTML(){
+
+}
+
+function compileJSONML(node){
+
+    if(node instanceof Text){
+
+        node._jsonml = node.value;
+        node._observer.observe(node._value, false, observeJSONMLText);
+
+    }else if(node instanceof Element){
+
+        node._jsonml = Array.prototype.slice.call(node._children);
+        node._jsonml.unshift(node._value.name);
+        if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
+        node._observer.observe(node._value, false, observeJSONMLELementAttributes);
+        node._observer.observe(node._value.attributes, false, observeJSONMLELementAttributes);
+        node._observer.observe(node._children, false, observeJSONMLElementChildren);
+
+    }else{
+
+        throw new Error('failed to compile node, not an instance of Text or Element');
+
+    }
+
+    node._observer.observe(node._events, false, observeDOMElementEvents);
+
+    for(var evt in node._events){
+
+        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
+
+    }
+
+}
+
+function dispatchEventListener(n, evt){
+
+    return function eventListenerClosure(e){
+
+        n._dispatch(evt, e);
+
+    };
+
+}
+
+exports.compileDOM = compileDOM;
+exports.compileHTML = compileHTML;
+exports.compileJSONML = compileJSONML;
+
+},{"../node/element":7,"../node/text":10,"../util":15}],5:[function(require,module,exports){
 module.exports = function transclude(node, DOMNode){
 
     var parent;
@@ -329,12 +441,12 @@ module.exports = function transclude(node, DOMNode){
 
 };
 
-},{}],4:[function(require,module,exports){
+},{}],6:[function(require,module,exports){
 var util = require('./util'),
     parse = require('./parser/parse'),
     compile = require('./compiler/compile'),
     transclude = require('./compiler/transclude'),
-    //html = require('./compiler/html'),
+    html = require('./compiler/html'),
     node = require('./node'),
     Observer = require('./observer'),
     Batch = require('./batch');
@@ -344,15 +456,13 @@ module.exports = {
     parse: parse,
     compile: compile,
     transclude: transclude,
-    //html: html,
-    //render: render,
-    //jsonml: jsonml,
+    html: html,
     node: node,
     Observer: Observer,
     Batch: Batch
 };
 
-},{"./batch":1,"./compiler/compile":2,"./compiler/transclude":3,"./node":6,"./observer":9,"./parser/parse":11,"./util":13}],5:[function(require,module,exports){
+},{"./batch":1,"./compiler/compile":2,"./compiler/html":3,"./compiler/transclude":5,"./node":8,"./observer":11,"./parser/parse":13,"./util":15}],7:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     Text = require('./text'),
@@ -566,17 +676,12 @@ Element.prototype.filter = function(query){
 
 Element.prototype.destroy = function(){
 
-    //this.parent = null;
-
-
-    // each(this.children, function(child){
-    //     child.destroy();
-    // });
     while(this.children.length){
+
         this.children[this.children.length-1].destroy();
+        
     }
 
-    //this.children = [];
     this.remove();
     this._destroy();
 
@@ -620,7 +725,7 @@ Element.prototype.after = function(node){
 
 module.exports = Element;
 
-},{"../util":13,"./node":7,"./text":8}],6:[function(require,module,exports){
+},{"../util":15,"./node":9,"./text":10}],8:[function(require,module,exports){
 var Text = require('./text'),
     Element = require('./element');
 
@@ -649,12 +754,13 @@ module.exports = {
 
 };
 
-},{"./element":5,"./text":8}],7:[function(require,module,exports){
+},{"./element":7,"./text":10}],9:[function(require,module,exports){
 var util = require('../util'),
     Signals = require('../signals'),
     extend = util.extend,
     clone = util.clone,
-    each = util.each;
+    each = util.each,
+    is = util.is;
 
 function Node(value){
 
@@ -681,7 +787,7 @@ Node.prototype = {
 
             this._batch.cancel();
 
-            if(this._documentNode.parentNode) this._documentNode.parentNode.removeChild(this._documentNode);
+            if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
 
             this._observer.unobserve();
 
@@ -694,6 +800,8 @@ Node.prototype = {
         this._transclude = null;
 
         this._jsonml = null;
+
+        //loop this._value properties and nullify
 
     },
 
@@ -839,7 +947,7 @@ Node.prototype = {
 
 module.exports = Node;
 
-},{"../signals":12,"../util":13}],8:[function(require,module,exports){
+},{"../signals":14,"../util":15}],10:[function(require,module,exports){
 var util = require('../util'),
     Node = require('./node'),
     inherit = util.inherit;
@@ -896,7 +1004,6 @@ inherit(Text, Node, {
 
 Text.prototype.destroy = function(){
 
-    //this.parent = null;
     this.remove();
     this._destroy();
 
@@ -910,7 +1017,7 @@ Text.prototype.toString = function(){
 
 module.exports = Text;
 
-},{"../util":13,"./node":7}],9:[function(require,module,exports){
+},{"../util":15,"./node":9}],11:[function(require,module,exports){
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
@@ -1434,7 +1541,7 @@ Observer.unobserve = function(target){
 
 module.exports = Observer;
 
-},{"./signals":12,"./util":13}],10:[function(require,module,exports){
+},{"./signals":14,"./util":15}],12:[function(require,module,exports){
 var util = require('../util'),
     extend = util.extend,
     each = util.each,
@@ -1780,7 +1887,7 @@ exports.parseDOM = parseDOM;
 exports.parseHTML = parseHTML;
 exports.parseJSONML = parseJSONML;
 
-},{"../util":13}],11:[function(require,module,exports){
+},{"../util":15}],13:[function(require,module,exports){
 var is = require('../util').is,
     node = require('../node'),
     parser = require('./index');
@@ -1874,7 +1981,7 @@ module.exports = function parse(source){
 
 };
 
-},{"../node":6,"../util":13,"./index":10}],12:[function(require,module,exports){
+},{"../node":8,"../util":15,"./index":12}],14:[function(require,module,exports){
 var util = require('./util'),
     each = util.each;
 
@@ -1999,7 +2106,7 @@ Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":13}],13:[function(require,module,exports){
+},{"./util":15}],15:[function(require,module,exports){
 var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
     paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick,
     cancel;
@@ -2251,5 +2358,5 @@ var util = {
 
 module.exports = util;
 
-},{}]},{},[4])(4)
+},{}]},{},[6])(6)
 });
