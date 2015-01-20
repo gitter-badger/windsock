@@ -2,33 +2,27 @@ var util = require('../util'),
     Signals = require('../signals'),
     extend = util.extend,
     clone = util.clone,
-    each = util.each,
     is = util.is;
 
 function Node(value){
-
     this._value = extend(Object.create(this.constructor.value), value);
     this._observer = null;
-    this._batch = null;
     this._documentNode = null;
     this._transclude = null;
     this._compiled = false;
     this._events = {};
     this._jsonml = [];
-
 }
 
 Node.value = {};
 
 Node.prototype = {
-
     _destroy: function(){
-
-        this.off(); //remove all events which are observed and then removed from _documentNode
-
+        //remove all events which are observed and then removed from _documentNode
+        this.off();
         if(this._compiled){
 
-            this._batch.cancel();
+            //batch.cancel(this._batch);
 
             if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
 
@@ -39,13 +33,9 @@ Node.prototype = {
         }
 
         this._documentNode = null;
-
         this._transclude = null;
-
         this._jsonml = null;
-
         //loop this._value properties and nullify
-
     },
 
     _event: function(name){
@@ -83,71 +73,34 @@ Node.prototype = {
     },
 
     on: function(name, callback){
-
         return this._event(name).queue(callback, this);
-
     },
 
     off: function(name, signal){
-
         var events = Array.prototype.slice.call(arguments,0,1);
-
         if(!events.length) events = Object.keys(this._events);
-
         if(signal){
-
             this._events[name].remove(signal);
-
             if(this._events[name].count) return;
-
         }
-
-        each.call(this, events, function(evt){
-
-            this._events[evt].remove();
-
+        for(var i = 0, l = events.length; i < l; i++){
+            this._events[events[i]].remove();
             if(this._compiled){
-
-                this._events.delete(evt);
-
+                this._events.delete(events[i]);
             }else{
-
-                delete this._events[evt];
-
+                delete this._events[events[i]];
             }
-
-        });
-
-    },
-
-    clone: function(deep){
-
-        var cloned = new this.constructor(clone(this._value));
-
-        if(deep && this.children){
-
-            each(this.children, function(child){
-
-                cloned.append(child.clone(true));
-
-            });
-
         }
-
-        each(this._events, function(signals, event){
-
-            signals.each(function(signal){
-
-                cloned.on(event, signal.binding);
-
-            });
-
-        });
-
-        return cloned;
-
     },
-
+    clone: function(deep){
+        var cloned = new this.constructor(clone(this._value));
+        if(deep && this._children){
+            for(var i = 0, l = this._children.length; i < l; i++){
+                cloned.append(this._children[i].clone(true));
+            }
+        }
+        return cloned;
+    },
     remove: function(){
         var _this = this;
         if(this.parent){
@@ -165,27 +118,16 @@ Node.prototype = {
             }
             this.parent = null;
         }
-
     },
-
     valueOf: function(){
-
         return this._value;
-
     },
-
     toJSON: function(){
-
         return this._jsonml;
-
     },
-
     toString: function(){
-
         return JSON.stringify(this._jsonml);
-
     }
-
 };
 
 module.exports = Node;

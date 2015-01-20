@@ -2,91 +2,45 @@ var is = require('../util').is,
     node = require('../node'),
     parser = require('./index');
 
-//parse jsonml array, html string, or document element
 module.exports = function parse(source){
-
-    var method,
-        parsed,
-        DOMNode;
+    //parse jsonml array, html string, or document element
+    var parseMethod,
+        template = node.element('template'),
+        clone;
 
     if(is(source, 'string')){
-
-        method = parser.parseHTML;
-
+        parseMethod = parser.parseHTML;
     }else if(source.nodeName){
-
         if(document.contains(source)){
 
-            DOMNode = source; //retain for transcluding
-            source = source.cloneNode(true); //going to be doing some heavy reads...
+            template._transclude = source; //retain for transcluding
+            clone = source.cloneNode(true); //going to be doing some heavy reads... not a noticeable perf diff
 
         }
 
-        method = parser.parseDOM;
+        parseMethod = parser.parseDOM;
 
     }else{
-
-        method = parser.parseJSONML;
-
+        parseMethod = parser.parseJSONML;
     }
-
-    method(source, function(e){
-
+    parseMethod(clone || source, function(e){
         switch(e.type){
-
             case 'text':
-
-                //if parsed is undefined create fragment and append to that - nix
-                if(!parsed){
-
-                    parsed = node.text(e.value); //will break if more
-
-                }else{
-
-                    parsed.append(node.text(e.value));
-
-                }
-
+                template.append(node.text(e.value));
             break;
-
             case 'start':
-
-                if(parsed) {
-
-                    parsed.append(node.element(e.name, e.attributes));
-                    parsed = parsed.children[parsed.children.length - 1];
-
-                }else{
-
-                    parsed = node.element(e.name, e.attributes);
-
-                }
-
+                template.append(node.element(e.name, e.attributes));
+                template = template.children[template.children.length - 1];
             break;
-
             case 'end':
-
                 if(e.void){
-
-                    parsed.append(node.element(e.name, e.attributes));
-
+                    template.append(node.element(e.name, e.attributes));
                 }else{
-
-                    if(parsed.parent) parsed = parsed.parent;
-                    //scenario where text is last event so we don't have a parent
-
+                    if(template.parent) template = template.parent;
                 }
-
             break;
-
         }
-
     });
-
     source = null;
-
-    if(DOMNode) parsed._transclude = DOMNode;
-
-    return parsed;
-
+    return template;
 };

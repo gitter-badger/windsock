@@ -95,8 +95,6 @@ describe('Signals', function () {
 
     });
 
-    describe('each(fn)', function(){});
-
     describe('remove(signal)', function(){
 
         var signals = new Signals();
@@ -161,23 +159,6 @@ describe('Signals', function () {
 
             signals.dispatch();
             assert.strictEqual(calledWith, context);
-
-        });
-
-        it('should invoke each signal in correct order and halt on return false', function(){
-
-            callCount = 0;
-
-            signals.add(function(){
-
-                callCount++;
-                return false;
-
-            }, undefined, 4);
-
-            signals.dispatch();
-
-            assert.strictEqual(callCount, 5);
 
         });
 

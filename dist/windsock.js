@@ -1,125 +1,74 @@
 !function(e){if("object"==typeof exports&&"undefined"!=typeof module)module.exports=e();else if("function"==typeof define&&define.amd)define([],e);else{var f;"undefined"!=typeof window?f=window:"undefined"!=typeof global?f=global:"undefined"!=typeof self&&(f=self),f.windsock=e()}}(function(){var define,module,exports;return (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var util = require('./util'),
-    bind = util.bind,
     paint = util.paint,
-    cancel = util.cancel;
+    cancelPaint = util.cancelPaint;
 
-function Batch(fn){
+var id,
+    requested,
+    running,
+    queue;
 
-    this._done();
-    this.callback = fn;
-    this.args = Array.prototype.slice.call(arguments, 1);
-
+function done(){
+    id = null;
+    requested = false;
+    running = false;
+    queue = [];
 }
 
-Batch.prototype = {
-
-    add: function(fn){
-
-        this.queue.push(fn);
-
-        if(!this.requested) {
-
-            this.id = paint(bind(this._run, this));
-            this.requested = true;
-
-        }
-
-    },
-
-    cancel: function(){
-
-        cancel(this.id);
-        this._done();
-
-    },
-
-    _run: function(){
-
-        this.running = true;
-
-        for(var i = 0; i < this.queue.length; i++){
-
-            this.queue[i].apply(this, this.args);
-
-        }
-
-        this._done();
-
-    },
-
-    _done: function(){
-
-        this.queue = [];
-        this.requested = false;
-        this.running = false;
-        this.id = null;
-        if(this.callback) this.callback.apply(this, this.args);
-
+function run(){
+    running = true;
+    for(var i = 0; i < queue.length; i++){
+        queue[i].call();
     }
+    done();
+}
 
+done();
+
+exports.cancel = function cancel(){
+    cancelPaint(id);
+    done();
 };
 
-module.exports = Batch;
+exports.add = function add(fn){
+    queue.push(fn);
+    if(!requested) {
+        id = paint(run);
+        requested = true;
+    }
+    return id;
+};
 
 },{"./util":15}],2:[function(require,module,exports){
 var compiler = require('./index'),
-    Observer = require('../observer'),
-    Batch = require('../batch');
+    Observer = require('../observer');
 
-module.exports = function compile(node){
-
-    var clone = node.clone(true);
-
-    clone._transclude = node._transclude;
-
-    node._transclude = null;
-
+module.exports = function compile(template){
+    var clone = template.clone(true);
+    clone._transclude = template._transclude;
+    template._transclude = null;
     compileNode(clone);
-
     if(clone.children) compileNodes(clone.children);
-
     return clone;
-
 };
 
 function compileNode(node){
-
-    node._batch = new Batch(batchCallback, node);
-
     node._observer = new Observer(node);
-
     compiler.compileJSONML(node);
-
     if(typeof document !== 'undefined') compiler.compileDOM(node);
-
     node._compiled = true;
-
     return node;
-
 }
 
 function compileNodes(nodes){
-
     var node;
-
     for(var i = 0, l = nodes.length; i < l; i++){
-
         node = compileNode(nodes[i]);
-
         if(node.children) compileNodes(node.children);
-
     }
-
 }
 
-function batchCallback(node){
-
-    node._dispatch('batch');
-
-}
-
-},{"../batch":1,"../observer":11,"./index":4}],3:[function(require,module,exports){
+},{"../observer":11,"./index":4}],3:[function(require,module,exports){
 var parseJSONML = require('../parser').parseJSONML;
 
 //parse jsonml to html string
@@ -187,258 +136,168 @@ function attributesToString(attr){
 var util = require('../util'),
     Text = require('../node/text'),
     Element = require('../node/element'),
+    batch = require('../batch'),
+    partial = util.partial,
     each = util.each,
     is = util.is;
 
 function observeJSONMLText(mutation, observer){
-
     if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
-
         observer.root._jsonml = mutation.object.value;
-
     }
-
 }
 
 function observeJSONMLELementAttributes(mutation, observer){
-
     var attributes = observer.root.attributes;
-
     if(mutation.name !== 'attributes' && mutation.object === observer.root.attributes) return;
-
     if(is(attributes, 'empty') && is(observer.root._jsonml[1], 'object')){
-
         observer.root._jsonml.splice(1, 1);
-
     }else if(observer.root._jsonml[1] !== attributes){
-
         observer.root._jsonml.splice(1, 0, attributes);
-
     }
-
 }
 
 function observeJSONMLElementChildren(mutation, observer){
-
     var children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
-
     Array.prototype[mutation.type].apply(children, mutation.transformed);
-
     for(var i = 0, l = children.length; i < l; i++){
-
         observer.root._jsonml.push(children[i]);
-
     }
+}
 
+function textContent(node, value){
+    node.textContent = value;
+}
+
+function setAttribute(node, key, value){
+    node.setAttribute(key, value);
+}
+
+function removeChild(node){
+    node.parentNode.removeChild(node);
+}
+
+function appendChild(node, child){
+    node.appendChild(child);
+}
+
+function insertBefore(parent, node, ref){
+    parent.insertBefore(node, ref);
 }
 
 function observeDOMTextValue(mutation, observer){
-
     if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
-
-        observer.root._batch.add(function textContent(){
-
-            observer.root._documentNode.textContent = mutation.object.value;
-
-        });
-
+        batch.add(partial(textContent, observer.root._documentNode, mutation.object.value));
     }
-
 }
 
 function observeDOMElementAttributes(mutation, observer){
-
     if(mutation.name === 'attributes'){
-
         //handle adding or deleting attributes
-
     }else if(mutation.object === observer.root.attributes){
-
         if(observer.root.attributes[mutation.name] !== mutation.oldValue){
-
-            observer.root._batch.add(function setAttribute(){
-
-                observer.root._documentNode.setAttribute(mutation.name, mutation.object[mutation.name]);
-
-            });
-
+            batch.add(partial(setAttribute, observer.root._documentNode, mutation.name, mutation.object[mutation.name]));
         }
-
     }
-
 }
 
 function observeDOMElementChildren(mutation, observer){
-
+    var node = observer.root._documentNode;
     //splice is used for before, after, and remove
     //remove() on compiled node is observed on parent and child is destroyed first
     switch(mutation.type){
         case 'splice':
             if(mutation.oldValue){
-
                 each(mutation.oldValue, function batchRemoveChild(child){
-
-                    observer.root._batch.add(function removeChild(){
-
-                        child._documentNode.parentNode.removeChild(child._documentNode);
-
-                    });
-
+                    batch.add(partial(removeChild, child._documentNode));
                 });
-
             }
-
             if(mutation.transformed.length === 3){
-
-                observer.root._batch.add(function insertChild(){
-
-                    //childNodes returns live list of child nodes need this because like unshift the virtual node.children has already been manipulated
-                    observer.root._documentNode.insertBefore(mutation.transformed[2]._documentNode, observer.root._documentNode.childNodes[mutation.name]);
-
-                });
-
+                //childNodes returns live list of child nodes. we need this because like unshift
+                //the virtual node.children has already been manipulated
+                batch.add(partial(insertBefore, node, mutation.transformed[2]._documentNode, node.childNodes[mutation.name]));
             }
         break;
         case 'push':
             each(mutation.transformed, function batchAppendChild(child){
-
-                observer.root._batch.add(function appendChild(){
-
-                    observer.root._documentNode.appendChild(child._documentNode);
-
-                });
-
+                batch.add(partial(appendChild, node, child._documentNode));
             });
         break;
         case 'unshift':
             each(mutation.transformed, function(child){
-
-                observer.root._batch.add(function(){
-
-                    //have to use elements first child because its already been unshifted to _children array
-                    observer.root._documentNode.insertBefore(child._documentNode, observer.root._documentNode.firstChild);
-
-                });
-
+                //have to use elements first child because its already been unshifted to _children array
+                batch.add(partial(insertBefore, node, child._documentNode, node.firstChild));
             });
         break;
     }
-
 }
 
 function observeDOMElementEvents(mutation, observer){
-
     if(mutation.type === 'add'){
-
         //double closure on observer.root ref here...
         observer.root._documentNode.addEventListener(mutation.name, dispatchEventListener(observer.root, mutation.name));
-
     }else if(mutation.type === 'delete'){
-
         observer.root._documentNode.removeEventListener(mutation.name);
-
     }
-
-}
-
-//check in compiler.compile whether or not we're in the browser
-function compileDOM(node){
-
-    if(node instanceof Text){
-
-        node._documentNode = document.createTextNode(node._value.value);
-        node._observer.observe(node._value, false, observeDOMTextValue);
-
-    }else if(node instanceof Element){
-
-        node._documentNode = document.createElement(node._value.name);
-
-        for(var key in node._value.attributes){
-
-            node._documentNode.setAttribute(key, node._value.attributes[key]);
-
-        }
-
-        node._observer.observe(node._value, false, observeDOMElementAttributes);
-        node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
-        node._observer.observe(node._children, false, observeDOMElementChildren);
-
-    }else{
-
-        throw new Error('failed to compile node, not an instance of Text or Element');
-
-    }
-
-    if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
-
-}
-
-function compileHTML(){
-
 }
 
 function compileJSONML(node){
-
     if(node instanceof Text){
-
         node._jsonml = node.value;
         node._observer.observe(node._value, false, observeJSONMLText);
-
     }else if(node instanceof Element){
-
         node._jsonml = Array.prototype.slice.call(node._children);
         node._jsonml.unshift(node._value.name);
         if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
         node._observer.observe(node._value, false, observeJSONMLELementAttributes);
         node._observer.observe(node._value.attributes, false, observeJSONMLELementAttributes);
         node._observer.observe(node._children, false, observeJSONMLElementChildren);
-
     }else{
-
         throw new Error('failed to compile node, not an instance of Text or Element');
-
     }
-
     node._observer.observe(node._events, false, observeDOMElementEvents);
-
     for(var evt in node._events){
-
         node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
-
     }
+}
 
+function compileDOM(node){
+    if(node instanceof Text){
+        node._documentNode = document.createTextNode(node._value.value);
+        node._observer.observe(node._value, false, observeDOMTextValue);
+    }else if(node instanceof Element){
+        node._documentNode = document.createElement(node._value.name);
+        for(var key in node._value.attributes){
+            node._documentNode.setAttribute(key, node._value.attributes[key]);
+        }
+        node._observer.observe(node._value, false, observeDOMElementAttributes);
+        node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
+        node._observer.observe(node._children, false, observeDOMElementChildren);
+    }else{
+        throw new Error('failed to compile node, not an instance of Text or Element');
+    }
+    if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
 }
 
 function dispatchEventListener(n, evt){
-
     return function eventListenerClosure(e){
-
         n._dispatch(evt, e);
-
     };
-
 }
 
 exports.compileDOM = compileDOM;
-exports.compileHTML = compileHTML;
 exports.compileJSONML = compileJSONML;
 
-},{"../node/element":7,"../node/text":10,"../util":15}],5:[function(require,module,exports){
-module.exports = function transclude(node, DOMNode){
-
+},{"../batch":1,"../node/element":7,"../node/text":10,"../util":15}],5:[function(require,module,exports){
+module.exports = function transclude(template, target){
     var parent;
-
-    DOMNode = DOMNode || node._transclude;
-
-    parent = DOMNode.parentNode;
-
-    parent.insertBefore(node._documentNode, DOMNode);
-
-    parent.removeChild(DOMNode);
-
-    node._transclude = null;
-
-
+    target = target || template._transclude;
+    parent = target.parentNode;
+    for(var i = 0, l = template._children.length; i < l; i++){
+        parent.insertBefore(template._children[i]._documentNode, target);
+    }
+    parent.removeChild(target);
+    template._transclude = null;
 };
 
 },{}],6:[function(require,module,exports){
@@ -504,21 +363,14 @@ function parseQuery(query){
 }
 
 function Element(value){
-
     Node.call(this, value);
-
     this._parent = null;
-
     this._children = [];
-
 }
 
 Element.value = {
-
     name: '',
-
     attributes: {}
-
 };
 
 inherit(Element, Node, {
@@ -636,7 +488,7 @@ Element.prototype.find = function(query){
     var predicate = parseQuery(query),
         result;
 
-    each(this.children, function(child, i, children, halt){
+    each(this._children, function(child, i, children, halt){
 
         if(predicate(child)){
 
@@ -662,7 +514,7 @@ Element.prototype.filter = function(query){
     var predicate = parseQuery(query),
         result = [];
 
-    each(this.children, function(child){
+    each(this._children, function(child){
 
         if(predicate(child)) result.push(child);
 
@@ -676,10 +528,10 @@ Element.prototype.filter = function(query){
 
 Element.prototype.destroy = function(){
 
-    while(this.children.length){
+    while(this._children.length){
 
-        this.children[this.children.length-1].destroy();
-        
+        this._children[this._children.length-1].destroy();
+
     }
 
     this.remove();
@@ -690,14 +542,14 @@ Element.prototype.destroy = function(){
 Element.prototype.append = function(node){
 
     node.parent = this;
-    return this.children.push(node);
+    return this._children.push(node);
 
 };
 
 Element.prototype.prepend = function(node){
 
     node.parent = this;
-    return this.children.unshift(node);
+    return this._children.unshift(node);
 
 };
 
@@ -759,33 +611,27 @@ var util = require('../util'),
     Signals = require('../signals'),
     extend = util.extend,
     clone = util.clone,
-    each = util.each,
     is = util.is;
 
 function Node(value){
-
     this._value = extend(Object.create(this.constructor.value), value);
     this._observer = null;
-    this._batch = null;
     this._documentNode = null;
     this._transclude = null;
     this._compiled = false;
     this._events = {};
     this._jsonml = [];
-
 }
 
 Node.value = {};
 
 Node.prototype = {
-
     _destroy: function(){
-
-        this.off(); //remove all events which are observed and then removed from _documentNode
-
+        //remove all events which are observed and then removed from _documentNode
+        this.off();
         if(this._compiled){
 
-            this._batch.cancel();
+            //batch.cancel(this._batch);
 
             if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
 
@@ -796,13 +642,9 @@ Node.prototype = {
         }
 
         this._documentNode = null;
-
         this._transclude = null;
-
         this._jsonml = null;
-
         //loop this._value properties and nullify
-
     },
 
     _event: function(name){
@@ -840,71 +682,34 @@ Node.prototype = {
     },
 
     on: function(name, callback){
-
         return this._event(name).queue(callback, this);
-
     },
 
     off: function(name, signal){
-
         var events = Array.prototype.slice.call(arguments,0,1);
-
         if(!events.length) events = Object.keys(this._events);
-
         if(signal){
-
             this._events[name].remove(signal);
-
             if(this._events[name].count) return;
-
         }
-
-        each.call(this, events, function(evt){
-
-            this._events[evt].remove();
-
+        for(var i = 0, l = events.length; i < l; i++){
+            this._events[events[i]].remove();
             if(this._compiled){
-
-                this._events.delete(evt);
-
+                this._events.delete(events[i]);
             }else{
-
-                delete this._events[evt];
-
+                delete this._events[events[i]];
             }
-
-        });
-
-    },
-
-    clone: function(deep){
-
-        var cloned = new this.constructor(clone(this._value));
-
-        if(deep && this.children){
-
-            each(this.children, function(child){
-
-                cloned.append(child.clone(true));
-
-            });
-
         }
-
-        each(this._events, function(signals, event){
-
-            signals.each(function(signal){
-
-                cloned.on(event, signal.binding);
-
-            });
-
-        });
-
-        return cloned;
-
     },
-
+    clone: function(deep){
+        var cloned = new this.constructor(clone(this._value));
+        if(deep && this._children){
+            for(var i = 0, l = this._children.length; i < l; i++){
+                cloned.append(this._children[i].clone(true));
+            }
+        }
+        return cloned;
+    },
     remove: function(){
         var _this = this;
         if(this.parent){
@@ -922,27 +727,16 @@ Node.prototype = {
             }
             this.parent = null;
         }
-
     },
-
     valueOf: function(){
-
         return this._value;
-
     },
-
     toJSON: function(){
-
         return this._jsonml;
-
     },
-
     toString: function(){
-
         return JSON.stringify(this._jsonml);
-
     }
-
 };
 
 module.exports = Node;
@@ -1023,7 +817,6 @@ var util = require('./util'),
     is = util.is,
     bind = util.bind,
     each = util.each,
-    match = util.match,
     merge = util.merge,
     extend = util.extend;
 
@@ -1040,38 +833,34 @@ var define = Object.defineProperty,
         'unshift'
     ];
 
-function dispatch(mutationRecord, signals){
-
-    each(mutationRecord.object._observers, function mutationDispatchIterator(observer){
-
-        observer[signals].dispatch(mutationRecord, observer);
-
-    });
-
+function dispatchTransforms(mutationRecord, observer){
+    observer.transforms.dispatch(mutationRecord, observer);
 }
 
-function mutate(mutationRecord, m){
-
-    dispatch(mutationRecord, 'transforms');
-
-    m(mutationRecord);
-
-    dispatch(mutationRecord, 'observers');
-
+function dispatchObservers(mutationRecord, observer){
+    observer.observers.dispatch(mutationRecord, observer);
 }
 
-function mutation(obj){
+function dispatch(mutationRecord, method){
+    for(var i = 0, l = mutationRecord.object._observers.length; i < l; i++){
+        method(mutationRecord, mutationRecord.object._observers[i]);
+    }
+}
 
+function dispatchMutation(mutationRecord, mutate){
+    dispatch(mutationRecord, dispatchTransforms);
+    mutate(mutationRecord);
+    dispatch(mutationRecord, dispatchObservers);
+}
+
+function mutationObject(obj){
     return merge({
-
-        name:null,
-        object:null,
-        type:null,
-        oldValue:null,
-        transformed:null
-
+        name: null,
+        object: null,
+        type: null,
+        oldValue: null,
+        transformed: null
     }, obj);
-
 }
 
 function arrayMutation(m){
@@ -1132,8 +921,8 @@ function defineAccessors(descriptor, prop, value){
 
         set: function(newValue){
 
-            //create the mutation method in this closure to retain value param ref :)
-            mutate(mutation({
+            //create the mutationObject method in this closure to retain value param ref :)
+            dispatchMutation(mutationObject({
 
                 name: prop,
                 object: this,
@@ -1175,7 +964,7 @@ function observableArray(descriptor){
 
             value: function arrayMutationClosure(){
 
-                var mutationRecord = mutation({
+                var mutationRecord = mutationObject({
                         object: this,
                         type: method,
                         transformed: Array.prototype.slice.call(arguments)
@@ -1186,7 +975,7 @@ function observableArray(descriptor){
 
                     case 'fill':
 
-                        mutation.name = args[1];
+                        mutationRecord.name = args[1];
                         mutationRecord.oldValue = this.slice(args[1], args[2]);
 
                     break;
@@ -1226,7 +1015,7 @@ function observableArray(descriptor){
 
                 //mutationRecord.transformed = args;
 
-                mutate(mutationRecord, arrayMutation);
+                dispatchMutation(mutationRecord, arrayMutation);
 
                 mutationRecord = null;
 
@@ -1248,7 +1037,7 @@ function observableObject(descriptor){
 
                 if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
 
-                mutate(mutation({
+                dispatchMutation(mutationObject({
 
                     name: prop,
                     object: this,
@@ -1267,7 +1056,7 @@ function observableObject(descriptor){
 
                 if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
 
-                mutate(mutation({
+                dispatchMutation(mutationObject({
 
                     name: prop,
                     object: this,
@@ -1355,16 +1144,6 @@ function observable(target, recursive){
 
 }
 
-function limit(callback, query){
-
-    return function limitMutation(mutation, observer){
-
-        if(match(mutation, query)) callback.call(this, mutation, observer);
-
-    };
-
-}
-
 function configurableProperties(target){
 
     var props = [];
@@ -1415,43 +1194,31 @@ function observeEach(observers, target, recursive){
 
 }
 
-function Observer(root){
+function limit(callback, target){
+    return function limitMutationDispatch(mutation, observer){
+        if(mutation.object === target) callback.call(this, mutation, observer);
+    };
+}
 
+function Observer(root){
     this.observers = new Signals();
     this.transforms = new Signals();
     this._observed = [];
-    this.root = root; //retain an optional root object to pass to all observers/transforms
-
+    //define a shared root object to pass to all observers/transforms
+    this.root = root;
 }
 
 Observer.prototype = {
-
     observe: function(target, recursive, callback){
-
         if(!target) return;
-
         observable(target, recursive);
-
         observe(this, target, recursive);
-
-        if(callback){
-
-            return this.observers.add(limit(callback, {object: target}), this);
-
-        }
-
+        if(callback) return this.observers.add(limit(callback, target));
     },
-
     transform: function(target, recursive, callback){
-
+        if(!target) return;
         this.observe(target, recursive);
-
-        if(callback){
-
-            return this.transforms.queue(limit(callback, {object: target}), this);
-
-        }
-
+        if(callback) return this.transforms.queue(limit(callback, target));
     },
 
     unobserve: function(target){
@@ -1892,376 +1659,205 @@ var is = require('../util').is,
     node = require('../node'),
     parser = require('./index');
 
-//parse jsonml array, html string, or document element
 module.exports = function parse(source){
-
-    var method,
-        parsed,
-        DOMNode;
+    //parse jsonml array, html string, or document element
+    var parseMethod,
+        template = node.element('template'),
+        clone;
 
     if(is(source, 'string')){
-
-        method = parser.parseHTML;
-
+        parseMethod = parser.parseHTML;
     }else if(source.nodeName){
-
         if(document.contains(source)){
 
-            DOMNode = source; //retain for transcluding
-            source = source.cloneNode(true); //going to be doing some heavy reads...
+            template._transclude = source; //retain for transcluding
+            clone = source.cloneNode(true); //going to be doing some heavy reads... not a noticeable perf diff
 
         }
 
-        method = parser.parseDOM;
+        parseMethod = parser.parseDOM;
 
     }else{
-
-        method = parser.parseJSONML;
-
+        parseMethod = parser.parseJSONML;
     }
-
-    method(source, function(e){
-
+    parseMethod(clone || source, function(e){
         switch(e.type){
-
             case 'text':
-
-                //if parsed is undefined create fragment and append to that - nix
-                if(!parsed){
-
-                    parsed = node.text(e.value); //will break if more
-
-                }else{
-
-                    parsed.append(node.text(e.value));
-
-                }
-
+                template.append(node.text(e.value));
             break;
-
             case 'start':
-
-                if(parsed) {
-
-                    parsed.append(node.element(e.name, e.attributes));
-                    parsed = parsed.children[parsed.children.length - 1];
-
-                }else{
-
-                    parsed = node.element(e.name, e.attributes);
-
-                }
-
+                template.append(node.element(e.name, e.attributes));
+                template = template.children[template.children.length - 1];
             break;
-
             case 'end':
-
                 if(e.void){
-
-                    parsed.append(node.element(e.name, e.attributes));
-
+                    template.append(node.element(e.name, e.attributes));
                 }else{
-
-                    if(parsed.parent) parsed = parsed.parent;
-                    //scenario where text is last event so we don't have a parent
-
+                    if(template.parent) template = template.parent;
                 }
-
             break;
-
         }
-
     });
-
     source = null;
-
-    if(DOMNode) parsed._transclude = DOMNode;
-
-    return parsed;
-
+    return template;
 };
 
 },{"../node":8,"../util":15,"./index":12}],14:[function(require,module,exports){
-var util = require('./util'),
-    each = util.each;
-
 function Signal(fn, context, priority){
-
     this.binding = fn;
     this.context = context;
     this.priority = typeof priority !== 'undefined' ? priority : 0;
-
 }
 
 Signal.prototype = {
-
     invoke: function(args){
-
-        if(this.binding){
-
-            return this.binding.apply(this.context, args);
-
-        }
-
+        if(this.binding) return this.binding.apply(this.context, args);
     }
-
 };
 
 function Signals(){
-
     this._signals = [];
-
 }
 
 Signals.prototype = {
-
     dispatch: function(){
-
         var args = Array.prototype.slice.call(arguments);
-
-        each(this._signals, function invokeSignal(signal){
-
-            if(signal.invoke(args) === false) return arguments[3];
-
-        });
-
+        for(var i = 0, l = this._signals.length; i < l; i++){
+            this._signals[i].invoke(args);
+        }
     },
-
     add: function(fn, context, priority){
-
-        //signals are one to many, a signal can only belong to one signals class
-        //default order is a stack
-        //default priority is 0
         var signal = new Signal(fn, context, priority),
             i = 0;
-
         while(i < this._signals.length){
-
             if(signal.priority <= this._signals[i].priority) break;
-
             i++;
-
         }
-
         this._signals.splice(i, 0, signal);
-
-        return signal;//consider returning index of signal instead
-
+        return signal;
     },
-
     queue: function(fn, context){
-
         return this.add(fn, context, this._signals.length);
-
     },
-
     index: function(signal){
-
         return this._signals.indexOf(signal);
-
     },
-
     remove: function(signal){
-
         if(!signal){
-
             this._signals = [];
             return;
-
         }
-
-        //can add the same function with different context or priority
-        //so pass signal ref returned by add
         var i = this.index(signal);
-
         if(i !== -1){
-
             this._signals.splice(i, 1);
-
         }
-
         return i;
-
-    },
-
-    each: function(fn){
-
-        each.call(this, this._signals, fn);
-
     }
-
 };
 
 Object.defineProperty(Signals.prototype, 'count', {
-
     get: function(){
-
         return this._signals.length;
-
     }
-
 });
 
 Signals.signal = Signal;
 
 module.exports = Signals;
 
-},{"./util":15}],15:[function(require,module,exports){
-var tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : window.setTimeout,
-    paint = (typeof window !== 'undefined' && window.requestAnimationFrame) ? window.requestAnimationFrame : tick,
-    cancel;
+},{}],15:[function(require,module,exports){
+var paint, cancelPaint, tick = (typeof process !== 'undefined' && process.nextTick) ? process.nextTick : setTimeout;
 
-if(typeof window !== 'undefined'){
-    cancel = window.cancelAnimationFrame || window.clearTimeout;
+if(typeof window !== 'undefined' && window.requestAnimationFrame){
+    paint = window.requestAnimationFrame;
+    cancelPaint = window.cancelAnimationFrame;
+}else{
+    paint = setTimeout;
+    cancelPaint = clearTimeout;
 }
 
 var util = {
-
     tick: function(fn){
-
-        //defer callback to nextTick in node.js otherwise setTimeout in the client
         return tick(fn, 0);
-
     },
-
     paint: function(fn){
-
         return paint(fn, 0);
-
     },
-
-    cancel: function(rafid){
-
-        return cancel ? cancel(rafid) : undefined;
-
+    cancelPaint: function(id){
+        return cancelPaint(id);
     },
-
     each: function(obj, fn){
-
         var halt = Object.create(null),
             keys,
             i = 0,
             l;
-
         //duck typing ftw
         if(typeof obj.length === 'undefined'){
-
             keys = Object.keys(obj);
-
             for(l = keys.length; i < l; i++){
-
                 if(fn.call(this, obj[keys[i]], keys[i], obj, halt) === halt) return;
-
             }
-
             return;
-
         }
-
         //cached length is faster
         for(l = obj.length; i < l; i++){
-
             if (fn.call(this, obj[i], i, obj, halt) === halt) return;
-
         }
-
     },
-
-    //in order synchronous traversal
     traverse: function(list, fn){
-
+        //in order synchronous traversal
         util.each.call(this, list, function traversalIterator(result){
-
             var halt;
-
             //invoke function on result first
             halt = fn.apply(this, Array.prototype.slice.call(arguments));
-
             //traverse results
             if(util.is(result, 'object') || util.is(result, 'array')){
-
                 util.traverse.call(this, result, fn);
-
             }
-
             return halt;
-
         });
-
     },
-
-    //adds enumerable properties to object, returns that object
     extend: function(obj){
-
+        //adds enumerable properties to object, returns that object
         for(var i = 1, l = arguments.length; i < l; i++){
-
-            if(arguments[i]){
-
-                for(var key in arguments[i]){
-
-                    obj[key] = arguments[i][key];
-
-                }
-
+            for(var key in arguments[i]){
+                obj[key] = arguments[i][key];
             }
-
         }
-
         return obj;
-
     },
-
-    //overwrites enumerable properties only if they exist
-    //TODO: make this an option - only if they dont exist
     merge: function(obj){
-
+        //overwrites enumerable properties inlcuding prototype chain
         var args = Array.prototype.slice.call(arguments, 1);
-
-        util.each(args, function mergeArgIterator(val, i){
-
-            if(!val) return;
-
-            util.each(obj, function mergeTargetKeyIterator(value, key){
-
+        for(var i = 0, l = args.length; i < l; i++){
+            for(var key in obj){
                 if(typeof args[i][key] !== 'undefined') obj[key] = args[i][key];
-
-            });
-
-        });
-
+            }
+        }
         return obj;
-
     },
-
-    //props is a object.defineProp descriptor
     inherit: function(construct, superConstruct, props){
-
         //Sets the prototype of the construct to a new object created from super.
         //Uses ECMAScript 5 Object.create
         if(construct.prototype && superConstruct.prototype){
-
             //Use carefully: v8 creates subclasses everytime the prototype is modified.
             construct.prototype = Object.create(superConstruct.prototype, props);
             construct.prototype.constructor = construct;
-
         }
-
         return construct;
-
     },
-
     match: function(list, query){
-
         var matched = true;
-
         util.each(query, function matchIterator(val, key){
-
             if(list[key] !== val) matched = false;
-
         });
-
         return matched;
-
+    },
+    partial: function(fn){
+        var args = Array.prototype.slice.call(arguments, 1);
+        return function partial(){
+            fn.apply(this, args.concat(Array.prototype.slice.call(arguments)));
+        };
     },
 
     bind: function(fn, context){
@@ -2277,83 +1873,37 @@ var util = {
     },
 
     clone: function(obj){
-
-        var clone = Object.create(null);
-
-        for(var key in obj){
-
-            clone[key] = util.is(obj[key], 'object') ? util.clone(obj[key]) : obj[key];
-
+        var clone = Object.create(null),
+            keys = Object.keys(obj);
+        for(var i = 0, l = keys.length; i < l; i++){
+            clone[keys[i]] = util.is(obj[keys[i]], 'object') ? util.clone(obj[keys[i]]) : obj[keys[i]];
         }
-
         return clone;
-
     },
 
     is: function(obj, type){
-
         switch(type){
-
             case 'empty':
-
             return Object.keys(obj).length === 0;
-
             case 'undefined':
-
             return typeof obj === 'undefined';
-
             case 'null':
-
             return obj === null;
-
             default:
-
             return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
-
         }
-
     },
 
-    accessors: function(initial, fn, descriptor){
-
-        //closure function for getter/setter value
-
-        return util.extend({
-
-            get: function(){
-
-                return initial;
-
-            },
-
-            set: function(value){
-
-                var i = initial;
-                initial = value;
-                if(fn) fn.call(this, value, i);
-
-            }
-
-        }, descriptor || Object.create(null));
-
-    },
-
-    //Uppercase first letter
     capitalize: function(str){
-
-        return str.replace(/[a-z]/, function(match){return match.toUpperCase();});
-
+        //Uppercase first letter
+        return str.charAt(0).toUpperCase() + str.slice(1);
     },
 
     isEmpty: function(obj){
-
         //converts the operands to numbers then applies strict comparison
         return Object.keys(obj).length === 0;
-
     },
-
     noop: function(){}
-
 };
 
 module.exports = util;

@@ -3,7 +3,6 @@ var util = require('./util'),
     is = util.is,
     bind = util.bind,
     each = util.each,
-    match = util.match,
     merge = util.merge,
     extend = util.extend;
 
@@ -20,38 +19,34 @@ var define = Object.defineProperty,
         'unshift'
     ];
 
-function dispatch(mutationRecord, signals){
-
-    each(mutationRecord.object._observers, function mutationDispatchIterator(observer){
-
-        observer[signals].dispatch(mutationRecord, observer);
-
-    });
-
+function dispatchTransforms(mutationRecord, observer){
+    observer.transforms.dispatch(mutationRecord, observer);
 }
 
-function mutate(mutationRecord, m){
-
-    dispatch(mutationRecord, 'transforms');
-
-    m(mutationRecord);
-
-    dispatch(mutationRecord, 'observers');
-
+function dispatchObservers(mutationRecord, observer){
+    observer.observers.dispatch(mutationRecord, observer);
 }
 
-function mutation(obj){
+function dispatch(mutationRecord, method){
+    for(var i = 0, l = mutationRecord.object._observers.length; i < l; i++){
+        method(mutationRecord, mutationRecord.object._observers[i]);
+    }
+}
 
+function dispatchMutation(mutationRecord, mutate){
+    dispatch(mutationRecord, dispatchTransforms);
+    mutate(mutationRecord);
+    dispatch(mutationRecord, dispatchObservers);
+}
+
+function mutationObject(obj){
     return merge({
-
-        name:null,
-        object:null,
-        type:null,
-        oldValue:null,
-        transformed:null
-
+        name: null,
+        object: null,
+        type: null,
+        oldValue: null,
+        transformed: null
     }, obj);
-
 }
 
 function arrayMutation(m){
@@ -112,8 +107,8 @@ function defineAccessors(descriptor, prop, value){
 
         set: function(newValue){
 
-            //create the mutation method in this closure to retain value param ref :)
-            mutate(mutation({
+            //create the mutationObject method in this closure to retain value param ref :)
+            dispatchMutation(mutationObject({
 
                 name: prop,
                 object: this,
@@ -155,7 +150,7 @@ function observableArray(descriptor){
 
             value: function arrayMutationClosure(){
 
-                var mutationRecord = mutation({
+                var mutationRecord = mutationObject({
                         object: this,
                         type: method,
                         transformed: Array.prototype.slice.call(arguments)
@@ -166,7 +161,7 @@ function observableArray(descriptor){
 
                     case 'fill':
 
-                        mutation.name = args[1];
+                        mutationRecord.name = args[1];
                         mutationRecord.oldValue = this.slice(args[1], args[2]);
 
                     break;
@@ -206,7 +201,7 @@ function observableArray(descriptor){
 
                 //mutationRecord.transformed = args;
 
-                mutate(mutationRecord, arrayMutation);
+                dispatchMutation(mutationRecord, arrayMutation);
 
                 mutationRecord = null;
 
@@ -228,7 +223,7 @@ function observableObject(descriptor){
 
                 if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
 
-                mutate(mutation({
+                dispatchMutation(mutationObject({
 
                     name: prop,
                     object: this,
@@ -247,7 +242,7 @@ function observableObject(descriptor){
 
                 if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
 
-                mutate(mutation({
+                dispatchMutation(mutationObject({
 
                     name: prop,
                     object: this,
@@ -335,16 +330,6 @@ function observable(target, recursive){
 
 }
 
-function limit(callback, query){
-
-    return function limitMutation(mutation, observer){
-
-        if(match(mutation, query)) callback.call(this, mutation, observer);
-
-    };
-
-}
-
 function configurableProperties(target){
 
     var props = [];
@@ -395,43 +380,31 @@ function observeEach(observers, target, recursive){
 
 }
 
-function Observer(root){
+function limit(callback, target){
+    return function limitMutationDispatch(mutation, observer){
+        if(mutation.object === target) callback.call(this, mutation, observer);
+    };
+}
 
+function Observer(root){
     this.observers = new Signals();
     this.transforms = new Signals();
     this._observed = [];
-    this.root = root; //retain an optional root object to pass to all observers/transforms
-
+    //define a shared root object to pass to all observers/transforms
+    this.root = root;
 }
 
 Observer.prototype = {
-
     observe: function(target, recursive, callback){
-
         if(!target) return;
-
         observable(target, recursive);
-
         observe(this, target, recursive);
-
-        if(callback){
-
-            return this.observers.add(limit(callback, {object: target}), this);
-
-        }
-
+        if(callback) return this.observers.add(limit(callback, target));
     },
-
     transform: function(target, recursive, callback){
-
+        if(!target) return;
         this.observe(target, recursive);
-
-        if(callback){
-
-            return this.transforms.queue(limit(callback, {object: target}), this);
-
-        }
-
+        if(callback) return this.transforms.queue(limit(callback, target));
     },
 
     unobserve: function(target){

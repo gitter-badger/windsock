@@ -38,7 +38,8 @@ describe('windsock', function () {
 
         it('should return same string value', function(){
 
-            compiledHTML = windsock.html(compiled);
+            compiledHTML = windsock.html(compiled.children[0]);
+            
             assert.strictEqual(compiledHTML, html);
 
         });

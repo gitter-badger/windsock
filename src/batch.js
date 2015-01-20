@@ -1,62 +1,39 @@
 var util = require('./util'),
-    bind = util.bind,
     paint = util.paint,
-    cancel = util.cancel;
+    cancelPaint = util.cancelPaint;
 
-function Batch(fn){
+var id,
+    requested,
+    running,
+    queue;
 
-    this._done();
-    this.callback = fn;
-    this.args = Array.prototype.slice.call(arguments, 1);
-
+function done(){
+    id = null;
+    requested = false;
+    running = false;
+    queue = [];
 }
 
-Batch.prototype = {
-
-    add: function(fn){
-
-        this.queue.push(fn);
-
-        if(!this.requested) {
-
-            this.id = paint(bind(this._run, this));
-            this.requested = true;
-
-        }
-
-    },
-
-    cancel: function(){
-
-        cancel(this.id);
-        this._done();
-
-    },
-
-    _run: function(){
-
-        this.running = true;
-
-        for(var i = 0; i < this.queue.length; i++){
-
-            this.queue[i].apply(this, this.args);
-
-        }
-
-        this._done();
-
-    },
-
-    _done: function(){
-
-        this.queue = [];
-        this.requested = false;
-        this.running = false;
-        this.id = null;
-        if(this.callback) this.callback.apply(this, this.args);
-
+function run(){
+    running = true;
+    for(var i = 0; i < queue.length; i++){
+        queue[i].call();
     }
+    done();
+}
 
+done();
+
+exports.cancel = function cancel(){
+    cancelPaint(id);
+    done();
 };
 
-module.exports = Batch;
+exports.add = function add(fn){
+    queue.push(fn);
+    if(!requested) {
+        id = paint(run);
+        requested = true;
+    }
+    return id;
+};

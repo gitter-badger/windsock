@@ -39,21 +39,14 @@ function parseQuery(query){
 }
 
 function Element(value){
-
     Node.call(this, value);
-
     this._parent = null;
-
     this._children = [];
-
 }
 
 Element.value = {
-
     name: '',
-
     attributes: {}
-
 };
 
 inherit(Element, Node, {
@@ -171,7 +164,7 @@ Element.prototype.find = function(query){
     var predicate = parseQuery(query),
         result;
 
-    each(this.children, function(child, i, children, halt){
+    each(this._children, function(child, i, children, halt){
 
         if(predicate(child)){
 
@@ -197,7 +190,7 @@ Element.prototype.filter = function(query){
     var predicate = parseQuery(query),
         result = [];
 
-    each(this.children, function(child){
+    each(this._children, function(child){
 
         if(predicate(child)) result.push(child);
 
@@ -211,10 +204,10 @@ Element.prototype.filter = function(query){
 
 Element.prototype.destroy = function(){
 
-    while(this.children.length){
+    while(this._children.length){
 
-        this.children[this.children.length-1].destroy();
-        
+        this._children[this._children.length-1].destroy();
+
     }
 
     this.remove();
@@ -225,14 +218,14 @@ Element.prototype.destroy = function(){
 Element.prototype.append = function(node){
 
     node.parent = this;
-    return this.children.push(node);
+    return this._children.push(node);
 
 };
 
 Element.prototype.prepend = function(node){
 
     node.parent = this;
-    return this.children.unshift(node);
+    return this._children.unshift(node);
 
 };
 

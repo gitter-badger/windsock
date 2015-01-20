@@ -1,16 +1,10 @@
-module.exports = function transclude(node, DOMNode){
-
+module.exports = function transclude(template, target){
     var parent;
-
-    DOMNode = DOMNode || node._transclude;
-
-    parent = DOMNode.parentNode;
-
-    parent.insertBefore(node._documentNode, DOMNode);
-
-    parent.removeChild(DOMNode);
-
-    node._transclude = null;
-
-
+    target = target || template._transclude;
+    parent = target.parentNode;
+    for(var i = 0, l = template._children.length; i < l; i++){
+        parent.insertBefore(template._children[i]._documentNode, target);
+    }
+    parent.removeChild(target);
+    template._transclude = null;
 };
