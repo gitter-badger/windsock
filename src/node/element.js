@@ -1,5 +1,5 @@
 var util = require('../util'),
-    Node = require('./node'),
+    Fragment = require('./fragment'),
     Text = require('./text'),
     is = util.is,
     each = util.each,
@@ -38,59 +38,47 @@ function parseQuery(query){
 
 }
 
+function attributesToString(attr){
+    var attribute = '';
+    for(var key in attr){
+        attribute += ' ' + key;
+        if(attr[key]) attribute+= '="' + attr[key] + '"';
+    }
+    return attribute;
+}
+
 function Element(value){
-    Node.call(this, value);
+    Fragment.call(this, value);
     this._parent = null;
-    this._children = [];
 }
 
 Element.value = {
     name: '',
-    attributes: {}
+    attributes: {},
+    empty: false
 };
 
-inherit(Element, Node, {
+inherit(Element, Fragment, {
 
     name:{
-
         get: function(){
-
             return this._value.name;
-
         }
-
     },
 
     attributes:{
-
         get: function(){
-
             return this._value.attributes;
-
         },
-
         set: function(attributes){
-
             this._value.attributes = attributes;
-
         }
-
     },
 
-    children:{
-
+    empty:{
         get: function(){
-
-            return this._children;
-
-        },
-
-        set: function(children){
-
-            this._children = children;
-
+            return this._value.empty;
         }
-
     },
 
     text:{
@@ -140,20 +128,13 @@ inherit(Element, Node, {
     },
 
     parent: {
-
         get: function(){
-
             return this._parent;
-
         },
-
         set: function(parent){
-
             //remove from previous parent first
             this._parent = parent;
-
         }
-
     }
 
 });
@@ -202,53 +183,63 @@ Element.prototype.filter = function(query){
 
 };
 
-Element.prototype.destroy = function(){
-
-    while(this._children.length){
-
-        this._children[this._children.length-1].destroy();
-
+Element.prototype._html = function(){
+    var html = [];
+    html.push('<' + this._value.name);
+    html.push(attributesToString(this._value.attributes));
+    if(this.empty){
+        html.push('/>');
+    }else{
+        html.push('>');
+        for(var i = 0, l = this._children.length; i < l; i++){
+            html.push(this._children[i]._html());
+        }
+        html.push('</' + this._value.name + '>');
     }
+    return html.join('');
+};
 
+Element.prototype._jsonml = function(){
+    var jsonml = [];
+    jsonml.push(this._value.name);
+    if(!is(this._value.attributes, 'empty'))jsonml.push(this._value.attributes);
+    if(this._children.length){
+        for(var i = 0, l = this._children.length; i < l; i++){
+            jsonml.push(this._children[i]._jsonml());
+        }
+    }
+    return jsonml;
+};
+
+Element.prototype.remove = function(){
+    if(this.parent){
+        this.parent._children.splice(this.parent._children.indexOf(this), 1);
+        this.parent = null;
+    }
+};
+
+Element.prototype.destroy = function(){
+    var i = this._children.length;
+    while(i){
+        i--;
+        this._children[i].destroy();
+    }
     this.remove();
     this._destroy();
-
-};
-
-Element.prototype.append = function(node){
-
-    node.parent = this;
-    return this._children.push(node);
-
-};
-
-Element.prototype.prepend = function(node){
-
-    node.parent = this;
-    return this._children.unshift(node);
-
 };
 
 Element.prototype.before = function(node){
-
     if(this.parent){
-
         node.parent = this.parent;
         return this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
-
     }
-
 };
 
 Element.prototype.after = function(node){
-
     if(this.parent){
-
         node.parent = this.parent;
         return this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
-
     }
-
 };
 
 module.exports = Element;

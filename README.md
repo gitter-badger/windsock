@@ -5,15 +5,15 @@ Observable JSONML compliant virtual DOM
 
 ## tldr;
 ```javascript
-var todo = windsock.parse('<ul><li>buy milk</li></ul>');
+var todoTemplate = windsock.parse('<ul><li>buy milk</li></ul>');
 
-var li = todo.find('li').clone();
+var li = todoTemplate.find('li').clone();
 
 li.text = 'call mom';
 
-todo.append(li);
+todoTemplate.append(li);
 
-todo.filter('li').forEach(function(item){
+todoTemplate.filter('li').forEach(function(item){
     item.on('click', function(){
         if(!this.attributes.class){
             this.attributes.add('class', 'done');
@@ -25,9 +25,9 @@ todo.filter('li').forEach(function(item){
     })
 });
 
-var compiled = windsock.compile(todo);
+var compiled = windsock.compile(todoTemplate);
 
-document.body.appendChild(compiled.render());
+windsock.transclude(compiled, document.querySelector('.replace-ul'));
 ```
 
 ## Methods

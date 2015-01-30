@@ -1,34 +1,10 @@
 var util = require('../util'),
     Text = require('../node/text'),
+    Fragment = require('../node/fragment'),
     Element = require('../node/element'),
     batch = require('../batch'),
     partial = util.partial,
-    each = util.each,
-    is = util.is;
-
-function observeJSONMLText(mutation, observer){
-    if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
-        observer.root._jsonml = mutation.object.value;
-    }
-}
-
-function observeJSONMLELementAttributes(mutation, observer){
-    var attributes = observer.root.attributes;
-    if(mutation.name !== 'attributes' && mutation.object === observer.root.attributes) return;
-    if(is(attributes, 'empty') && is(observer.root._jsonml[1], 'object')){
-        observer.root._jsonml.splice(1, 1);
-    }else if(observer.root._jsonml[1] !== attributes){
-        observer.root._jsonml.splice(1, 0, attributes);
-    }
-}
-
-function observeJSONMLElementChildren(mutation, observer){
-    var children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
-    Array.prototype[mutation.type].apply(children, mutation.transformed);
-    for(var i = 0, l = children.length; i < l; i++){
-        observer.root._jsonml.push(children[i]);
-    }
-}
+    each = util.each;
 
 function textContent(node, value){
     node.textContent = value;
@@ -106,24 +82,10 @@ function observeDOMElementEvents(mutation, observer){
     }
 }
 
-function compileJSONML(node){
-    if(node instanceof Text){
-        node._jsonml = node.value;
-        node._observer.observe(node._value, false, observeJSONMLText);
-    }else if(node instanceof Element){
-        node._jsonml = Array.prototype.slice.call(node._children);
-        node._jsonml.unshift(node._value.name);
-        if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
-        node._observer.observe(node._value, false, observeJSONMLELementAttributes);
-        node._observer.observe(node._value.attributes, false, observeJSONMLELementAttributes);
-        node._observer.observe(node._children, false, observeJSONMLElementChildren);
-    }else{
-        throw new Error('failed to compile node, not an instance of Text or Element');
-    }
-    node._observer.observe(node._events, false, observeDOMElementEvents);
-    for(var evt in node._events){
-        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
-    }
+function dispatchEventListener(n, evt){
+    return function eventListenerClosure(e){
+        n._dispatch(evt, e);
+    };
 }
 
 function compileDOM(node){
@@ -138,17 +100,17 @@ function compileDOM(node){
         node._observer.observe(node._value, false, observeDOMElementAttributes);
         node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
         node._observer.observe(node._children, false, observeDOMElementChildren);
+    }else if(node instanceof Fragment){
+        node._documentNode = document.createDocumentFragment();
+        node._observer.observe(node._children, false, observeDOMElementChildren);
     }else{
         throw new Error('failed to compile node, not an instance of Text or Element');
+    }
+    node._observer.observe(node._events, false, observeDOMElementEvents);
+    for(var evt in node._events){
+        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
     }
     if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
 }
 
-function dispatchEventListener(n, evt){
-    return function eventListenerClosure(e){
-        n._dispatch(evt, e);
-    };
-}
-
 exports.compileDOM = compileDOM;
-exports.compileJSONML = compileJSONML;

@@ -26,10 +26,14 @@ windsock.transclude(compiledTimerList);
 perf.afterTransclude = window.performance.now();//-----------------------
 i = 99;
 while(i >= 0){
-    compiledTimerList.children[i].remove();
+    //compiledTimerList.children[i].remove();
     i--;
 }
 perf.afterRemove = window.performance.now();//-----------------------
+var html = compiledTimerList.children[0].html;
+perf.afterHTML = window.performance.now();//-----------------------
+var jsonml = compiledTimerList.children[0].jsonml;
+perf.afterJSONML = window.performance.now();//-----------------------
 
 console.log('parse took ' + (perf.beforeClone - perf.beforeParse) + ' milliseconds.');
 console.log('clone took ' + (perf.afterClone - perf.beforeClone) + ' milliseconds.');
@@ -39,6 +43,8 @@ console.log('average append took ' + average(avgAppend) + ' milliseconds.');
 console.log('compile took ' + (perf.afterCompile - perf.afterAppend) + ' milliseconds.');
 console.log('transclude took ' + (perf.afterTransclude - perf.afterCompile) + ' milliseconds.');
 console.log('remove took ' + (perf.afterRemove - perf.afterTransclude) + ' milliseconds.');
+console.log('html took ' + (perf.afterHTML - perf.afterRemove) + ' milliseconds.');
+console.log('jsonml took ' + (perf.afterJSONML - perf.afterHTML) + ' milliseconds.');
 
 
 function average(list){
@@ -46,3 +52,27 @@ function average(list){
     list.forEach(function(v){total+=v;})
     return total / (list.length + 1);
 }
+
+var todoTemplate = windsock.parse('<ul><li>buy milk</li></ul>');
+
+var li = todoTemplate.children[0].find('li').clone();
+
+li.text = 'call mom';
+
+todoTemplate.children[0].append(li);
+
+todoTemplate.children[0].filter('li').forEach(function(item){
+    item.on('click', function(){
+        if(!this.attributes.class){
+            this.attributes.add('class', 'done');
+        }else if(this.attributes.class === 'done'){
+            this.attributes.class = 'to-do';
+        }else{
+            this.attributes.class = 'done';
+        }
+    })
+});
+
+var compiled = windsock.compile(todoTemplate);
+
+windsock.transclude(compiled, document.querySelector('.replace-ul'));

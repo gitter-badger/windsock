@@ -34,12 +34,12 @@ describe('windsock', function () {
 
     });
 
-    describe('windsock.html', function(){
+    describe('node.html', function(){
 
         it('should return same string value', function(){
 
-            compiledHTML = windsock.html(compiled.children[0]);
-            
+            compiledHTML = compiled.children[0].html;
+
             assert.strictEqual(compiledHTML, html);
 
         });

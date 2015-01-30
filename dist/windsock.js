@@ -54,7 +54,6 @@ module.exports = function compile(template){
 
 function compileNode(node){
     node._observer = new Observer(node);
-    compiler.compileJSONML(node);
     if(typeof document !== 'undefined') compiler.compileDOM(node);
     node._compiled = true;
     return node;
@@ -68,102 +67,14 @@ function compileNodes(nodes){
     }
 }
 
-},{"../observer":11,"./index":4}],3:[function(require,module,exports){
-var parseJSONML = require('../parser').parseJSONML;
-
-//parse jsonml to html string
-module.exports = function (node){
-
-    if(!node || !node._jsonml.length) return '';
-
-    var html = [];
-
-    parseJSONML(JSON.parse(node.toString()), function(e){
-
-        switch(e.type){
-
-            case 'text':
-
-                html.push(e.value);
-
-            break;
-
-            case 'start':
-
-                html.push('<' + e.name + attributesToString(e.attributes) + '>');
-
-            break;
-
-            case 'end':
-
-                if(e.void){
-
-                    html.push('<' + e.name + attributesToString(e.attributes) + '/>');
-
-                }else{
-
-                    html.push('</' + e.name + '>');
-
-                }
-
-            break;
-
-        }
-
-    });
-
-    return html.join('');
-
-};
-
-function attributesToString(attr){
-
-    var attribute = '';
-
-    for(var key in attr){
-
-        attribute += ' ' + key;
-
-        if(attr[key]) attribute+= '="' + attr[key] + '"';
-
-    }
-
-    return attribute;
-
-}
-
-},{"../parser":12}],4:[function(require,module,exports){
+},{"../observer":11,"./index":3}],3:[function(require,module,exports){
 var util = require('../util'),
     Text = require('../node/text'),
+    Fragment = require('../node/fragment'),
     Element = require('../node/element'),
     batch = require('../batch'),
     partial = util.partial,
-    each = util.each,
-    is = util.is;
-
-function observeJSONMLText(mutation, observer){
-    if(mutation.name === 'value' && mutation.object.value !== mutation.oldValue){
-        observer.root._jsonml = mutation.object.value;
-    }
-}
-
-function observeJSONMLELementAttributes(mutation, observer){
-    var attributes = observer.root.attributes;
-    if(mutation.name !== 'attributes' && mutation.object === observer.root.attributes) return;
-    if(is(attributes, 'empty') && is(observer.root._jsonml[1], 'object')){
-        observer.root._jsonml.splice(1, 1);
-    }else if(observer.root._jsonml[1] !== attributes){
-        observer.root._jsonml.splice(1, 0, attributes);
-    }
-}
-
-function observeJSONMLElementChildren(mutation, observer){
-    var children = is(observer.root._value.attributes, 'empty') ? observer.root._jsonml.splice(1) : observer.root._jsonml.splice(2);
-    Array.prototype[mutation.type].apply(children, mutation.transformed);
-    for(var i = 0, l = children.length; i < l; i++){
-        observer.root._jsonml.push(children[i]);
-    }
-}
+    each = util.each;
 
 function textContent(node, value){
     node.textContent = value;
@@ -241,24 +152,10 @@ function observeDOMElementEvents(mutation, observer){
     }
 }
 
-function compileJSONML(node){
-    if(node instanceof Text){
-        node._jsonml = node.value;
-        node._observer.observe(node._value, false, observeJSONMLText);
-    }else if(node instanceof Element){
-        node._jsonml = Array.prototype.slice.call(node._children);
-        node._jsonml.unshift(node._value.name);
-        if(!is(node._value.attributes, 'empty')) node._jsonml.splice(1, 0, node._value.attributes);
-        node._observer.observe(node._value, false, observeJSONMLELementAttributes);
-        node._observer.observe(node._value.attributes, false, observeJSONMLELementAttributes);
-        node._observer.observe(node._children, false, observeJSONMLElementChildren);
-    }else{
-        throw new Error('failed to compile node, not an instance of Text or Element');
-    }
-    node._observer.observe(node._events, false, observeDOMElementEvents);
-    for(var evt in node._events){
-        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
-    }
+function dispatchEventListener(n, evt){
+    return function eventListenerClosure(e){
+        n._dispatch(evt, e);
+    };
 }
 
 function compileDOM(node){
@@ -273,39 +170,36 @@ function compileDOM(node){
         node._observer.observe(node._value, false, observeDOMElementAttributes);
         node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
         node._observer.observe(node._children, false, observeDOMElementChildren);
+    }else if(node instanceof Fragment){
+        node._documentNode = document.createDocumentFragment();
+        node._observer.observe(node._children, false, observeDOMElementChildren);
     }else{
         throw new Error('failed to compile node, not an instance of Text or Element');
+    }
+    node._observer.observe(node._events, false, observeDOMElementEvents);
+    for(var evt in node._events){
+        node._documentNode.addEventListener(evt, dispatchEventListener(node, evt));
     }
     if(node.parent) node.parent._documentNode.appendChild(node._documentNode);
 }
 
-function dispatchEventListener(n, evt){
-    return function eventListenerClosure(e){
-        n._dispatch(evt, e);
-    };
-}
-
 exports.compileDOM = compileDOM;
-exports.compileJSONML = compileJSONML;
 
-},{"../batch":1,"../node/element":7,"../node/text":10,"../util":15}],5:[function(require,module,exports){
+},{"../batch":1,"../node/element":6,"../node/fragment":7,"../node/text":10,"../util":15}],4:[function(require,module,exports){
 module.exports = function transclude(template, target){
     var parent;
     target = target || template._transclude;
     parent = target.parentNode;
-    for(var i = 0, l = template._children.length; i < l; i++){
-        parent.insertBefore(template._children[i]._documentNode, target);
-    }
+    parent.insertBefore(template._documentNode, target);
     parent.removeChild(target);
     template._transclude = null;
 };
 
-},{}],6:[function(require,module,exports){
+},{}],5:[function(require,module,exports){
 var util = require('./util'),
     parse = require('./parser/parse'),
     compile = require('./compiler/compile'),
     transclude = require('./compiler/transclude'),
-    html = require('./compiler/html'),
     node = require('./node'),
     Observer = require('./observer'),
     Batch = require('./batch');
@@ -315,15 +209,14 @@ module.exports = {
     parse: parse,
     compile: compile,
     transclude: transclude,
-    html: html,
     node: node,
     Observer: Observer,
     Batch: Batch
 };
 
-},{"./batch":1,"./compiler/compile":2,"./compiler/html":3,"./compiler/transclude":5,"./node":8,"./observer":11,"./parser/parse":13,"./util":15}],7:[function(require,module,exports){
+},{"./batch":1,"./compiler/compile":2,"./compiler/transclude":4,"./node":8,"./observer":11,"./parser/parse":13,"./util":15}],6:[function(require,module,exports){
 var util = require('../util'),
-    Node = require('./node'),
+    Fragment = require('./fragment'),
     Text = require('./text'),
     is = util.is,
     each = util.each,
@@ -362,59 +255,47 @@ function parseQuery(query){
 
 }
 
+function attributesToString(attr){
+    var attribute = '';
+    for(var key in attr){
+        attribute += ' ' + key;
+        if(attr[key]) attribute+= '="' + attr[key] + '"';
+    }
+    return attribute;
+}
+
 function Element(value){
-    Node.call(this, value);
+    Fragment.call(this, value);
     this._parent = null;
-    this._children = [];
 }
 
 Element.value = {
     name: '',
-    attributes: {}
+    attributes: {},
+    empty: false
 };
 
-inherit(Element, Node, {
+inherit(Element, Fragment, {
 
     name:{
-
         get: function(){
-
             return this._value.name;
-
         }
-
     },
 
     attributes:{
-
         get: function(){
-
             return this._value.attributes;
-
         },
-
         set: function(attributes){
-
             this._value.attributes = attributes;
-
         }
-
     },
 
-    children:{
-
+    empty:{
         get: function(){
-
-            return this._children;
-
-        },
-
-        set: function(children){
-
-            this._children = children;
-
+            return this._value.empty;
         }
-
     },
 
     text:{
@@ -464,20 +345,13 @@ inherit(Element, Node, {
     },
 
     parent: {
-
         get: function(){
-
             return this._parent;
-
         },
-
         set: function(parent){
-
             //remove from previous parent first
             this._parent = parent;
-
         }
-
     }
 
 });
@@ -526,87 +400,137 @@ Element.prototype.filter = function(query){
 
 };
 
-Element.prototype.destroy = function(){
-
-    while(this._children.length){
-
-        this._children[this._children.length-1].destroy();
-
+Element.prototype._html = function(){
+    var html = [];
+    html.push('<' + this._value.name);
+    html.push(attributesToString(this._value.attributes));
+    if(this.empty){
+        html.push('/>');
+    }else{
+        html.push('>');
+        for(var i = 0, l = this._children.length; i < l; i++){
+            html.push(this._children[i]._html());
+        }
+        html.push('</' + this._value.name + '>');
     }
+    return html.join('');
+};
 
+Element.prototype._jsonml = function(){
+    var jsonml = [];
+    jsonml.push(this._value.name);
+    if(!is(this._value.attributes, 'empty'))jsonml.push(this._value.attributes);
+    if(this._children.length){
+        for(var i = 0, l = this._children.length; i < l; i++){
+            jsonml.push(this._children[i]._jsonml());
+        }
+    }
+    return jsonml;
+};
+
+Element.prototype.remove = function(){
+    if(this.parent){
+        this.parent._children.splice(this.parent._children.indexOf(this), 1);
+        this.parent = null;
+    }
+};
+
+Element.prototype.destroy = function(){
+    var i = this._children.length;
+    while(i){
+        i--;
+        this._children[i].destroy();
+    }
     this.remove();
     this._destroy();
-
-};
-
-Element.prototype.append = function(node){
-
-    node.parent = this;
-    return this._children.push(node);
-
-};
-
-Element.prototype.prepend = function(node){
-
-    node.parent = this;
-    return this._children.unshift(node);
-
 };
 
 Element.prototype.before = function(node){
-
     if(this.parent){
-
         node.parent = this.parent;
         return this.parent.children.splice(this.parent.children.indexOf(this), 0, node);
-
     }
-
 };
 
 Element.prototype.after = function(node){
-
     if(this.parent){
-
         node.parent = this.parent;
         return this.parent.children.splice(this.parent.children.indexOf(this)+1, 0, node);
-
     }
-
 };
 
 module.exports = Element;
 
-},{"../util":15,"./node":9,"./text":10}],8:[function(require,module,exports){
-var Text = require('./text'),
-    Element = require('./element');
+},{"../util":15,"./fragment":7,"./text":10}],7:[function(require,module,exports){
+var inherit = require('../util').inherit,
+    Node = require('./node');
 
-//node factory
-module.exports = {
+function Fragment(value){
+    Node.call(this, value);
+    this._children = [];
+}
 
-    text: function(value){
+Fragment.value = {};
 
-        return new Text({value: value});
-
-    },
-
-    element: function(name, attributes){
-
-        if(!name) throw new Error('failed to create element, name required');
-
-        return new Element({
-
-            name: name,
-
-            attributes: attributes || {}
-
-        });
-
+inherit(Fragment, Node, {
+    children:{
+        get: function(){
+            return this._children;
+        },
+        set: function(children){
+            this._children = children;
+        }
     }
+});
 
+Fragment.prototype.destroy = function(){
+    var i = this._children.length;
+    while(i){
+        i--;
+        this._children[i].destroy();
+    }
+    this._destroy();
 };
 
-},{"./element":7,"./text":10}],9:[function(require,module,exports){
+Fragment.prototype.append = function(node){
+    node.parent = this;
+    return this._children.push(node);
+};
+
+Fragment.prototype.prepend = function(node){
+    node.parent = this;
+    return this._children.unshift(node);
+};
+
+Fragment.prototype.insert = function(node, i){
+    node.parent = this;
+    return this._children.splice(i, 0, node);
+};
+
+module.exports = Fragment;
+
+},{"../util":15,"./node":9}],8:[function(require,module,exports){
+var Text = require('./text'),
+    Fragment = require('./fragment'),
+    Element = require('./element');
+
+exports.text = function text(value){
+    return new Text({value: value || ''});
+};
+
+exports.element = function element(name, attributes, empty){
+    return new Element({
+        name: name || 'div',
+        attributes: attributes || {},
+        empty: empty || false
+    });
+};
+
+exports.fragment = function fragment(){
+    return new Fragment();
+};
+
+},{"./element":6,"./fragment":7,"./text":10}],9:[function(require,module,exports){
 var util = require('../util'),
     Signals = require('../signals'),
     extend = util.extend,
@@ -620,123 +544,99 @@ function Node(value){
     this._transclude = null;
     this._compiled = false;
     this._events = {};
-    this._jsonml = [];
 }
 
 Node.value = {};
 
-Node.prototype = {
-    _destroy: function(){
-        //remove all events which are observed and then removed from _documentNode
-        this.off();
-        if(this._compiled){
-
-            //batch.cancel(this._batch);
-
-            if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
-
-            this._observer.unobserve();
-
-            this._compiled = false;
-
-        }
-
-        this._documentNode = null;
-        this._transclude = null;
-        this._jsonml = null;
-        //loop this._value properties and nullify
-    },
-
-    _event: function(name){
-
-        var signals;
-
-        if(!this._events[name]) {
-
-            signals = new Signals();
-
-            if(this._compiled){
-
-                this._events.add(name, signals);
-
-            }else{
-
-                this._events[name] = signals;
-
-            }
-
-        }else{
-
-            signals = this._events[name];
-
-        }
-
-        return signals;
-
-    },
-
-    _dispatch: function(name, e){
-
-        this._event(name).dispatch(e);
-
-    },
-
-    on: function(name, callback){
-        return this._event(name).queue(callback, this);
-    },
-
-    off: function(name, signal){
-        var events = Array.prototype.slice.call(arguments,0,1);
-        if(!events.length) events = Object.keys(this._events);
-        if(signal){
-            this._events[name].remove(signal);
-            if(this._events[name].count) return;
-        }
-        for(var i = 0, l = events.length; i < l; i++){
-            this._events[events[i]].remove();
-            if(this._compiled){
-                this._events.delete(events[i]);
-            }else{
-                delete this._events[events[i]];
-            }
+Object.defineProperties(Node.prototype, {
+    html:{
+        get: function(){
+            return this._html();
         }
     },
-    clone: function(deep){
-        var cloned = new this.constructor(clone(this._value));
-        if(deep && this._children){
-            for(var i = 0, l = this._children.length; i < l; i++){
-                cloned.append(this._children[i].clone(true));
-            }
+    jsonml:{
+        get: function(){
+            return this._jsonml();
         }
-        return cloned;
-    },
-    remove: function(){
-        var _this = this;
-        if(this.parent){
-            if(this._compiled){
-
-                this.parent.on('batch', function(){
-                    _this.destroy();
-                });
-                this.parent.children.splice(this.parent.children.indexOf(this), 1); //shouldn't matter the batch is on the parent, make sure to destroy children first
-                //Array.prototype.splice.call(this.parent.children, this.parent.children.indexOf(this), 1);
-                //doesn't kick off observers so jsonml will not be modified...
-
-            }else{
-                this.parent.children.splice(this.parent.children.indexOf(this), 1);
-            }
-            this.parent = null;
-        }
-    },
-    valueOf: function(){
-        return this._value;
-    },
-    toJSON: function(){
-        return this._jsonml;
-    },
-    toString: function(){
-        return JSON.stringify(this._jsonml);
     }
+});
+
+Node.prototype._destroy = function(){
+    //remove all events which are observed and then removed from _documentNode
+    this.off();
+    if(this._compiled){
+
+        //batch.cancel(this._batch);
+
+        if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
+        this._observer.unobserve();
+        this._compiled = false;
+    }
+    this._documentNode = null;
+    this._transclude = null;
+    //loop this._value properties and nullify
+};
+
+Node.prototype._event = function(name){
+    var signals;
+    if(!this._events[name]) {
+        signals = new Signals();
+        if(this._compiled){
+            this._events.add(name, signals);
+        }else{
+            this._events[name] = signals;
+        }
+    }else{
+        signals = this._events[name];
+    }
+    return signals;
+};
+
+Node.prototype._dispatch = function(name, e){
+    this._event(name).dispatch(e);
+};
+
+Node.prototype.on = function(name, callback){
+    return this._event(name).queue(callback, this);
+};
+
+Node.prototype.off = function(name, signal){
+    var events = Array.prototype.slice.call(arguments,0,1);
+    if(!events.length) events = Object.keys(this._events);
+    if(signal){
+        this._events[name].remove(signal);
+        if(this._events[name].count) return;
+    }
+    for(var i = 0, l = events.length; i < l; i++){
+        this._events[events[i]].remove();
+        if(this._compiled){
+            this._events.delete(events[i]);
+        }else{
+            delete this._events[events[i]];
+        }
+    }
+};
+
+Node.prototype.clone = function(deep){
+    var cloned = new this.constructor(clone(this._value));
+    if(deep && this._children){
+        for(var i = 0, l = this._children.length; i < l; i++){
+            cloned.append(this._children[i].clone(true));
+        }
+    }
+    return cloned;
+};
+
+Node.prototype.valueOf = function(){
+    return this._value;
+};
+
+Node.prototype.toJSON = function(){
+    return this.jsonml;
+};
+
+Node.prototype.toString = function(){
+    return this.html;
 };
 
 module.exports = Node;
@@ -747,66 +647,52 @@ var util = require('../util'),
     inherit = util.inherit;
 
 function Text(value){
-
     Node.call(this, value);
     this._parent = null;
-
 }
 
 Text.value = {
-
     value: ''
-
 };
 
 inherit(Text, Node, {
-
     value: {
-
         get: function(){
-
             return this._value.value;
-
         },
-
         set: function(value){
-
             this._value.value = value;
-
         }
-
     },
-
     parent: {
-
         get: function(){
-
             return this._parent;
-
         },
-
         set: function(parent){
-
             //remove from previous parent first
             this._parent = parent;
-
         }
-
     }
-
 });
 
-Text.prototype.destroy = function(){
-
-    this.remove();
-    this._destroy();
-
+Text.prototype.remove = function(){
+    if(this.parent){
+        this.parent._children.splice(this.parent._children.indexOf(this), 1);
+        this.parent = null;
+    }
 };
 
-Text.prototype.toString = function(){
-
+Text.prototype._html = function(){
     return this._value.value;
+};
 
+Text.prototype._jsonml = function(){
+    return this._value.value;
+};
+
+Text.prototype.destroy = function(){
+    this.remove();
+    this._destroy();
 };
 
 module.exports = Text;
@@ -816,13 +702,10 @@ var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
     bind = util.bind,
-    each = util.each,
     merge = util.merge,
     extend = util.extend;
 
-var define = Object.defineProperty,
-    defines = Object.defineProperties,
-    ARRAY_MUTATOR_METHODS = [
+var ARRAY_MUTATOR_METHODS = [
         'fill',
         'pop',
         'push',
@@ -831,7 +714,7 @@ var define = Object.defineProperty,
         'sort',
         'splice',
         'unshift'
-    ];
+    ], arrayMutationMethods = {};
 
 function dispatchTransforms(mutationRecord, observer){
     observer.transforms.dispatch(mutationRecord, observer);
@@ -864,334 +747,210 @@ function mutationObject(obj){
 }
 
 function arrayMutation(m){
-
     if(m.object._recursive){
-
-        each(m.transformed, function(val){
-
-            observable(val, true);
-
-            observeEach(m.object._observers, val, true);
-
-        });
-
+        for(var i = 0, l = m.transformed.length; i < l; i++){
+            observable(m.transformed[i], true);
+            observeEach(m.object._observers, m.transformed[i], true);
+        }
     }
-
     //if anything is removed need to clean up _observers
 
     Array.prototype[m.type].apply(m.object, m.transformed);
-
 }
 
 function objectAddMutation(m){
-
     if(m.object._recursive){
-
         observable(m.transformed, true);
-
         observeEach(m.object._observers, m.transformed, true);
-
     }
-
-    define(m.object, m.name, defineAccessors({}, m.name, m.transformed));
-
+    Object.defineProperty(m.object, m.name, defineAccessors({}, m.name, m.transformed));
 }
 
 function objectDeleteMutation(m){
-
     if(m.object[m.name]._observers) {
-
-        each(m.object[m.name]._observers, function(observer){
-
-            observer.unobserve(m.object[m.name]);
-
-        });
-
+        for(var i = 0, l = m.object[m.name]._observers.length; i < l; i++){
+            m.object[m.name]._observers[i].unobserve(m.object[m.name]);
+        }
     }
-
     delete m.object[m.name];
-
 }
 
 function defineAccessors(descriptor, prop, value){
-
     return (descriptor[prop] = {
-
         get: function(){return value;},
-
         set: function(newValue){
-
             //create the mutationObject method in this closure to retain value param ref :)
             dispatchMutation(mutationObject({
-
                 name: prop,
                 object: this,
                 type: 'update',
                 oldValue: value,
                 transformed: newValue
-
             }), function objectSetMutation(m){
-
                 if(m.object._recursive){
-
                     observable(m.transformed, true);
-
                     observeEach(m.object._observers, m.transformed, true);
-
                 }
-
                 value = m.transformed;
-
             });
 
             //if old value was an object clean up observers
 
         },
-
         enumerable: true,
-
         configurable: true
-
     });
-
 }
 
+//higher order function to retain array mutation method
+function arrayMutationClosure(method){
+    return function mutateArray(){
+        var mutationRecord = mutationObject({
+            object: this,
+            type: method,
+            transformed: Array.prototype.slice.call(arguments)
+        }),
+        args = mutationRecord.transformed;
+
+        switch(method){
+            case 'fill':
+                mutationRecord.name = args[1];
+                mutationRecord.oldValue = this.slice(args[1], args[2]);
+            break;
+            case 'pop':
+                mutationRecord.name = this.length - 1;
+                mutationRecord.oldValue = this.slice(this.length - 1);
+            break;
+            case 'push':
+                mutationRecord.name = this.length;
+            break;
+            case 'shift':
+                mutationRecord.oldValue = this.slice(0, 1);
+                /* falls through */
+            case 'unshift':
+                mutationRecord.name = 0;
+            break;
+            case 'splice':
+                mutationRecord.name = args[0];
+                if(args[1]) mutationRecord.oldValue = this.slice(args[0], args[0] + args[1]);
+            break;
+        }
+        dispatchMutation(mutationRecord, arrayMutation);
+        mutationRecord = null;
+    };
+}
+
+ARRAY_MUTATOR_METHODS.forEach(function(method){
+    arrayMutationMethods[method] = arrayMutationClosure(method);
+});
+
 function observableArray(descriptor){
-
-    each(ARRAY_MUTATOR_METHODS, function arrayMutatorMethodIterator(method){
-
-        descriptor[method] = {
-
-            value: function arrayMutationClosure(){
-
-                var mutationRecord = mutationObject({
-                        object: this,
-                        type: method,
-                        transformed: Array.prototype.slice.call(arguments)
-                    }),
-                    args = mutationRecord.transformed;
-
-                switch(method){
-
-                    case 'fill':
-
-                        mutationRecord.name = args[1];
-                        mutationRecord.oldValue = this.slice(args[1], args[2]);
-
-                    break;
-
-                    case 'pop':
-
-                        mutationRecord.name = this.length - 1;
-                        mutationRecord.oldValue = this.slice(this.length - 1);
-
-                    break;
-
-                    case 'push':
-
-                        mutationRecord.name = this.length;
-
-                    break;
-
-                    case 'shift':
-
-                        mutationRecord.oldValue = this.slice(0, 1);
-
-                        /* falls through */
-                    case 'unshift':
-
-                        mutationRecord.name = 0;
-
-                    break;
-
-                    case 'splice':
-
-                        mutationRecord.name = args[0];
-                        if(args[1]) mutationRecord.oldValue = this.slice(args[0], args[0] + args[1]);
-
-                    break;
-
-                }
-
-                //mutationRecord.transformed = args;
-
-                dispatchMutation(mutationRecord, arrayMutation);
-
-                mutationRecord = null;
-
-            },
-
+    for(var i = 0, l = ARRAY_MUTATOR_METHODS.length; i < l; i++){
+        descriptor[ARRAY_MUTATOR_METHODS[i]] = {
+            value: arrayMutationMethods[ARRAY_MUTATOR_METHODS[i]]
         };
+    }
+}
 
-    });
+function _add(prop, value){
+    if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
+    dispatchMutation(mutationObject({
+        name: prop,
+        object: this,
+        type: 'add',
+        transformed: value
+    }), objectAddMutation);
+}
 
+function _delete(prop){
+    if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
+    dispatchMutation(mutationObject({
+        name: prop,
+        object: this,
+        type: 'delete',
+        oldValue: this[prop]
+    }), objectDeleteMutation);
 }
 
 function observableObject(descriptor){
-
     extend(descriptor, {
-
         add: {
-
-            value: function(prop, value){
-
-                if(!is(this[prop], 'undefined')) throw new Error('failed to add ' + prop + ' already defined');
-
-                dispatchMutation(mutationObject({
-
-                    name: prop,
-                    object: this,
-                    type: 'add',
-                    transformed: value
-
-                }), objectAddMutation);
-
-            }
-
+            value: _add
         },
-
         delete:{
-
-            value: function(prop){
-
-                if(is(this[prop], 'undefined')) throw new Error('failed to remove ' + prop + ' does not exist');
-
-                dispatchMutation(mutationObject({
-
-                    name: prop,
-                    object: this,
-                    type: 'delete',
-                    oldValue: this[prop]
-
-                }), objectDeleteMutation);
-
-            }
-
+            value: _delete
         }
-
     });
-
 }
 
 function observable(target, recursive){
-
     var props, descriptor;
-
     if(is(target, 'array') || is(target, 'object')){
-
         props = configurableProperties(target);
-
         if(is(target._observers, 'undefined')){
-
             descriptor = {
-
                 _observers: {
-
                     value: []
-
                 },
-
                 _recursive: {
-
                     value: false,
-
                     configurable: true
-
                 }
-
             };
-
             if(is(target, 'array') || !is(target.length, 'undefined')){
-
                 observableArray(descriptor);
-
             }else{
-
                 observableObject(descriptor);
-
-                each(props, function(prop){
-
-                    defineAccessors(descriptor, prop, target[prop]);
-
-                });
-
+                for(var i = 0, l = props.length; i < l; i++){
+                    defineAccessors(descriptor, props[i], target[props[i]]);
+                }
             }
-
-            defines(target, descriptor);
-
+            Object.defineProperties(target, descriptor);
         }
-
         //target was either observable or is now observable
-        if(target._recursive === false && recursive){
-
-            Object.defineProperty(target, '_recursive', {
-
-                value: true
-
-            });
-
-            each(props, function(prop){
-
-                observable(target[prop], true);
-
-            });
-
-        }
-
+        if(target._recursive === false && recursive) observableProperties(target, props);
     }
-
     return target;
+}
 
+function observableProperties(target, props){
+    Object.defineProperty(target, '_recursive', {
+        value: true
+    });
+    for(var i = 0, l = props.length; i < l; i++){
+        observable(target[props[i]], true);
+    }
 }
 
 function configurableProperties(target){
-
-    var props = [];
-
-    each(Object.getOwnPropertyNames(target), function(prop){
-
-        if(Object.getOwnPropertyDescriptor(target, prop).configurable) props.push(prop);
-
-    });
-
+    var names = Object.getOwnPropertyNames(target),
+        props = [];
+    for(var i = 0, l = names.length; i < l; i++){
+        if(Object.getOwnPropertyDescriptor(target, names[i]).configurable) props.push(names[i]);
+    }
     return props;
-
 }
 
-function observe(observer, target, recursive){
-
+function defineObserverRelation(observer, target, recursive){
+    var props;
     if(!target || is(target._observers, 'undefined')) return;
-
     if(!observer.observing(target)){
-
         target._observers.push(observer);
         observer._observed.push(target);
-
     }
-
     if(recursive){
-
-        each(configurableProperties(target), function(prop){
-
-            observe(observer, target[prop], true);
-
-        });
-
+        props = configurableProperties(target);
+        for(var i = 0, l = props.length; i < l; i++){
+            defineObserverRelation(observer, target[props[i]], true);
+        }
     }
-
-
 }
 
 function observeEach(observers, target, recursive){
-
     if(!target || is(target._observers, 'undefined')) return;
-
-    each(observers, function observeEachIterator(observer){
-
-        observe(observer, target, recursive);
-
-    });
-
+    for(var i = 0, l = observers.length; i < l; i++){
+        defineObserverRelation(observers[i], target, recursive);
+    }
 }
 
 function limit(callback, target){
@@ -1212,7 +971,7 @@ Observer.prototype = {
     observe: function(target, recursive, callback){
         if(!target) return;
         observable(target, recursive);
-        observe(this, target, recursive);
+        defineObserverRelation(this, target, recursive);
         if(callback) return this.observers.add(limit(callback, target));
     },
     transform: function(target, recursive, callback){
@@ -1261,49 +1020,31 @@ Observer.prototype = {
         }
 
     },
-
     observing: function(target){
-
         return this._observed.indexOf(target) >= 0;
-
     }
-
 };
 
 Observer.observable = observable;
 
 Observer.observe = function(target, recursive, callback){
-
     var observer = new Observer();
-
     observer.observe(target, recursive, callback);
-
     return observer;
-
 };
 
 Observer.transform = function(target, recursive, callback){
-
     var observer = new Observer();
-
     observer.transform(target, recursive, callback);
-
     return observer;
-
 };
 
 Observer.unobserve = function(target){
-
     if(target._observers){
-
-        each(target._observers, function(observer){
-
-            observer.unobserve(target);
-
-        });
-
+        // each(target._observers, function(observer){
+        //     observer.unobserve(target);
+        // });
     }
-
 };
 
 module.exports = Observer;
@@ -1662,7 +1403,7 @@ var is = require('../util').is,
 module.exports = function parse(source){
     //parse jsonml array, html string, or document element
     var parseMethod,
-        template = node.element('template'),
+        template = node.fragment(),
         clone;
 
     if(is(source, 'string')){
@@ -1691,7 +1432,7 @@ module.exports = function parse(source){
             break;
             case 'end':
                 if(e.void){
-                    template.append(node.element(e.name, e.attributes));
+                    template.append(node.element(e.name, e.attributes, e.void));
                 }else{
                     if(template.parent) template = template.parent;
                 }
@@ -1908,5 +1649,5 @@ var util = {
 
 module.exports = util;
 
-},{}]},{},[6])(6)
+},{}]},{},[5])(5)
 });

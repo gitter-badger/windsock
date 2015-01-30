@@ -1,27 +1,19 @@
 var Text = require('./text'),
+    Fragment = require('./fragment'),
     Element = require('./element');
 
-//node factory
-module.exports = {
+exports.text = function text(value){
+    return new Text({value: value || ''});
+};
 
-    text: function(value){
+exports.element = function element(name, attributes, empty){
+    return new Element({
+        name: name || 'div',
+        attributes: attributes || {},
+        empty: empty || false
+    });
+};
 
-        return new Text({value: value});
-
-    },
-
-    element: function(name, attributes){
-
-        if(!name) throw new Error('failed to create element, name required');
-
-        return new Element({
-
-            name: name,
-
-            attributes: attributes || {}
-
-        });
-
-    }
-
+exports.fragment = function fragment(){
+    return new Fragment();
 };

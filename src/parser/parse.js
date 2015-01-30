@@ -5,7 +5,7 @@ var is = require('../util').is,
 module.exports = function parse(source){
     //parse jsonml array, html string, or document element
     var parseMethod,
-        template = node.element('template'),
+        template = node.fragment(),
         clone;
 
     if(is(source, 'string')){
@@ -34,7 +34,7 @@ module.exports = function parse(source){
             break;
             case 'end':
                 if(e.void){
-                    template.append(node.element(e.name, e.attributes));
+                    template.append(node.element(e.name, e.attributes, e.void));
                 }else{
                     if(template.parent) template = template.parent;
                 }

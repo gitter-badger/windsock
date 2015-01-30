@@ -12,7 +12,6 @@ module.exports = function compile(template){
 
 function compileNode(node){
     node._observer = new Observer(node);
-    compiler.compileJSONML(node);
     if(typeof document !== 'undefined') compiler.compileDOM(node);
     node._compiled = true;
     return node;
