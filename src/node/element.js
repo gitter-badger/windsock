@@ -1,5 +1,6 @@
 var util = require('../util'),
     Fragment = require('./fragment'),
+    /*jshint -W079 */
     Text = require('./text'),
     is = util.is,
     each = util.each,

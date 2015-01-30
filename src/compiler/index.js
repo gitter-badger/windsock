@@ -1,4 +1,5 @@
 var util = require('../util'),
+    /*jshint -W079 */
     Text = require('../node/text'),
     Fragment = require('../node/fragment'),
     Element = require('../node/element'),

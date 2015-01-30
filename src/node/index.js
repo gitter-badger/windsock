@@ -1,4 +1,5 @@
-var Text = require('./text'),
+var /*jshint -W079 */
+    Text = require('./text'),
     Fragment = require('./fragment'),
     Element = require('./element');
 

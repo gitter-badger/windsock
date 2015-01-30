@@ -69,6 +69,7 @@ function compileNodes(nodes){
 
 },{"../observer":11,"./index":3}],3:[function(require,module,exports){
 var util = require('../util'),
+    /*jshint -W079 */
     Text = require('../node/text'),
     Fragment = require('../node/fragment'),
     Element = require('../node/element'),
@@ -217,6 +218,7 @@ module.exports = {
 },{"./batch":1,"./compiler/compile":2,"./compiler/transclude":4,"./node":8,"./observer":11,"./parser/parse":13,"./util":15}],6:[function(require,module,exports){
 var util = require('../util'),
     Fragment = require('./fragment'),
+    /*jshint -W079 */
     Text = require('./text'),
     is = util.is,
     each = util.each,
@@ -510,7 +512,8 @@ Fragment.prototype.insert = function(node, i){
 module.exports = Fragment;
 
 },{"../util":15,"./node":9}],8:[function(require,module,exports){
-var Text = require('./text'),
+var /*jshint -W079 */
+    Text = require('./text'),
     Fragment = require('./fragment'),
     Element = require('./element');
 
