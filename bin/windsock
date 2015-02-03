@@ -1,0 +1,34 @@
+#!/usr/bin/env node
+'use strict';
+
+var windsock = require('../src'),
+    fs = require("fs");
+
+var src, dest, jsonml = false, output;
+
+process.argv.forEach(function (val, index, array) {
+    console.log(val);
+    switch(index){
+        case 2:
+            src = val;
+        break;
+        case 3:
+            dest = val;
+        break;
+        case 4:
+            jsonml = val === 'true' ? true : false;
+        break;
+    }
+});
+
+fs.readFile(src, function (err, data) {
+    if (err) throw err;
+    output = windsock.compile(windsock.parse(data.toString())).children[0];
+    if(jsonml){
+        output = JSON.stringify(output.jsonml);
+    }
+    fs.writeFile(dest, output.toString(), function (err) {
+      if (err) throw err;
+      console.log(dest + ' save complete!');
+    });
+});
