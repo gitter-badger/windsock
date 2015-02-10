@@ -1,5 +1,6 @@
 var util = require('../util'),
     Fragment = require('./fragment'),
+    Node = require('./node'),
     /*jshint -W079 */
     Text = require('./text'),
     is = util.is,
@@ -49,14 +50,27 @@ function attributesToString(attr){
 }
 
 function Element(value){
-    Fragment.call(this, value);
+    Node.call(this, value);
     this._parent = null;
+    this._children = [];
 }
 
 Element.value = {
-    name: '',
-    attributes: {},
-    empty: false
+    name: {
+        value: '',
+        writable: true,
+        enumerable: true
+    },
+    attributes: {
+        value: null,
+        writable: true,
+        enumerable: true
+    },
+    empty: {
+        value: false,
+        writable: true,
+        enumerable: true
+    }
 };
 
 inherit(Element, Fragment, {
@@ -135,6 +149,18 @@ inherit(Element, Fragment, {
         set: function(parent){
             //remove from previous parent first
             this._parent = parent;
+        }
+    },
+
+    html:{
+        get: function(){
+            return this._html();
+        }
+    },
+    
+    jsonml:{
+        get: function(){
+            return this._jsonml();
         }
     }
 

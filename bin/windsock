@@ -2,9 +2,13 @@
 'use strict';
 
 var windsock = require('../src'),
-    fs = require("fs");
+    fs = require("fs"),
+    path = require('path');
 
-var src, dest, jsonml = false, output;
+var src,
+    dest,
+    files = [],
+    jsonml = false;
 
 process.argv.forEach(function (val, index, array) {
     console.log(val);
@@ -21,14 +25,41 @@ process.argv.forEach(function (val, index, array) {
     }
 });
 
-fs.readFile(src, function (err, data) {
-    if (err) throw err;
-    output = windsock.compile(windsock.parse(data.toString())).children[0];
-    if(jsonml){
-        output = JSON.stringify(output.jsonml);
+function isFile(file){
+    if(fs.statSync(file).isFile()){
+        console.log(file);
+        if(path.extname(file) == 'html' || path.extname(file) == 'json'){
+            files.push(file);
+        }
     }
-    fs.writeFile(dest, output.toString(), function (err) {
-      if (err) throw err;
-      console.log(dest + ' save complete!');
+}
+
+if(fs.lstatSync(src).isDirectory()){
+    fs.readdir(src, function(err, f){
+        if(err) throw err;
+        f = f.map(function (file) {
+            return path.join(dest, file);
+        });
+        console.log(f);
+        f.forEach(isFile);
+        processFiles();
     });
-});
+}else{
+    isFile(src);
+    processFiles();
+}
+
+function processFiles(){
+    console.log(files);
+    files.forEach(function(file){
+        fs.readFile(file, function (err, data) {
+            if(err)throw err;
+            var output = windsock.compile(windsock.parse(data.toString())).children[0];
+            if(jsonml) output = JSON.stringify(output.jsonml);
+            fs.writeFile(dest + path.basename(file), output.toString(), function (err) {
+              if(err)throw err;
+            });
+        });
+    });
+    console.log('save complete!');
+}

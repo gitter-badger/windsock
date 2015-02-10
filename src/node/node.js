@@ -5,7 +5,7 @@ var util = require('../util'),
     is = util.is;
 
 function Node(value){
-    this._value = extend(Object.create(this.constructor.value), value);
+    this._value = extend(Object.create(null, this.constructor.value), value);
     this._observer = null;
     this._documentNode = null;
     this._transclude = null;
@@ -14,19 +14,6 @@ function Node(value){
 }
 
 Node.value = {};
-
-Object.defineProperties(Node.prototype, {
-    html:{
-        get: function(){
-            return this._html();
-        }
-    },
-    jsonml:{
-        get: function(){
-            return this._jsonml();
-        }
-    }
-});
 
 Node.prototype._destroy = function(){
     //remove all events which are observed and then removed from _documentNode

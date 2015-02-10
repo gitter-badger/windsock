@@ -7,8 +7,13 @@ function Text(value){
     this._parent = null;
 }
 
+//value?
 Text.value = {
-    value: ''
+    value: {
+        value:'',
+        writable: true,
+        enumerable: true //need this for clone
+    }
 };
 
 inherit(Text, Node, {
@@ -27,6 +32,16 @@ inherit(Text, Node, {
         set: function(parent){
             //remove from previous parent first
             this._parent = parent;
+        }
+    },
+    html:{
+        get: function(){
+            return this._html();
+        }
+    },
+    jsonml:{
+        get: function(){
+            return this._jsonml();
         }
     }
 });

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>windsock.js api</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+    </head>
+    <body>
+        <ul class="replace-ul"></ul>
+        <div id="ws-add-timer">
+            <input placeholder="stopwatch name" type="text">
+            <button class="btn js-add-timer"></button>
+        </div>
+        <ul id="ws-timers">
+            <li class="timer">
+                <ul class="timer__segments">
+                    <li class="hr">0</li>
+                    <li class="min">0</li>
+                    <li class="sec">00</li>
+                    <li class="ms">00</li>
+                </ul>
+                <div class="timer__controls">
+                    <div class="btn reset">reset</div>
+                    <div class="btn remove">remove</div>
+                    <div class="btn start">start</div>
+                    <div class="btn stop">stop</div>
+                </div>
+                <div class="timer__progress"></div>
+            </li>
+        </ul>
+        <script src="../../dist/windsock.js"></script>
+        <script>
+            var template = windsock.parse(document.querySelector('.timer'));
+            var compile = windsock.compile(template);
+        </script>
+    </body>
+</html>
