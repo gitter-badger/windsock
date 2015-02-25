@@ -315,49 +315,29 @@ inherit(Element, Fragment, {
     },
 
     text:{
-
         get: function(){
-
             return this.filter(function(child){
-
                 return child instanceof Text;
-
             }).join('');
-
         },
-
         set: function(value){
-
-            if(this.text.length){
-
-                var textNodes = this.filter(function(child){
-
-                    return child instanceof Text;
-
-                });
-
+            var textNodes = this.filter(function(child){
+                return child instanceof Text;
+            });
+            if(textNodes.length){
                 each(textNodes, function(text, i){
-
                     if(i === 0){
-
                         text.value = value;
-
                     }else{
-
                         text.remove();
-
                     }
-
                 });
-
-            }else{
-
-                this.append(new Text({value:value}));
-
+                return;
             }
-
+            if(!this._compiled){
+                this.append(new Text({value:value}));
+            }
         }
-
     },
 
     parent: {
@@ -375,7 +355,7 @@ inherit(Element, Fragment, {
             return this._html();
         }
     },
-    
+
     jsonml:{
         get: function(){
             return this._jsonml();
@@ -1015,22 +995,22 @@ Observer.prototype = {
 
         var remove = bind(function(value){
 
-                this.observers.each(function(signal){
+            this.observers.each(function(signal){
 
-                    if(signal.context === value) this.remove(signal);
+                if(signal.context === value) this.remove(signal);
 
-                });
+            });
 
-                this.transforms.each(function(signal){
+            this.transforms.each(function(signal){
 
-                    if(signal.context === value) this.remove(signal);
+                if(signal.context === value) this.remove(signal);
 
-                });
+            });
 
-                value._observers.splice(value._observers.indexOf(this), 1);
-                this._observed.splice(this._observed.indexOf(value), 1);
+            value._observers.splice(value._observers.indexOf(this), 1);
+            this._observed.splice(this._observed.indexOf(value), 1);
 
-            }, this);
+        }, this);
 
         if(target){
 
@@ -1656,13 +1636,13 @@ var util = {
     is: function(obj, type){
         switch(type){
             case 'empty':
-            return Object.keys(obj).length === 0;
+                return Object.keys(obj).length === 0;
             case 'undefined':
-            return typeof obj === 'undefined';
+                return typeof obj === 'undefined';
             case 'null':
-            return obj === null;
+                return obj === null;
             default:
-            return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
+                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
         }
     },
 

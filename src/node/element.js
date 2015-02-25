@@ -97,49 +97,29 @@ inherit(Element, Fragment, {
     },
 
     text:{
-
         get: function(){
-
             return this.filter(function(child){
-
                 return child instanceof Text;
-
             }).join('');
-
         },
-
         set: function(value){
-
-            if(this.text.length){
-
-                var textNodes = this.filter(function(child){
-
-                    return child instanceof Text;
-
-                });
-
+            var textNodes = this.filter(function(child){
+                return child instanceof Text;
+            });
+            if(textNodes.length){
                 each(textNodes, function(text, i){
-
                     if(i === 0){
-
                         text.value = value;
-
                     }else{
-
                         text.remove();
-
                     }
-
                 });
-
-            }else{
-
-                this.append(new Text({value:value}));
-
+                return;
             }
-
+            if(!this._compiled){
+                this.append(new Text({value:value}));
+            }
         }
-
     },
 
     parent: {
@@ -157,7 +137,7 @@ inherit(Element, Fragment, {
             return this._html();
         }
     },
-    
+
     jsonml:{
         get: function(){
             return this._jsonml();

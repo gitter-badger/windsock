@@ -116,13 +116,13 @@ var util = {
     is: function(obj, type){
         switch(type){
             case 'empty':
-            return Object.keys(obj).length === 0;
+                return Object.keys(obj).length === 0;
             case 'undefined':
-            return typeof obj === 'undefined';
+                return typeof obj === 'undefined';
             case 'null':
-            return obj === null;
+                return obj === null;
             default:
-            return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
+                return Object.prototype.toString.call(obj) === '[object ' + util.capitalize(type) + ']';
         }
     },
 

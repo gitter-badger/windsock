@@ -284,22 +284,22 @@ Observer.prototype = {
 
         var remove = bind(function(value){
 
-                this.observers.each(function(signal){
+            this.observers.each(function(signal){
 
-                    if(signal.context === value) this.remove(signal);
+                if(signal.context === value) this.remove(signal);
 
-                });
+            });
 
-                this.transforms.each(function(signal){
+            this.transforms.each(function(signal){
 
-                    if(signal.context === value) this.remove(signal);
+                if(signal.context === value) this.remove(signal);
 
-                });
+            });
 
-                value._observers.splice(value._observers.indexOf(this), 1);
-                this._observed.splice(this._observed.indexOf(value), 1);
+            value._observers.splice(value._observers.indexOf(this), 1);
+            this._observed.splice(this._observed.indexOf(value), 1);
 
-            }, this);
+        }, this);
 
         if(target){
 
