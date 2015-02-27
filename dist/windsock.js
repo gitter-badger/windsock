@@ -501,16 +501,19 @@ Fragment.prototype.destroy = function(){
 };
 
 Fragment.prototype.append = function(node){
+    if(node.remove) node.remove();
     node.parent = this;
     return this._children.push(node);
 };
 
 Fragment.prototype.prepend = function(node){
+    if(node.remove) node.remove();
     node.parent = this;
     return this._children.unshift(node);
 };
 
 Fragment.prototype.insert = function(node, i){
+    if(node.remove) node.remove();
     node.parent = this;
     return this._children.splice(i, 0, node);
 };
