@@ -59,17 +59,20 @@ Element.value = {
     name: {
         value: '',
         writable: true,
-        enumerable: true
+        enumerable: true,
+        configurable: true
     },
     attributes: {
         value: null,
         writable: true,
-        enumerable: true
+        enumerable: true,
+        configurable: true
     },
     empty: {
         value: false,
         writable: true,
-        enumerable: true
+        enumerable: true,
+        configurable: true
     }
 };
 

@@ -12,7 +12,8 @@ Text.value = {
     value: {
         value:'',
         writable: true,
-        enumerable: true //need this for clone
+        enumerable: true, //need this for clone
+        configurable: true
     }
 };
 
