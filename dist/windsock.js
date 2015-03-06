@@ -452,7 +452,9 @@ Element.prototype.destroy = function(){
         i--;
         this._children[i].destroy();
     }
-    this.remove();
+    if(this.parent){
+        Array.prototype.splice.call(this.parent._children, this.parent._children.indexOf(this), 1);
+    }
     this._destroy();
 };
 
@@ -567,9 +569,6 @@ Node.prototype._destroy = function(){
     //remove all events which are observed and then removed from _documentNode
     this.off();
     if(this._compiled){
-
-        //batch.cancel(this._batch);
-
         if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
         this._observer.unobserve();
         this._compiled = false;
@@ -709,7 +708,9 @@ Text.prototype._jsonml = function(){
 };
 
 Text.prototype.destroy = function(){
-    this.remove();
+    if(this.parent){
+        Array.prototype.splice.call(this.parent._children, this.parent._children.indexOf(this), 1);
+    }
     this._destroy();
 };
 

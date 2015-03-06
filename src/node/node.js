@@ -19,9 +19,6 @@ Node.prototype._destroy = function(){
     //remove all events which are observed and then removed from _documentNode
     this.off();
     if(this._compiled){
-
-        //batch.cancel(this._batch);
-
         if(!is(this._documentNode.parentNode, 'undefined')) this._documentNode.parentNode.removeChild(this._documentNode);
         this._observer.unobserve();
         this._compiled = false;

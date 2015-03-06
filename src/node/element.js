@@ -234,7 +234,9 @@ Element.prototype.destroy = function(){
         i--;
         this._children[i].destroy();
     }
-    this.remove();
+    if(this.parent){
+        Array.prototype.splice.call(this.parent._children, this.parent._children.indexOf(this), 1);
+    }
     this._destroy();
 };
 

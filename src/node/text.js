@@ -63,7 +63,9 @@ Text.prototype._jsonml = function(){
 };
 
 Text.prototype.destroy = function(){
-    this.remove();
+    if(this.parent){
+        Array.prototype.splice.call(this.parent._children, this.parent._children.indexOf(this), 1);
+    }
     this._destroy();
 };
 
