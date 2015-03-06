@@ -719,7 +719,6 @@ module.exports = Text;
 var util = require('./util'),
     Signals = require('./signals'),
     is = util.is,
-    bind = util.bind,
     merge = util.merge,
     extend = util.extend;
 
@@ -998,45 +997,16 @@ Observer.prototype = {
         if(callback) return this.transforms.queue(limit(callback, target));
     },
 
-    unobserve: function(target){
-
-        var remove = bind(function(value){
-
-            this.observers.each(function(signal){
-
-                if(signal.context === value) this.remove(signal);
-
-            });
-
-            this.transforms.each(function(signal){
-
-                if(signal.context === value) this.remove(signal);
-
-            });
-
-            value._observers.splice(value._observers.indexOf(this), 1);
-            this._observed.splice(this._observed.indexOf(value), 1);
-
-        }, this);
-
-        if(target){
-
-            remove(target);
-
-        }else{
-
-            this.observers.remove();
-            this.transforms.remove();
-
-            //each(this._observed, remove);
-            while(this._observed.length > 0){
-
-                remove(this._observed[this._observed.length - 1]);
-
-            }
-
+    unobserve: function(){
+        var observed;
+        this.observers.remove();
+        this.transforms.remove();
+        while(this._observed.length > 0){
+            observed = this._observed[this._observed.length - 1];
+            observed._observers.splice(observed._observers.indexOf(this), 1);
+            this._observed.splice(this._observed.indexOf(observed), 1);
         }
-
+        observed = null;
     },
     observing: function(target){
         return this._observed.indexOf(target) >= 0;
