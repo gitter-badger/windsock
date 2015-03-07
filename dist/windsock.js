@@ -77,12 +77,18 @@ var util = require('../util'),
     partial = util.partial,
     each = util.each;
 
+var namespaceURI = {
+    html: 'http://www.w3.org/1999/xhtml',
+    svg: 'http://www.w3.org/2000/svg',
+    xlink: 'http://www.w3.org/1999/xlink'
+};
+
 function textContent(node, value){
     node.textContent = value;
 }
 
 function setAttribute(node, key, value){
-    node.setAttribute(key, value);
+    node.setAttributeNS(attrns(key), key, value);
 }
 
 function removeChild(node){
@@ -159,14 +165,36 @@ function dispatchEventListener(n, evt){
     };
 }
 
+function attrns(name){
+    var i = name.indexOf(':'),
+        ns = null;
+    if(i >= 0){
+        ns = namespaceURI[name.substring(0, i)] || null;
+    }
+    return ns;
+}
+
+function xmlns(node){
+    while(node){
+        if(node._documentNode !== null){
+            return node._documentNode.namespaceURI;
+        }
+        if(node.name === 'svg'){
+            return namespaceURI.svg;
+        }
+        node = node.parent instanceof Element ? node.parent : false;
+    }
+    return namespaceURI.html;
+}
+
 function compileDOM(node){
     if(node instanceof Text){
         node._documentNode = document.createTextNode(node._value.value);
         node._observer.observe(node._value, false, observeDOMTextValue);
     }else if(node instanceof Element){
-        node._documentNode = document.createElement(node._value.name);
+        node._documentNode = document.createElementNS(xmlns(node), node._value.name);
         for(var key in node._value.attributes){
-            node._documentNode.setAttribute(key, node._value.attributes[key]);
+            setAttribute(node._documentNode, key, node._value.attributes[key]);
         }
         node._observer.observe(node._value, false, observeDOMElementAttributes);
         node._observer.observe(node._value.attributes, false, observeDOMElementAttributes);
