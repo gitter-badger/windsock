@@ -91,6 +91,10 @@ function setAttribute(node, key, value){
     node.setAttributeNS(attrns(key), key, value);
 }
 
+function removeAttribute(node, key){
+    node.removeAttributeNS(attrns(key), key);
+}
+
 function removeChild(node){
     node.parentNode.removeChild(node);
 }
@@ -111,10 +115,12 @@ function observeDOMTextValue(mutation, observer){
 
 function observeDOMElementAttributes(mutation, observer){
     if(mutation.name === 'attributes'){
-        //handle adding or deleting attributes
+        //handle adding or deleting attributes as an object
     }else if(mutation.object === observer.root.attributes){
-        if(observer.root.attributes[mutation.name] !== mutation.oldValue){
-            batch.add(partial(setAttribute, observer.root._documentNode, mutation.name, mutation.object[mutation.name]));
+        if(mutation.type === 'delete'){
+            batch.add(partial(removeAttribute, observer.root._documentNode, mutation.name));
+        }else if(observer.root.attributes[mutation.name] !== mutation.oldValue || mutation.type === 'add'){
+            batch.add(partial(setAttribute, observer.root._documentNode, mutation.name, mutation.object[mutation.name] || ''));
         }
     }
 }
@@ -816,7 +822,7 @@ function objectAddMutation(m){
 }
 
 function objectDeleteMutation(m){
-    if(m.object[m.name]._observers) {
+    if(m.object[m.name] && m.object[m.name]._observers) {
         for(var i = 0, l = m.object[m.name]._observers.length; i < l; i++){
             m.object[m.name]._observers[i].unobserve(m.object[m.name]);
         }

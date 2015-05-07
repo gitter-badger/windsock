@@ -66,7 +66,7 @@ function objectAddMutation(m){
 }
 
 function objectDeleteMutation(m){
-    if(m.object[m.name]._observers) {
+    if(m.object[m.name] && m.object[m.name]._observers) {
         for(var i = 0, l = m.object[m.name]._observers.length; i < l; i++){
             m.object[m.name]._observers[i].unobserve(m.object[m.name]);
         }
