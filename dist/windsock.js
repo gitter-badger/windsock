@@ -257,25 +257,7 @@ var util = require('../util'),
     Text = require('./text'),
     is = util.is,
     each = util.each,
-    match = util.match,
     inherit = util.inherit;
-
-function parseQuery(query){
-    if(is(query, 'function')) return query;
-    if(is(query, 'string')){
-        return function nodeNamePredicate(child){
-            if(!(child instanceof Element)) return false;
-            return child.name === query;
-        };
-    }
-    if(is(query, 'object')){
-        return function nodeAttributePredicate(child){
-            if(!(child instanceof Element)) return false;
-            return match(child.attributes, query);
-        };
-    }
-    throw new Error('failed to parse query, type not supported');
-}
 
 function attributesToString(attr){
     var attribute = '';
@@ -422,32 +404,6 @@ inherit(Element, Fragment, {
 
 });
 
-//pre-order traversal returns first result or undefined
-Element.prototype.find = function(query){
-    var predicate = parseQuery(query),
-        result;
-    each(this._children, function(child, i, children, halt){
-        if(predicate(child)){
-            result = child;
-        }else if(!is(child.children, 'undefined') && child.children.length){
-            result = child.find(predicate);
-        }
-        if(result) return halt;
-    });
-    return result;
-};
-
-//pre-order traversal returns a flat list result or empty array
-Element.prototype.filter = function(query){
-    var predicate = parseQuery(query),
-        result = [];
-    each(this._children, function(child){
-        if(predicate(child)) result.push(child);
-        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.filter(predicate));
-    });
-    return result;
-};
-
 Element.prototype._html = function(){
     var html = [];
     html.push('<' + this._value.name);
@@ -512,8 +468,31 @@ Element.prototype.after = function(node){
 module.exports = Element;
 
 },{"../util":15,"./fragment":7,"./node":9,"./text":10}],7:[function(require,module,exports){
-var inherit = require('../util').inherit,
-    Node = require('./node');
+var /*jshint -W079 */
+    Text = require('./text'),
+    util = require('../util'),
+    Node = require('./node'),
+    is = util.is,
+    each = util.each,
+    match = util.match,
+    inherit = util.inherit;
+
+function parseQuery(query){
+    if(is(query, 'function')) return query;
+    if(is(query, 'string')){
+        return function nodeNamePredicate(child){
+            if(child instanceof Text) return false;
+            return child.name === query;
+        };
+    }
+    if(is(query, 'object')){
+        return function nodeAttributePredicate(child){
+            if(child instanceof Text) return false;
+            return match(child.attributes, query);
+        };
+    }
+    throw new Error('failed to parse query, type not supported');
+}
 
 function Fragment(value){
     Node.call(this, value);
@@ -560,9 +539,35 @@ Fragment.prototype.insert = function(node, i){
     return this._children.splice(i, 0, node);
 };
 
+//pre-order traversal returns first result or undefined
+Fragment.prototype.find = function(query){
+    var predicate = parseQuery(query),
+        result;
+    each(this._children, function(child, i, children, halt){
+        if(predicate(child)){
+            result = child;
+        }else if(!is(child.children, 'undefined') && child.children.length){
+            result = child.find(predicate);
+        }
+        if(result) return halt;
+    });
+    return result;
+};
+
+//pre-order traversal returns a flat list result or empty array
+Fragment.prototype.filter = function(query){
+    var predicate = parseQuery(query),
+        result = [];
+    each(this._children, function(child){
+        if(predicate(child)) result.push(child);
+        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.filter(predicate));
+    });
+    return result;
+};
+
 module.exports = Fragment;
 
-},{"../util":15,"./node":9}],8:[function(require,module,exports){
+},{"../util":15,"./node":9,"./text":10}],8:[function(require,module,exports){
 var /*jshint -W079 */
     Text = require('./text'),
     Fragment = require('./fragment'),
@@ -601,6 +606,13 @@ function Node(value){
 }
 
 Node.value = {};
+
+Object.defineProperty(Node.prototype, 'node', {
+    get: function(){
+        //could use this as a "compiled" check
+        return this._documentNode;
+    }
+});
 
 Node.prototype._destroy = function(){
     //remove all events which are observed and then removed from _documentNode
@@ -656,7 +668,9 @@ Node.prototype.off = function(name, signal){
 };
 
 Node.prototype.clone = function(deep){
+    //cloning a node returns an uncompiled node instance
     var cloned = new this.constructor(clone(this._value));
+    bindEvents(cloned, this._events);
     if(deep && this._children){
         for(var i = 0, l = this._children.length; i < l; i++){
             cloned.append(this._children[i].clone(true));
@@ -676,6 +690,16 @@ Node.prototype.toJSON = function(){
 Node.prototype.toString = function(){
     return this.html;
 };
+
+function bindEvents(clone, events){
+    var signals;
+    for(var name in events){
+        signals = events[name]._signals;
+        for(var i = 0, l = signals.length; i < l; i++){
+            clone.on(name, signals[i].binding);
+        }
+    }
+}
 
 module.exports = Node;
 

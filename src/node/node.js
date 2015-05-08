@@ -15,6 +15,13 @@ function Node(value){
 
 Node.value = {};
 
+Object.defineProperty(Node.prototype, 'node', {
+    get: function(){
+        //could use this as a "compiled" check
+        return this._documentNode;
+    }
+});
+
 Node.prototype._destroy = function(){
     //remove all events which are observed and then removed from _documentNode
     this.off();
@@ -69,7 +76,9 @@ Node.prototype.off = function(name, signal){
 };
 
 Node.prototype.clone = function(deep){
+    //cloning a node returns an uncompiled node instance
     var cloned = new this.constructor(clone(this._value));
+    bindEvents(cloned, this._events);
     if(deep && this._children){
         for(var i = 0, l = this._children.length; i < l; i++){
             cloned.append(this._children[i].clone(true));
@@ -89,5 +98,15 @@ Node.prototype.toJSON = function(){
 Node.prototype.toString = function(){
     return this.html;
 };
+
+function bindEvents(clone, events){
+    var signals;
+    for(var name in events){
+        signals = events[name]._signals;
+        for(var i = 0, l = signals.length; i < l; i++){
+            clone.on(name, signals[i].binding);
+        }
+    }
+}
 
 module.exports = Node;

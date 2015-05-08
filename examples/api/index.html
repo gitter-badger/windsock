@@ -37,7 +37,19 @@
         <script src="../../dist/windsock.js"></script>
         <script>
             var template = windsock.parse(document.querySelector('.timer'));
+            var segments = template.find({class:'timer__segments'});
+            segments.on('click', function(){console.log('woot');});
+
             var compile = windsock.compile(template);
+            var segmentsCompiled = compile.find({class:'timer__segments'});
+            segmentsCompiled.on('click', function(){console.log('compiled woot');});
+
+            var derp = segmentsCompiled.clone();
+            derp.on('click', function(){console.log('compiled clone woot');});
+            var c = windsock.compile(derp);
+            c.append(windsock.compile(windsock.parse('<li>hello</li>')));
+            document.body.appendChild(c.node);
+
         </script>
     </body>
 </html>

@@ -5,25 +5,7 @@ var util = require('../util'),
     Text = require('./text'),
     is = util.is,
     each = util.each,
-    match = util.match,
     inherit = util.inherit;
-
-function parseQuery(query){
-    if(is(query, 'function')) return query;
-    if(is(query, 'string')){
-        return function nodeNamePredicate(child){
-            if(!(child instanceof Element)) return false;
-            return child.name === query;
-        };
-    }
-    if(is(query, 'object')){
-        return function nodeAttributePredicate(child){
-            if(!(child instanceof Element)) return false;
-            return match(child.attributes, query);
-        };
-    }
-    throw new Error('failed to parse query, type not supported');
-}
 
 function attributesToString(attr){
     var attribute = '';
@@ -169,32 +151,6 @@ inherit(Element, Fragment, {
     }
 
 });
-
-//pre-order traversal returns first result or undefined
-Element.prototype.find = function(query){
-    var predicate = parseQuery(query),
-        result;
-    each(this._children, function(child, i, children, halt){
-        if(predicate(child)){
-            result = child;
-        }else if(!is(child.children, 'undefined') && child.children.length){
-            result = child.find(predicate);
-        }
-        if(result) return halt;
-    });
-    return result;
-};
-
-//pre-order traversal returns a flat list result or empty array
-Element.prototype.filter = function(query){
-    var predicate = parseQuery(query),
-        result = [];
-    each(this._children, function(child){
-        if(predicate(child)) result.push(child);
-        if(!is(child.children, 'undefined') && child.children.length) result = result.concat(child.filter(predicate));
-    });
-    return result;
-};
 
 Element.prototype._html = function(){
     var html = [];
