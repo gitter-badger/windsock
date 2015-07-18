@@ -58,7 +58,7 @@ The html method is used to take a compiled virtual DOM and return an HTML string
 windsock.html(observableList);
 ```
 
-##Utility
+## Utility
 ### windsock.Observer
 The Observer class is used to observe objects
 ```javascript
