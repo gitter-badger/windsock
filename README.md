@@ -1,7 +1,10 @@
-#windsock.js <img width="88" src="https://raw.githubusercontent.com/bsawyer/windsock-artwork/master/windsock_2x.png">
-[![Build Status](https://travis-ci.org/bsawyer/windsock.svg)](https://travis-ci.org/bsawyer/windsock)
+<img width="88" src="https://raw.githubusercontent.com/bsawyer/windsock-artwork/master/windsock_2x.png">
 
-Observable JSONML compliant virtual DOM
+# windsock.js
+
+**Observable JSONML compliant virtual DOM**
+
+[![Build Status](https://travis-ci.org/bsawyer/windsock.svg)](https://travis-ci.org/bsawyer/windsock)
 
 ## tldr;
 ```javascript
@@ -56,8 +59,37 @@ windsock.html(observableList);
 ```
 
 ##Utility
-windsock.Observer
+### windsock.Observer
+The Observer class is used to observe objects
+```javascript
+var list = windsock.compile(ul);
+windsock.Observer.observe(list.attributes, false, function(){...});
+```
 
-windsock.Batch
+### windsock.Batch
+The Batch singleton is used to defer methods to the active DOMs paint cycle
+```javascript
+var paintId = windsock.Batch.add(function(){...});
+windsock.Batch.cancel();
+```
 
-windsock.util
+### windsock.util
+The util property exposes the methods windsock uses internally
+```javascript
+windsock.util.tick();
+windsock.util.paint();
+windsock.util.cancelPaint();
+windsock.util.each();
+windsock.util.traverse();
+windsock.util.extend();
+windsock.util.merge();
+windsock.util.inherit();
+windsock.util.match();
+windsock.util.partial();
+windsock.util.bind();
+windsock.util.clone();
+windsock.util.is();
+windsock.util.capitalize();
+windsock.util.isEmpty();
+windsock.util.noop();
+```

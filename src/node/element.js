@@ -17,7 +17,7 @@ function attributesToString(attr){
 }
 
 function classList(attrs){
-    var list = attrs.class.split(' ');
+    var list = attrs.class && attrs.class.split(' ') || [];
     list.contains = function(cls){
         return this.indexOf(cls) >= 0;
     };
