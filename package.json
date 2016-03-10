@@ -2,7 +2,7 @@
   "name": "windsock",
   "version": "0.1.14",
   "author": "Ben Sawyer",
-  "description": "Observable JSONML compliant virtual DOM",
+  "description": "Flux inspired library for building web applications",
   "license": "MIT",
   "homepage": "https://github.com/bsawyer/windsock",
   "bugs": "https://github.com/bsawyer/windsock/issues",
@@ -10,29 +10,18 @@
     "type": "git",
     "url": "https://github.com/bsawyer/windsock.git"
   },
-  "main": "src/index.js",
-  "dependencies": {},
+  "main": "dist/windsock.common.js",
   "devDependencies": {
-    "jshint": "^2.5.10",
-    "jscs": "^1.8.1",
-    "mocha": "^2.0.1",
-    "browserify": "^7.0.2",
-    "uglify-js": "^2.4.16",
-    "watch": "latest"
+    "babel-preset-es2015-rollup": "^1.1.1",
+    "mocha": "^2.4.5",
+    "rollup": "^0.25.4",
+    "rollup-plugin-babel": "^2.4.0",
+    "uglify-js": "^2.6.2"
   },
   "scripts": {
-    "jshint": "jshint src/",
-    "jscs": "jscs src/",
-    "mocha": "mocha test/",
-    "pretest": "npm run jshint && npm run jscs",
-    "test": "npm run mocha",
-    "clean": "rm -rf dist/*",
-    "browserify": "browserify src/index.js --no-detect-globals --standalone windsock > dist/windsock.js",
-    "uglifyjs": "uglifyjs dist/windsock.js -o dist/windsock.min.js",
-    "predist": "npm run clean",
-    "dist": "npm run browserify && npm run uglifyjs",
-    "prebuild": "npm run test",
-    "build": "npm run dist",
-    "build:watch": "watch 'npm run build' src/"
+    "build": "node ./build.js",
+    "build:watch": "watch 'npm run build' src/",
+    "publish": "bash ./publish.sh",
+    "test:unit": "mocha test/unit"
   }
 }

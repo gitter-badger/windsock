@@ -1,0 +1,2 @@
+[*.{json,yml,yaml,html,css}]
+indent_size = 2

@@ -1,17 +1,6 @@
-var util = require('./util'),
-    parse = require('./parser/parse'),
-    compile = require('./compiler/compile'),
-    transclude = require('./compiler/transclude'),
-    node = require('./node'),
-    Observer = require('./observer'),
-    Batch = require('./batch');
+import Observer from './observer';
 
-module.exports = {
-    util: util,
-    parse: parse,
-    compile: compile,
-    transclude: transclude,
-    node: node,
-    Observer: Observer,
-    Batch: Batch
-};
+export default{
+    version:'0.1.14',
+    Observer,
+}
