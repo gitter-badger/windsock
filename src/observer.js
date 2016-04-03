@@ -199,7 +199,9 @@ function defineAccessors(prop, value, descriptor = {}){
             if(this._observers.recursiveExists() && isObservable(newValue)){
                 observable(newValue, ObserverList.recursive(this._observers));
             }
-            disconnectRecursiveObservers(this, value._observers);
+            if(value && value._observers){
+                disconnectRecursiveObservers(this, value._observers);
+            }
             value = newValue;
             this._observers.dispatch(record);
         },
@@ -240,7 +242,9 @@ function deleteObjectProperty(target, prop){
         newValue: undefined,
         args: Array.prototype.slice.call(arguments, 1)
     });
-    disconnectRecursiveObservers(target, target[prop]._observers);
+    if(target[prop] && target[prop]._observers){
+        disconnectRecursiveObservers(target, target[prop]._observers);
+    }
     delete target[prop];
     target._observers.dispatch(record);
 }
@@ -283,6 +287,7 @@ function mutateArray(options){
             if(args[1]){
                 record.oldValue = target.slice(args[0], args[0] + args[1]);
             }
+            record.newValue = args.slice(2);
         break;
     }
     if(target._observers.recursiveExists()){
@@ -294,7 +299,9 @@ function mutateArray(options){
     }
     if(record.oldValue){
         record.oldValue.forEach((val)=>{
-            disconnectRecursiveObservers(target, val._observers);
+            if(val && val._observers){
+                disconnectRecursiveObservers(target, val._observers);
+            }
         });
     }
     Array.prototype[method].apply(target, options.args);
@@ -312,9 +319,7 @@ function disconnectRecursiveObserver(target, observer){
 }
 
 function disconnectRecursiveObservers(target, observerList){
-    if(observerList){
-        target._observers.recursive().forEach((observer)=>{
-            observerList.remove(observer);
-        });
-    }
+    target._observers.recursive().forEach((observer)=>{
+        observerList.remove(observer);
+    });
 }

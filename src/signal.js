@@ -11,8 +11,7 @@ export default class Signal{
         }
         this.listeners = [];
     }
-    dispatch(){
-        let args = Array.prototype.slice.call(arguments);
+    dispatch(...args){
         return this.listeners.map((listener)=>{
             return listener.apply(this, args);
         });
