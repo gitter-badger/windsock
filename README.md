@@ -6,30 +6,17 @@
 
 [![Build Status](https://travis-ci.org/bsawyer/windsock.svg)](https://travis-ci.org/bsawyer/windsock)
 
-## tldr;
+## tl;dr
 ```javascript
-//VDOM
-windsock.VDOM
-
-//Observer
 var myObj = {
-    myProp: 1
+    myProp: 1,
+    myValue: 'hello world'
 };
-var observer = new windsock.Observer((record)=>{
-    //record.method === 'set'
-    //record.type === 'myProp'
-    //record.oldValue === 1
-    //record.newValue === 2
-});
-observer.observe(myObj);
-myObj.myProp = 2;
-
-//Bind
-windsock.Bind
-
-//Store
-windsock.Store
-
-//Component
-windsock.Component
+var template = windsock.parse('<div>hello mom</div>');
+var transform = new windsock.transforms.TextTransform();
+var bind = new windsock.Bind('myValue', transform);
+bind.render(template.children[0], myObj);
+var compiled = windsock.compile(template);
+windsock.transclude(compiled, document.getElementById('myId'));
+myObj.myValue = 'hello windsock';
 ```
