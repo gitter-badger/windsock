@@ -572,62 +572,39 @@ var util = Object.freeze({
     	Element: Element
     });
 
-    var Signal = function () {
-        function Signal() {
-            babelHelpers.classCallCheck(this, Signal);
+    var Transform = function () {
+        function Transform() {
+            //just an interface
 
-            this.listeners = [];
+            babelHelpers.classCallCheck(this, Transform);
         }
 
-        babelHelpers.createClass(Signal, [{
-            key: "add",
-            value: function add(listener) {
-                this.listeners.push(listener);
-            }
+        babelHelpers.createClass(Transform, [{
+            key: "bind",
+            value: function bind() {}
         }, {
-            key: "remove",
-            value: function remove(listener) {
-                if (listener) {
-                    return this.listeners.splice(this.listeners.indexOf(listener), 1);
-                }
-                this.listeners = [];
-            }
-        }, {
-            key: "dispatch",
-            value: function dispatch() {
-                var _this = this;
-
-                for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-                    args[_key] = arguments[_key];
-                }
-
-                return this.listeners.map(function (listener) {
-                    return listener.apply(_this, args);
-                });
-            }
+            key: "update",
+            value: function update() {}
         }]);
-        return Signal;
+        return Transform;
     }();
-
-    var Transform = function Transform() {
-        babelHelpers.classCallCheck(this, Transform);
-
-        this.bind = new Signal();
-        this.update = new Signal();
-    };
 
     var TextTransform = function (_Transform) {
         babelHelpers.inherits(TextTransform, _Transform);
 
         function TextTransform() {
             babelHelpers.classCallCheck(this, TextTransform);
+            return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(TextTransform).call(this));
+        }
 
-            var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(TextTransform).call(this));
-
-            _this.bind.add(function (node, value) {
+        babelHelpers.createClass(TextTransform, [{
+            key: 'bind',
+            value: function bind(node, value) {
                 node.value.textContent = value.toString();
-            });
-            _this.update.add(function (node, record) {
+            }
+        }, {
+            key: 'update',
+            value: function update(node, record) {
                 var parent = undefined;
                 if (record.newValue !== record.oldValue) {
                     switch (record.method) {
@@ -645,10 +622,8 @@ var util = Object.freeze({
                             break;
                     }
                 }
-            });
-            return _this;
-        }
-
+            }
+        }]);
         return TextTransform;
     }(Transform);
 
@@ -657,10 +632,12 @@ var util = Object.freeze({
 
         function IfTransform() {
             babelHelpers.classCallCheck(this, IfTransform);
+            return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(IfTransform).call(this));
+        }
 
-            var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(IfTransform).call(this));
-
-            _this.bind.add(function (node, value) {
+        babelHelpers.createClass(IfTransform, [{
+            key: 'bind',
+            value: function bind(node, value) {
                 var parent = undefined,
                     index = undefined;
                 if (!!value === false && node.parent) {
@@ -669,8 +646,10 @@ var util = Object.freeze({
                     node.remove();
                     node.parent = parent;
                 }
-            });
-            _this.update.add(function (node, record) {
+            }
+        }, {
+            key: 'update',
+            value: function update(node, record) {
                 var parent = undefined,
                     index = undefined;
                 if (record.newValue !== record.oldValue && node.parent) {
@@ -683,10 +662,8 @@ var util = Object.freeze({
                         node.parent = parent;
                     }
                 }
-            });
-            return _this;
-        }
-
+            }
+        }]);
         return IfTransform;
     }(Transform);
 
@@ -1055,236 +1032,473 @@ var util = Object.freeze({
         });
     }
 
-    var id = undefined;
-    var requested = undefined;
-    var running = undefined;
-    var queue = undefined;
-    function done() {
-        id = null;
-        requested = false;
-        running = false;
-        queue = [];
-    }
+    var ARRAY_MUTATOR_METHODS$1 = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
 
-    done();
+    var Observer$1 = function () {
+        function Observer(callback) {
+            babelHelpers.classCallCheck(this, Observer);
 
-    function run() {
-        running = true;
-        for (var i = 0; i < queue.length; i++) {
-            queue[i].call();
+            if (is(callback, 'undefined')) {
+                throw new Error('Failed to instantiate missing callback');
+            }
+            if (!is(callback, 'function')) {
+                throw new Error('Invalid callback specified');
+            }
+            this.callback = callback;
+            this._target = undefined;
+            this._config = undefined;
         }
-        done();
-    }
 
-    function add(fn) {
-        queue.push(fn);
-        if (!requested) {
-            id = paint(run);
-            requested = true;
-        }
-        return id;
+        babelHelpers.createClass(Observer, [{
+            key: 'observe',
+            value: function observe(target) {
+                var config = arguments.length <= 1 || arguments[1] === undefined ? { recursive: false } : arguments[1];
+
+                var observerList;
+                if (!isObservable$1(target)) {
+                    throw new Error('Failed to observe not a valid target');
+                }
+                if (is(config.recursive, 'undefined')) {
+                    throw new Error('Invalid config specified');
+                }
+                observerList = new ObserverList$1();
+                observerList.add(this);
+                this._target = target;
+                this._config = config;
+                observable$1(target, observerList);
+            }
+        }, {
+            key: 'disconnect',
+            value: function disconnect() {
+                if (this._target) {
+                    if (this._config.recursive) {
+                        disconnectRecursiveObserver$1(this._target, this);
+                    }
+                    this._target._observers.remove(this);
+                }
+                this._target = undefined;
+                this._config = undefined;
+            }
+        }]);
+        return Observer;
+    }();
+
+    var MutationRecord$1 = function MutationRecord(config) {
+        babelHelpers.classCallCheck(this, MutationRecord);
+
+        this.type = config.type; //prop or array indicies
+        this.target = config.target; //parent object||array
+        this.method = config.method; //add,delete,update||push,pop,splice,etc.
+        this.args = config.args;
+        this.newValue = config.newValue; //newly transformed value
+        this.oldValue = config.oldValue; //the old value(s)
     };
 
-    var NAMESPACE_URI = {
-        html: 'http://www.w3.org/1999/xhtml',
-        svg: 'http://www.w3.org/2000/svg',
-        xlink: 'http://www.w3.org/1999/xlink'
-    };
+    var ObserverList$1 = function () {
+        function ObserverList() {
+            var observers = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
+            babelHelpers.classCallCheck(this, ObserverList);
 
-    function xmlNamespace(node) {
-        while (node) {
-            if (node.DOMNode) {
-                return node.DOMNode.namespaceURI;
-            }
-            if (node.name === 'svg') {
-                return NAMESPACE_URI.svg;
-            }
-            node = node.parent instanceof Element ? node.parent : false;
+            this.observers = observers;
         }
-        return NAMESPACE_URI.html;
-    }
 
-    function attrNamespace(name) {
-        var i = name.indexOf(':'),
-            ns = null;
-        if (i >= 0) {
-            ns = NAMESPACE_URI[name.substring(0, i)] || null;
-        }
-        return ns;
-    }
-
-    function textNodeMutationCallback(record) {
-        if (record.type === 'textContent' && record.oldValue !== record.newValue) {
-            add(function () {
-                record.target.parent.DOMNode.textContent = record.newValue;
-            });
-        }
-    }
-
-    function attributeMutationCallback(record) {
-        var node = undefined;
-        if (record.oldValue === record.newValue) {
-            return;
-        }
-        node = record.target.parent;
-        switch (record.method) {
-            case 'delete':
-                add(function () {
-                    node.DOMNode.removeAttributeNS(attrNamespace(record.type), record.type);
-                });
-                break;
-            case 'add':
-            case 'set':
-                add(function () {
-                    node.DOMNode.setAttributeNS(attrNamespace(record.type), record.type, record.newValue);
-                });
-                break;
-        }
-    }
-
-    function childrenMutationCallback(record) {
-        var DOMNode = record.target.parent.DOMNode;
-        switch (record.method) {
-            case 'push':
-                record.newValue.forEach(function (child) {
-                    add(function () {
-                        DOMNode.appendChild(child.DOMNode);
-                    });
-                });
-                break;
-            case 'unshift':
-                record.newValue.forEach(function (child) {
-                    add(function () {
-                        DOMNode.insertBefore(child.DOMNode, DOMNode.firstChild);
-                    });
-                });
-                break;
-            case 'splice':
-                if (record.oldValue && record.oldValue.length) {
-                    add(function () {
-                        DOMNode.removeChild(record.oldValue[0].DOMNode);
-                    });
+        babelHelpers.createClass(ObserverList, [{
+            key: 'dispatch',
+            value: function dispatch(record) {
+                if (!record instanceof MutationRecord$1) {
+                    throw new Error('Invalid record specified');
                 }
-                if (record.args.length === 3) {
-                    add(function () {
-                        DOMNode.insertBefore(record.newValue[0].DOMNode, DOMNode.childNodes[record.type]);
-                    });
+                this.observers.forEach(function (observer) {
+                    observer.callback(record);
+                });
+            }
+        }, {
+            key: 'exists',
+            value: function exists(observer) {
+                return this.observers.indexOf(observer) !== -1;
+            }
+        }, {
+            key: 'add',
+            value: function add(observer) {
+                return this.observers.push(observer);
+            }
+        }, {
+            key: 'remove',
+            value: function remove(observer) {
+                var index = this.observers.indexOf(observer);
+                if (index !== -1) {
+                    this.observers.splice(index, 1);
                 }
-                break;
-        }
-    }
+                return index;
+            }
+        }, {
+            key: 'recursive',
+            value: function recursive() {
+                return this.observers.filter(function (observer) {
+                    return observer._config.recursive;
+                });
+            }
+        }, {
+            key: 'recursiveExists',
+            value: function recursiveExists() {
+                for (var i = 0, l = this.observers.length; i < l; i++) {
+                    if (this.observers[i]._config.recursive) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }], [{
+            key: 'recursive',
+            value: function recursive(list) {
+                //factory method for creating a new observer list
+                //from an existing observer list where the observers are recursive
+                //because this isn't exposed we don't really have to throw here
+                if (!list instanceof ObserverList) {
+                    throw new Error('Invalid list specified');
+                }
+                return new ObserverList(list.recursive());
+            }
+        }]);
+        return ObserverList;
+    }();
 
-    function compileDOM(node) {
-        var textObserver = undefined,
-            attributeObserver = undefined,
-            childrenObserver = undefined;
-        if (node instanceof Text) {
-            node.DOMNode = document.createTextNode(node.value.textContent);
-            textObserver = new Observer(textNodeMutationCallback);
-            textObserver.observe(node.value);
-            node.observers.push(textObserver);
-        } else if (node instanceof Element) {
-            node.DOMNode = document.createElementNS(xmlNamespace(node), node.name);
-            Object.keys(node.attributes).forEach(function (key) {
-                node.DOMNode.setAttributeNS(attrNamespace(key), key, node.attributes[key]);
+    function observable$1(target, observerList) {
+        var recursive = ObserverList$1.recursive(observerList),
+            properties = configurableProperties$1(target),
+            descriptor;
+        if (target._observers) {
+            //populate current observerlist with new observers
+            //from observerlist
+            observerList.observers.forEach(function (observer) {
+                if (!target._observers.exists(observer)) {
+                    target._observers.add(observer);
+                }
             });
-            attributeObserver = new Observer(attributeMutationCallback);
-            childrenObserver = new Observer(childrenMutationCallback);
-            attributeObserver.observe(node.attributes);
-            childrenObserver.observe(node.children);
-            node.observers.push(attributeObserver);
-            node.observers.push(childrenObserver);
-        } else if (node instanceof Fragment) {
-            node.DOMNode = document.createDocumentFragment();
-            childrenObserver = new Observer(childrenMutationCallback);
-            childrenObserver.observe(node.children);
-            node.observers.push(childrenObserver);
         } else {
-            throw new Error('Unspecified node instance');
+            descriptor = {
+                _observers: {
+                    value: observerList,
+                    configurable: false
+                }
+            };
+            properties.forEach(function (prop) {
+                defineAccessors$1(prop, target[prop], descriptor);
+            });
+            if (is(target, 'array')) {
+                defineObservableArrayMutations$1(target, descriptor);
+            } else {
+                defineObservableObjectMutations$1(target, descriptor);
+            }
+            Object.defineProperties(target, descriptor);
         }
-        if (node.parent) {
-            node.parent.DOMNode.appendChild(node.DOMNode);
+        if (recursive.observers.length) {
+            for (var i = 0, l = properties.length; i < l; i++) {
+                if (isObservable$1(target[properties[i]])) {
+                    observable$1(target[properties[i]], recursive);
+                }
+            }
         }
     }
 
-    function compileBindings(node) {
-        node.bindings.forEach(function (binding) {
-            var observer = new Observer(function (record) {
-                if (record.type !== binding.key) {
-                    return;
+    function defineObservableObjectMutations$1(target) {
+        var descriptor = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+        descriptor.add = {
+            value: function addOperationClosure(prop, value) {
+                addObjectProperty$1(this, prop, value);
+            }
+        };
+        descriptor.delete = {
+            value: function deleteOperationClosure(prop) {
+                deleteObjectProperty$1(this, prop);
+            }
+        };
+    }
+
+    function defineObservableArrayMutations$1(target) {
+        var descriptor = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+        var _loop = function _loop(i, l) {
+            descriptor[ARRAY_MUTATOR_METHODS$1[i]] = {
+                value: function arrayOperationClosure() {
+                    mutateArray$1({
+                        args: Array.prototype.slice.call(arguments),
+                        method: ARRAY_MUTATOR_METHODS$1[i],
+                        target: this
+                    });
                 }
-                binding.instance.transform.update.dispatch(node, record, binding.instance);
-            });
-            observer.observe(binding.parent);
+            };
+        };
+
+        for (var i = 0, l = ARRAY_MUTATOR_METHODS$1.length; i < l; i++) {
+            _loop(i, l);
+        }
+    }
+
+    function isObservable$1(target) {
+        return is(target, 'array') || is(target, 'object');
+    }
+
+    function configurableProperties$1(target) {
+        //getOwnPropertyNames enumerable or not excluding prototype
+        return Object.getOwnPropertyNames(target).filter(function (name) {
+            return Object.getOwnPropertyDescriptor(target, name).configurable;
         });
     }
 
-    function compile(template) {
-        if (!template instanceof Node) {
-            throw new Error('Template param must be of type Node');
-        }
-        if (template.compiled === true) {
-            throw new Error('Specified template is already compiled');
-        }
-        var clone = template.clone(true);
-        compileNode(clone);
-        return clone;
+    function defineAccessors$1(prop, value) {
+        var descriptor = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
+
+        descriptor[prop] = {
+            get: function get() {
+                return value;
+            },
+            set: function set(newValue) {
+                var record = new MutationRecord$1({
+                    type: prop,
+                    target: this,
+                    method: 'set',
+                    oldValue: value,
+                    newValue: newValue,
+                    args: []
+                });
+                if (this._observers.recursiveExists() && isObservable$1(newValue)) {
+                    observable$1(newValue, ObserverList$1.recursive(this._observers));
+                }
+                if (value && value._observers) {
+                    disconnectRecursiveObservers$1(this, value._observers);
+                }
+                value = newValue;
+                this._observers.dispatch(record);
+            },
+            enumerable: true,
+            configurable: true
+        };
+        return descriptor;
     }
 
-    function compileNode(node) {
-        if (typeof document !== 'undefined') {
-            compileDOM(node);
+    function addObjectProperty$1(target, prop, newValue) {
+        if (!is(target[prop], 'undefined')) {
+            throw new Error('Failed to add ' + prop + ' already defined');
         }
-        compileBindings(node);
-        node.compiled = true;
-        if (node.children) {
-            node.children.forEach(compileNode);
+        var record = new MutationRecord$1({
+            type: prop,
+            target: target,
+            method: 'add',
+            oldValue: target[prop],
+            newValue: newValue,
+            args: Array.prototype.slice.call(arguments, 1)
+        });
+        if (target._observers.recursiveExists() && isObservable$1(newValue)) {
+            observable$1(newValue, ObserverList$1.recursive(target._observers));
         }
+        Object.defineProperties(target, defineAccessors$1(prop, newValue));
+        target._observers.dispatch(record);
+    }
+
+    function deleteObjectProperty$1(target, prop) {
+        if (is(target[prop], 'undefined')) {
+            throw new Error('Failed to delete ' + prop + ' does not exist');
+        }
+        var record = new MutationRecord$1({
+            type: prop,
+            target: target,
+            method: 'delete',
+            oldValue: target[prop],
+            newValue: undefined,
+            args: Array.prototype.slice.call(arguments, 1)
+        });
+        if (target[prop] && target[prop]._observers) {
+            disconnectRecursiveObservers$1(target, target[prop]._observers);
+        }
+        delete target[prop];
+        target._observers.dispatch(record);
+    }
+
+    function mutateArray$1(options) {
+        var target = options.target,
+            args = options.args,
+            method = options.method,
+            record = new MutationRecord$1({
+            type: undefined,
+            target: target,
+            method: method,
+            oldValue: undefined,
+            newValue: undefined,
+            args: args
+        });
+        switch (method) {
+            case 'fill':
+                record.type = args.splice(1);
+                record.oldValue = target.slice(args[1], args[2]);
+                break;
+            case 'pop':
+                record.type = target.length - 1;
+                record.oldValue = target.slice(target.length - 1);
+                break;
+            case 'push':
+                record.type = target.length;
+                record.newValue = args;
+                break;
+            case 'shift':
+                record.type = 0;
+                record.oldValue = target.slice(0, 1);
+                break;
+            case 'unshift':
+                record.type = 0;
+                record.newValue = args;
+                break;
+            case 'splice':
+                record.type = args[0];
+                if (args[1]) {
+                    record.oldValue = target.slice(args[0], args[0] + args[1]);
+                }
+                record.newValue = args.slice(2);
+                break;
+        }
+        if (target._observers.recursiveExists()) {
+            record.newValue.forEach(function (val) {
+                if (isObservable$1(val)) {
+                    observable$1(val, ObserverList$1.recursive(target._observers));
+                }
+            });
+        }
+        if (record.oldValue) {
+            record.oldValue.forEach(function (val) {
+                if (val && val._observers) {
+                    disconnectRecursiveObservers$1(target, val._observers);
+                }
+            });
+        }
+        Array.prototype[method].apply(target, options.args);
+        target._observers.dispatch(record);
+    }
+
+    function disconnectRecursiveObserver$1(target, observer) {
+        configurableProperties$1(target).forEach(function (prop) {
+            disconnectRecursiveObserver$1(target[prop], observer);
+            if (target[prop]._observers) {
+                target[prop]._observers.remove(observer);
+            }
+        });
+    }
+
+    function disconnectRecursiveObservers$1(target, observerList) {
+        target._observers.recursive().forEach(function (observer) {
+            observerList.remove(observer);
+        });
     }
 
     var Bind = function () {
-        function Bind(keypath, transform) {
+        function Bind(traverse, transform) {
             babelHelpers.classCallCheck(this, Bind);
 
-            this.keypath = keypath;
+            this.traversal = traversalMethod(traverse);
             this.transform = transform;
         }
 
         babelHelpers.createClass(Bind, [{
             key: 'render',
             value: function render(nodes, data) {
-                var keypath = this.keypath.split('.'),
-                    binding = {
-                    instance: this,
-                    key: keypath.slice(-1)[0],
-                    parent: undefined
-                },
-                    resolved = data;
-                while (keypath.length) {
-                    binding.parent = resolved;
-                    resolved = resolve(resolved, keypath);
-                }
-                if (Array.isArray(nodes)) {
+                var binding = {
+                    data: data,
+                    instance: this
+                };
+                if (is(nodes, 'array')) {
                     for (var i = 0, l = nodes.length; i < l; i++) {
-                        nodeBinding(nodes[i], binding, resolved);
+                        nodeBinding(nodes[i], binding);
                     }
                 } else {
-                    nodeBinding(nodes, binding, resolved);
+                    nodeBinding(nodes, binding);
                 }
+            }
+        }, {
+            key: 'compile',
+            value: function compile(node, binding) {
+                //called when the node is compiled
             }
         }]);
         return Bind;
     }();
 
-    function resolve(target, keypath) {
-        return target[keypath.shift()];
-    }
+    function nodeBinding(node, binding) {
+        var instance = binding.instance,
+            valueObject = instance.traversal(binding.data, node);
 
-    function nodeBinding(node, binding, value) {
-        var instance = binding.instance;
-        instance.transform.bind.dispatch(node, value, instance);
+        //call transform.bind with node and value determined by traversal?
+        instance.transform.bind(node, binding);
         node.bindings.push(binding);
     }
+
+    function traversalMethod(traverse) {
+        if (is(traverse, 'function')) {
+            return traverse;
+        } else if (is(traverse, 'string')) {
+            return keypathTraversal.bind(null, traverse);
+        }
+    }
+
+    function keypathTraversal(keypath, data, node) {
+        var keys = keypath.split('.'),
+            key = keys.slice(-1)[0],
+            parent = undefined,
+            value = data;
+        while (keys.length) {
+            parent = value;
+            value = resolveKeypath(value, keys);
+        }
+        return {
+            key: key,
+            parent: parent,
+            value: value
+        };
+    }
+
+    function resolveKeypath(target, keypath) {
+        var key = keypath.shift();
+        if (typeof target[key] === 'undefined') {
+            throw new Error('Failed to resolve \'' + key + '\' on target');
+        }
+        return target[key];
+    }
+
+    var Signal = function () {
+        function Signal() {
+            babelHelpers.classCallCheck(this, Signal);
+
+            this.listeners = [];
+        }
+
+        babelHelpers.createClass(Signal, [{
+            key: "add",
+            value: function add(listener) {
+                this.listeners.push(listener);
+            }
+        }, {
+            key: "remove",
+            value: function remove(listener) {
+                if (listener) {
+                    return this.listeners.splice(this.listeners.indexOf(listener), 1);
+                }
+                this.listeners = [];
+            }
+        }, {
+            key: "dispatch",
+            value: function dispatch() {
+                var _this = this;
+
+                for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+                    args[_key] = arguments[_key];
+                }
+
+                return this.listeners.map(function (listener) {
+                    return listener.apply(_this, args);
+                });
+            }
+        }]);
+        return Signal;
+    }();
 
     var Store = function () {
         function Store() {
@@ -1529,6 +1743,187 @@ var util = Object.freeze({
         template = template.children.length === 1 ? template.children[0] : template;
         template.transclude = transclude;
         return template;
+    }
+
+    var id = undefined;
+    var requested = undefined;
+    var running = undefined;
+    var queue = undefined;
+    function done() {
+        id = null;
+        requested = false;
+        running = false;
+        queue = [];
+    }
+
+    done();
+
+    function run() {
+        running = true;
+        for (var i = 0; i < queue.length; i++) {
+            queue[i].call();
+        }
+        done();
+    }
+
+    function add(fn) {
+        queue.push(fn);
+        if (!requested) {
+            id = paint(run);
+            requested = true;
+        }
+        return id;
+    };
+
+    var NAMESPACE_URI = {
+        html: 'http://www.w3.org/1999/xhtml',
+        svg: 'http://www.w3.org/2000/svg',
+        xlink: 'http://www.w3.org/1999/xlink'
+    };
+
+    function xmlNamespace(node) {
+        while (node) {
+            if (node.DOMNode) {
+                return node.DOMNode.namespaceURI;
+            }
+            if (node.name === 'svg') {
+                return NAMESPACE_URI.svg;
+            }
+            node = node.parent instanceof Element ? node.parent : false;
+        }
+        return NAMESPACE_URI.html;
+    }
+
+    function attrNamespace(name) {
+        var i = name.indexOf(':'),
+            ns = null;
+        if (i >= 0) {
+            ns = NAMESPACE_URI[name.substring(0, i)] || null;
+        }
+        return ns;
+    }
+
+    function textNodeMutationCallback(record) {
+        if (record.type === 'textContent' && record.oldValue !== record.newValue) {
+            add(function () {
+                record.target.parent.DOMNode.textContent = record.newValue;
+            });
+        }
+    }
+
+    function attributeMutationCallback(record) {
+        var node = undefined;
+        if (record.oldValue === record.newValue) {
+            return;
+        }
+        node = record.target.parent;
+        switch (record.method) {
+            case 'delete':
+                add(function () {
+                    node.DOMNode.removeAttributeNS(attrNamespace(record.type), record.type);
+                });
+                break;
+            case 'add':
+            case 'set':
+                add(function () {
+                    node.DOMNode.setAttributeNS(attrNamespace(record.type), record.type, record.newValue);
+                });
+                break;
+        }
+    }
+
+    function childrenMutationCallback(record) {
+        var DOMNode = record.target.parent.DOMNode;
+        switch (record.method) {
+            case 'push':
+                record.newValue.forEach(function (child) {
+                    add(function () {
+                        DOMNode.appendChild(child.DOMNode);
+                    });
+                });
+                break;
+            case 'unshift':
+                record.newValue.forEach(function (child) {
+                    add(function () {
+                        DOMNode.insertBefore(child.DOMNode, DOMNode.firstChild);
+                    });
+                });
+                break;
+            case 'splice':
+                if (record.oldValue && record.oldValue.length) {
+                    add(function () {
+                        DOMNode.removeChild(record.oldValue[0].DOMNode);
+                    });
+                }
+                if (record.args.length === 3) {
+                    add(function () {
+                        DOMNode.insertBefore(record.newValue[0].DOMNode, DOMNode.childNodes[record.type]);
+                    });
+                }
+                break;
+        }
+    }
+
+    function compileDOM(node) {
+        var textObserver = undefined,
+            attributeObserver = undefined,
+            childrenObserver = undefined;
+        if (node instanceof Text) {
+            node.DOMNode = document.createTextNode(node.value.textContent);
+            textObserver = new Observer(textNodeMutationCallback);
+            textObserver.observe(node.value);
+            node.observers.push(textObserver);
+        } else if (node instanceof Element) {
+            node.DOMNode = document.createElementNS(xmlNamespace(node), node.name);
+            Object.keys(node.attributes).forEach(function (key) {
+                node.DOMNode.setAttributeNS(attrNamespace(key), key, node.attributes[key]);
+            });
+            attributeObserver = new Observer(attributeMutationCallback);
+            childrenObserver = new Observer(childrenMutationCallback);
+            attributeObserver.observe(node.attributes);
+            childrenObserver.observe(node.children);
+            node.observers.push(attributeObserver);
+            node.observers.push(childrenObserver);
+        } else if (node instanceof Fragment) {
+            node.DOMNode = document.createDocumentFragment();
+            childrenObserver = new Observer(childrenMutationCallback);
+            childrenObserver.observe(node.children);
+            node.observers.push(childrenObserver);
+        } else {
+            throw new Error('Unspecified node instance');
+        }
+        if (node.parent) {
+            node.parent.DOMNode.appendChild(node.DOMNode);
+        }
+    }
+
+    function compileBindings(node) {
+        for (var i = 0, l = node.bindings.length; i < l; i++) {
+            node.bindings[i].instance.compile(node, node.bindings[i]);
+        }
+    }
+
+    function compile(template) {
+        if (!template instanceof Node) {
+            throw new Error('Template param must be of type Node');
+        }
+        if (template.compiled === true) {
+            throw new Error('Specified template is already compiled');
+        }
+        var clone = template.clone(true);
+        compileNode(clone);
+        return clone;
+    }
+
+    function compileNode(node) {
+        if (typeof document !== 'undefined') {
+            compileDOM(node);
+        }
+        compileBindings(node);
+        node.compiled = true;
+        if (node.children) {
+            node.children.forEach(compileNode);
+        }
     }
 
     function clone(node) {

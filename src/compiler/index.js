@@ -126,13 +126,7 @@ export function compileDOM(node){
 }
 
 export function compileBindings(node){
-    node.bindings.forEach((binding)=>{
-        let observer = new Observer((record)=>{
-            if(record.type !== binding.key){
-                return;
-            }
-            binding.instance.transform.update.dispatch(node, record, binding.instance);
-        });
-        observer.observe(binding.parent);
-    });
+    for(let i = 0, l = node.bindings.length; i < l; i++){
+        node.bindings[i].instance.compile(node, node.bindings[i]);
+    }
 }
