@@ -43,6 +43,17 @@ export function extend(obj){
     return obj;
 }
 
+export function merge(obj){
+    for(let i = 1, l = arguments.length; i < l; i++){
+        for(let key in arguments[i]){
+            if(obj[key]){
+                obj[key] = arguments[i][key];
+            }
+        }
+    }
+    return obj;
+}
+
 export function clone(obj){
     var clone = {};
     Object.keys(obj)

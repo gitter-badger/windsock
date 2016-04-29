@@ -33,7 +33,9 @@ export default class Fragment extends Node{
             });
         }
         fragment.transclude = this.transclude;
-        fragment.bindings = this.bindings;
+        for(let key in this.bindings){
+            fragment.bindings[key] = this.bindings[key];
+        }
         return fragment;
     }
     append(node){

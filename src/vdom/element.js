@@ -62,7 +62,9 @@ export default class Element extends Fragment{
             });
         }
         element.transclude = this.transclude;
-        element.bindings = this.bindings;
+        for(let key in this.bindings){
+            element.bindings[key] = this.bindings[key];
+        }
         return element;
     }
     remove(){

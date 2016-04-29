@@ -1,2 +1,4 @@
+[*.{js}]
+indent_size = 4
 [*.{json,yml,yaml,html,css}]
 indent_size = 2

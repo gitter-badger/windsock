@@ -115,7 +115,18 @@ function extend(obj) {
     return obj;
 }
 
-function _clone(obj) {
+function merge(obj) {
+    for (var i = 1, l = arguments.length; i < l; i++) {
+        for (var key in arguments[i]) {
+            if (obj[key]) {
+                obj[key] = arguments[i][key];
+            }
+        }
+    }
+    return obj;
+}
+
+function clone(obj) {
     var clone = {};
     Object.keys(obj).forEach(function (key) {
         clone[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
@@ -141,7 +152,8 @@ var util = Object.freeze({
     capitalize: capitalize,
     is: is,
     extend: extend,
-    clone: _clone,
+    merge: merge,
+    clone: clone,
     match: match,
     noop: noop
 });
@@ -154,26 +166,34 @@ var Node = function () {
         this.transclude = undefined;
         this.DOMNode = undefined;
         this.observers = [];
-        this.bindings = [];
+        this.bindings = {};
     }
 
     babelHelpers.createClass(Node, [{
         key: 'destroy',
         value: function destroy() {
+            var _this = this;
+
             this.compiled = false;
             this.transclude = undefined;
-            this.DOMNode = undefined;
+            paint(function () {
+                _this.DOMNode = undefined;
+            });
             while (this.observers.length) {
                 this.observers.pop().disconnect();
             }
-            this.bindings = [];
+            for (var key in this.bindings) {
+                this.bindings[key].observer.disconnect();
+            }
         }
     }, {
         key: 'clone',
         value: function clone() {
             var node = new Node();
             node.transclude = this.transclude;
-            node.bindings = this.bindings;
+            for (var key in this.bindings) {
+                node.bindings[key] = this.bindings[key];
+            }
             return node;
         }
     }, {
@@ -234,7 +254,9 @@ var Text = function (_Node) {
         value: function clone() {
             var node = new Text(this.value.textContent);
             node.transclude = this.transclude;
-            node.bindings = this.bindings;
+            for (var key in this.bindings) {
+                node.bindings[key] = this.bindings[key];
+            }
             return node;
         }
     }, {
@@ -314,7 +336,9 @@ var Fragment = function (_Node) {
                 });
             }
             fragment.transclude = this.transclude;
-            fragment.bindings = this.bindings;
+            for (var key in this.bindings) {
+                fragment.bindings[key] = this.bindings[key];
+            }
             return fragment;
         }
     }, {
@@ -358,7 +382,7 @@ var Fragment = function (_Node) {
         value: function find(query) {
             //pre-order traversal returns first result or undefined
             var predicate = parseQuery(query),
-                result = undefined;
+                result = void 0;
             for (var i = 0, l = this.children.length; i < l; i++) {
                 if (predicate(this.children[i])) {
                     return this.children[i];
@@ -480,17 +504,19 @@ var Element = function (_Fragment) {
         }
     }, {
         key: 'clone',
-        value: function clone() {
+        value: function clone$$() {
             var deep = arguments.length <= 0 || arguments[0] === undefined ? false : arguments[0];
 
-            var element = new Element(this.name, _clone(this.attributes));
+            var element = new Element(this.name, clone(this.attributes));
             if (deep && this.children.length) {
                 this.children.forEach(function (child) {
                     element.append(child.clone(true));
                 });
             }
             element.transclude = this.transclude;
-            element.bindings = this.bindings;
+            for (var key in this.bindings) {
+                element.bindings[key] = this.bindings[key];
+            }
             return element;
         }
     }, {
@@ -508,7 +534,7 @@ var Element = function (_Fragment) {
             var jsonml = [];
             jsonml.push(this.name);
             if (is(this.attributes, 'empty') === false) {
-                jsonml.push(_clone(this.attributes));
+                jsonml.push(clone(this.attributes));
             }
             for (var i = 0, l = this.children.length; i < l; i++) {
                 jsonml.push(this.children[i].jsonml);
@@ -568,106 +594,119 @@ var vdom = Object.freeze({
 	Element: Element
 });
 
-var Transform = function () {
-    function Transform() {
-        //just an interface
+function parse$2(str) {
+    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-        babelHelpers.classCallCheck(this, Transform);
+    var params = {},
+        decode = options.decode || decodeURIComponent;
+    if (!is(str, 'string')) {
+        throw new Error('Parameter must be a string');
     }
+    str = options.query ? str.replace('?', '') : str;
+    str.split('&').forEach(function paramParseMap(pair) {
+        if (!pair) return;
+        pair = pair.split('=');
+        params[decode(pair[0])] = pair.length === 1 ? null : decode(pair[1]);
+    });
+    return params;
+}
 
-    babelHelpers.createClass(Transform, [{
-        key: "bind",
-        value: function bind() {}
-    }, {
-        key: "update",
-        value: function update() {}
-    }]);
-    return Transform;
-}();
+function format$2(params) {
+    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-var TextTransform = function (_Transform) {
-    babelHelpers.inherits(TextTransform, _Transform);
-
-    function TextTransform() {
-        babelHelpers.classCallCheck(this, TextTransform);
-        return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(TextTransform).call(this));
+    var str = void 0,
+        encode = options.encode || encodeURIComponent;
+    if (!is(params, 'object')) {
+        throw new Error('Parameter must be an object');
     }
+    str = Object.keys(params).map(function paramFormatMap(key) {
+        var val = params[key] ? '=' + encode(params[key]) : '';
+        return encode(key) + val;
+    }).join('&');
+    return str.length ? options.query ? '?' + str : str : null;
+}
 
-    babelHelpers.createClass(TextTransform, [{
-        key: 'bind',
-        value: function bind(node, value) {
-            node.value.textContent = value.toString();
-        }
-    }, {
-        key: 'update',
-        value: function update(node, record) {
-            var parent = undefined;
-            if (record.newValue !== record.oldValue) {
-                switch (record.method) {
-                    case 'delete':
-                        parent = node.parent;
-                        node.remove();
-                        node.parent = parent;
-                        break;
-                    case 'add':
-                        if (node.parent) {
-                            node.parent.append(node);
-                        }
-                    case 'set':
-                        node.value.textContent = record.newValue.toString();
-                        break;
-                }
-            }
-        }
-    }]);
-    return TextTransform;
-}(Transform);
+var a = void 0;
 
-var IfTransform = function (_Transform) {
-    babelHelpers.inherits(IfTransform, _Transform);
+if (typeof document !== 'undefined') {
+    a = document.createElement('a');
+}
 
-    function IfTransform() {
-        babelHelpers.classCallCheck(this, IfTransform);
-        return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(IfTransform).call(this));
+function parse$1(str) {
+    if (!a) {
+        return url.parse(str);
     }
+    if (!is(str, 'string')) {
+        throw new Error('Parameter must be a string');
+    }
+    a.href = str;
+    return {
+        protocol: a.protocol || null,
+        host: a.host || null,
+        port: a.port || null,
+        hostname: a.hostname || null,
+        hash: a.hash || null,
+        search: a.search || null,
+        query: parse$2(a.search, { query: true }),
+        pathname: a.pathname || null,
+        href: a.href
+    };
+}
 
-    babelHelpers.createClass(IfTransform, [{
-        key: 'bind',
-        value: function bind(node, value) {
-            var parent = undefined,
-                index = undefined;
-            if (!!value === false && node.parent) {
-                parent = node.parent;
-                node.index = parent.children.indexOf(node);
-                node.remove();
-                node.parent = parent;
-            }
+function format$1(obj) {
+    var protocol = void 0,
+        host = void 0,
+        pathname = void 0,
+        search = void 0,
+        query = void 0,
+        hash = void 0;
+    if (!a) {
+        return url.format(obj);
+    }
+    if (!is(obj, 'object')) {
+        throw new Error('Parameter must be an object');
+    }
+    protocol = obj.protocol || '';
+    host = obj.host || '';
+    pathname = obj.pathname || '';
+    search = obj.search || '';
+    query = format$2(obj.query, { query: true });
+    hash = obj.hash || '';
+    //plan to actually look at protocol
+    return protocol + '//' + host + pathname + (query || search) + hash;
+}
+
+function parse(str) {
+    var obj = parse$1(str);
+    obj.template = {};
+    obj.pathname.replace('/', '').split('/').forEach(function pathnameParseMap(slug) {
+        if (slug.indexOf(':') === 0 && slug.length > 1) {
+            obj.template[slug.replace(':', '')] = '';
         }
-    }, {
-        key: 'update',
-        value: function update(node, record) {
-            var parent = undefined,
-                index = undefined;
-            if (record.newValue !== record.oldValue && node.parent) {
-                if (!!record.newValue) {
-                    node.parent.insert(node, node.index);
-                } else {
-                    parent = node.parent;
-                    node.index = parent.children.indexOf(node);
-                    node.remove();
-                    node.parent = parent;
-                }
-            }
-        }
-    }]);
-    return IfTransform;
-}(Transform);
+    });
+    return obj;
+}
 
+function format(obj) {
+    var pathname = void 0,
+        formatted = void 0;
+    if (!is(obj.template, 'object')) {
+        throw new Error('property must be an object');
+    }
+    pathname = obj.pathname;
+    for (var key in obj.template) {
+        var val = obj.template[key];
+        val = val.toString ? val.toString() : '';
+        obj.pathname = obj.pathname.replace((val.length ? ':' : '/:') + key, val);
+    }
+    formatted = format$1(obj);
+    obj.pathname = pathname;
+    return formatted;
+}
 
-
-var transforms = Object.freeze({
-	TextTransform: TextTransform,
-	IfTransform: IfTransform
+var url$1 = Object.freeze({
+    parse: parse,
+    format: format
 });
 
 var ARRAY_MUTATOR_METHODS = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
@@ -1387,62 +1426,93 @@ function disconnectRecursiveObservers$1(target, observerList) {
 }
 
 var Bind = function () {
-    function Bind(traverse, transform) {
+    function Bind() {
+        var transform = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
         babelHelpers.classCallCheck(this, Bind);
 
-        this.traversal = traversalMethod(traverse);
-        this.transform = transform;
+        if (is(transform, 'function')) {
+            this.transform = {
+                update: transform
+            };
+        } else {
+            this.transform = transform;
+        }
     }
 
     babelHelpers.createClass(Bind, [{
         key: 'render',
-        value: function render(nodes, data) {
-            var binding = {
-                data: data,
-                instance: this
-            };
-            if (is(nodes, 'array')) {
-                for (var i = 0, l = nodes.length; i < l; i++) {
-                    nodeBinding(nodes[i], binding);
+        value: function render(node, target) {
+            var keypath = arguments.length <= 2 || arguments[2] === undefined ? '' : arguments[2];
+
+            var targetMap = keypathTraversal(target, keypath);
+            if (is(node, 'array')) {
+                for (var i = 0, l = node.length; i < l; i++) {
+                    renderNode(node[i], this, targetMap);
                 }
             } else {
-                nodeBinding(nodes, binding);
+                renderNode(node, this, targetMap);
             }
         }
-    }, {
-        key: 'compile',
-        value: function compile(node, binding) {
-            //called when the node is compiled
+    }], [{
+        key: 'observer',
+        value: function observer(node, binding) {
+            var target = binding.target,
+                instance = binding.instance,
+                observer = void 0;
+            if (is(target.value, 'object') || is(target.value, 'array')) {
+                observer = new Observer$1(function (mutation) {
+                    instance.transform.update && instance.transform.update(node, mutation, binding);
+                });
+                observer.observe(target.value);
+            } else {
+                observer = new Observer$1(function (mutation) {
+                    if (mutation.type === target.key) {
+                        instance.transform.update && instance.transform.update(node, mutation, binding);
+                    }
+                });
+                observer.observe(target.parent);
+            }
+            binding.observer = observer;
         }
     }]);
     return Bind;
 }();
 
-function nodeBinding(node, binding) {
-    var instance = binding.instance,
-        valueObject = instance.traversal(binding.data, node);
-
-    //call transform.bind with node and value determined by traversal?
-    instance.transform.bind(node, binding);
-    node.bindings.push(binding);
-}
-
-function traversalMethod(traverse) {
-    if (is(traverse, 'function')) {
-        return traverse;
-    } else if (is(traverse, 'string')) {
-        return keypathTraversal.bind(null, traverse);
+function renderNode(node, instance, target) {
+    var bindMap = void 0,
+        binding = void 0;
+    if (instance.transform.bind) {
+        bindMap = instance.transform.bind(node, target);
+    } else {
+        bindMap = {
+            node: node,
+            prop: 'node'
+        };
     }
+    binding = bindMap.node.bindings[bindMap.prop];
+    if (binding) {
+        binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);
+        binding.observer.disconnect();
+    }
+    bindMap.node.bindings[bindMap.prop] = {
+        template: node,
+        target: target,
+        instance: instance,
+        observer: undefined
+    };
+    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop]);
 }
 
-function keypathTraversal(keypath, data, node) {
-    var keys = keypath.split('.'),
+function keypathTraversal(target, keypath) {
+    var keys = keypath.toString().split('.'),
         key = keys.slice(-1)[0],
-        parent = undefined,
-        value = data;
-    while (keys.length) {
-        parent = value;
-        value = resolveKeypath(value, keys);
+        parent = target,
+        value = target;
+    if (keypath !== '') {
+        while (keys.length) {
+            parent = value;
+            value = resolveKeypath(value, keys);
+        }
     }
     return {
         key: key,
@@ -1529,6 +1599,193 @@ var Store = function () {
     }]);
     return Store;
 }();
+
+var origin = parse$1(location.href);
+
+function request(request) {
+    var requestUrl = parse$1(request.url);
+    request.crossOrigin = origin.protocol !== requestUrl.protocol || origin.host !== requestUrl.host;
+    return request;
+}
+
+function request$1(request) {
+    if (is(request.data, 'object') && request.urlencode) {
+        request.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        request.data = format$2(request.data);
+    }
+    if (is(request.data, 'formData')) {
+        delete request.headers['Content-Type'];
+    }
+    if (is(request.data, 'object')) {
+        //need to also do this for formdata
+        request.data = JSON.stringify(request.data);
+    }
+    return request;
+}
+
+function response(response) {
+    try {
+        response.data = JSON.parse(response.data);
+    } catch (e) {}
+    return response;
+}
+
+var t = void 0;
+
+function request$2(request) {
+    if (request.timeout) {
+        t = setTimeout(function httpTimeoutInterceptor() {
+            request.abort();
+        }, request.timeout);
+    }
+    return request;
+}
+
+function response$1(response) {
+    clearTimeout(t);
+    return response;
+}
+
+function request$3(request) {
+    if (request.override && /^(PUT|PATCH|DELETE)$/i.test(request.method)) {
+        request.headers['X-HTTP-Method-Override'] = request.method;
+        request.method = 'POST';
+    }
+}
+
+function xhr(request) {
+    return new Promise(function xhrPromiseExecutor(resolve) {
+        var client = new XMLHttpRequest(),
+            response = {
+            request: request
+        },
+            handler = function handler() {
+            response.data = client.responseText;
+            response.status = client.status;
+            response.statusText = client.statusText;
+            response.headers = client.getAllResponseHeaders();
+            resolve(response);
+        };
+        request.abort = client.abort;
+        client.timeout = 0;
+        client.onload = handler;
+        client.onabort = handler;
+        client.onerror = handler;
+        client.ontimeout = noop;
+        client.onprogress = noop;
+        client.open(request.method, request.url, true);
+        for (var key in request.headers) {
+            client.setRequestHeader(key, request.headers[key]);
+        }
+        client.send(request.data);
+    });
+}
+
+function client (request) {
+    var client = request.client || xhr;
+    return Promise.resolve(client(request)).then(function requestFulfilled(response) {
+        response.ok = response.status >= 200 && response.status < 300;
+        return response;
+    });
+}
+
+var Http = function () {
+    function Http() {
+        var config = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+        babelHelpers.classCallCheck(this, Http);
+
+        this.urlencode = !!config.urlencode;
+        this.override = !!config.override;
+        this.timeout = config.timeout || 0;
+        this.headers = config.headers || {};
+        this._url = parse(config.url || '');
+    }
+
+    babelHelpers.createClass(Http, [{
+        key: 'GET',
+        value: function GET(data) {
+            return Http.method(this, 'GET', data);
+        }
+    }, {
+        key: 'POST',
+        value: function POST(data) {
+            return Http.method(this, 'POST', data);
+        }
+    }, {
+        key: 'PUT',
+        value: function PUT(data) {
+            return Http.method(this, 'PUT', data);
+        }
+    }, {
+        key: 'PATCH',
+        value: function PATCH(data) {
+            return Http.method(this, 'PATCH', data);
+        }
+    }, {
+        key: 'DELETE',
+        value: function DELETE(data) {
+            return Http.method(this, 'DELETE', data);
+        }
+    }, {
+        key: 'url',
+        get: function get() {
+            return format(this._url);
+        }
+    }, {
+        key: 'params',
+        get: function get() {
+            return this._url.query;
+        },
+        set: function set(obj) {
+            this._url.query = obj;
+        }
+    }, {
+        key: 'path',
+        get: function get() {
+            return this._url.template;
+        },
+        set: function set(obj) {
+            this._url.template = obj;
+        }
+    }], [{
+        key: 'method',
+        value: function method(http, _method) {
+            var data = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
+
+            return Http.request({
+                urlencode: http.urlencode,
+                override: http.override,
+                timeout: http.timeout,
+                headers: clone(http.headers),
+                url: http.url,
+                data: data,
+                method: _method
+            });
+        }
+    }, {
+        key: 'request',
+        value: function request(_request) {
+            Http.interceptors.request.dispatch(_request);
+            return client(_request).then(function clientRequestFulfilled(response) {
+                Http.interceptors.response.dispatch(response);
+                return response.ok ? response : Promise.reject(response);
+            });
+        }
+    }]);
+    return Http;
+}();
+
+Http.interceptors = {
+    request: new Signal(),
+    response: new Signal()
+};
+
+Http.interceptors.request.add(request);
+Http.interceptors.request.add(request$1);
+Http.interceptors.response.add(response);
+Http.interceptors.request.add(request$2);
+Http.interceptors.response.add(response$1);
+Http.interceptors.response.add(request$3);
 
 var VOID_TAGS = ['area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
@@ -1698,7 +1955,7 @@ function parseJSONML(source, callback) {
     callback(evt);
 }
 
-function parse(source) {
+function parse$3(source) {
     var template = new Fragment(),
         transclude;
     if (is(source, 'string')) {
@@ -1741,10 +1998,10 @@ function parse(source) {
     return template;
 }
 
-var id = undefined;
-var requested = undefined;
-var running = undefined;
-var queue = undefined;
+var id = void 0;
+var requested = void 0;
+var running = void 0;
+var queue = void 0;
 function done() {
     id = null;
     requested = false;
@@ -1808,7 +2065,7 @@ function textNodeMutationCallback(record) {
 }
 
 function attributeMutationCallback(record) {
-    var node = undefined;
+    var node = void 0;
     if (record.oldValue === record.newValue) {
         return;
     }
@@ -1861,9 +2118,9 @@ function childrenMutationCallback(record) {
 }
 
 function compileDOM(node) {
-    var textObserver = undefined,
-        attributeObserver = undefined,
-        childrenObserver = undefined;
+    var textObserver = void 0,
+        attributeObserver = void 0,
+        childrenObserver = void 0;
     if (node instanceof Text) {
         node.DOMNode = document.createTextNode(node.value.textContent);
         textObserver = new Observer(textNodeMutationCallback);
@@ -1894,9 +2151,17 @@ function compileDOM(node) {
 }
 
 function compileBindings(node) {
-    for (var i = 0, l = node.bindings.length; i < l; i++) {
-        node.bindings[i].instance.compile(node, node.bindings[i]);
-    }
+    Object.keys(node.bindings).forEach(function mapClonedBindings(key) {
+        var binding = node.bindings[key];
+        binding.instance.transform.compile && binding.instance.transform.compile(node, binding);
+        node.bindings[key] = {
+            template: binding.template,
+            target: binding.target,
+            instance: binding.instance,
+            observer: undefined
+        };
+        Bind.observer(node, node.bindings[key]);
+    });
 }
 
 function compile(template) {
@@ -1922,10 +2187,10 @@ function compileNode(node) {
     }
 }
 
-function clone(node) {
+function clone$1(node) {
     var deep = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
 
-    var clone = undefined;
+    var clone = void 0;
     if (!node instanceof Node) {
         throw new Error('Node param must be of type Node');
     }
@@ -1953,14 +2218,14 @@ var index = {
     version: '0.1.14',
     util: util,
     vdom: vdom,
-    transforms: transforms,
+    url: url$1,
     Observer: Observer,
-    Transform: Transform,
     Bind: Bind,
     Store: Store,
-    parse: parse,
+    Http: Http,
+    parse: parse$3,
     compile: compile,
-    clone: clone,
+    clone: clone$1,
     transclude: transclude
 };
 

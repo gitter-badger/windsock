@@ -1,10 +1,12 @@
+import {paint} from '../util';
+
 export default class Node{
     constructor(){
         this.compiled = false;
         this.transclude = undefined;
         this.DOMNode = undefined;
         this.observers = [];
-        this.bindings = [];
+        this.bindings = {};
     }
     get jsonml(){
         return '';
@@ -15,16 +17,22 @@ export default class Node{
     destroy(){
         this.compiled = false;
         this.transclude = undefined;
-        this.DOMNode = undefined;
+        paint(()=>{
+            this.DOMNode = undefined;
+        });
         while(this.observers.length){
             this.observers.pop().disconnect();
         }
-        this.bindings = [];
+        for(let key in this.bindings){
+            this.bindings[key].observer.disconnect();
+        }
     }
     clone(){
         let node = new Node();
         node.transclude = this.transclude;
-        node.bindings = this.bindings;
+        for(let key in this.bindings){
+            node.bindings[key] = this.bindings[key];
+        }
         return node;
     }
     toJSON(){

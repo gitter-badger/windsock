@@ -1,6 +1,7 @@
 import {Text, Fragment, Element} from '../vdom/index';
 import Observer from '../observer';
 import * as batch from '../batch';
+import Bind from '../bind';
 
 const NAMESPACE_URI = {
     html: 'http://www.w3.org/1999/xhtml',
@@ -126,7 +127,16 @@ export function compileDOM(node){
 }
 
 export function compileBindings(node){
-    for(let i = 0, l = node.bindings.length; i < l; i++){
-        node.bindings[i].instance.compile(node, node.bindings[i]);
-    }
+    Object.keys(node.bindings)
+        .forEach(function mapClonedBindings(key){
+            let binding = node.bindings[key];
+            binding.instance.transform.compile && binding.instance.transform.compile(node, binding);
+            node.bindings[key] = {
+                template: binding.template,
+                target: binding.target,
+                instance: binding.instance,
+                observer: undefined
+            };
+            Bind.observer(node, node.bindings[key]);
+        });
 }

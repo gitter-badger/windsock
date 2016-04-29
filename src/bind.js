@@ -2,59 +2,87 @@ import {is} from './util';
 import Observer from './Observer';
 
 export default class Bind{
-    constructor(traverse, transform){
-        this.traversal = traversalMethod(traverse);
-        this.transform = transform;
-    }
-    render(nodes, data){
-        let binding = {
-            data: data,
-            instance: this
-        };
-        if(is(nodes, 'array')){
-            for(let i = 0, l = nodes.length; i < l; i++){
-                nodeBinding(nodes[i], binding);
-            }
+    constructor(transform = {}){
+        if(is(transform, 'function')){
+            this.transform = {
+                update: transform
+            };
         }else{
-            nodeBinding(nodes, binding);
+            this.transform = transform;
         }
     }
-    compile(node, binding){
-        //called when the node is compiled
+    render(node, target, keypath = ''){
+        let targetMap = keypathTraversal(target, keypath);
+        if(is(node, 'array')){
+            for(let i = 0, l = node.length; i < l; i++){
+              renderNode(node[i], this, targetMap);
+            }
+        }else{
+            renderNode(node, this, targetMap);
+        }
+    }
+    static observer(node, binding){
+        let target = binding.target,
+            instance = binding.instance,
+            observer;
+        if(is(target.value, 'object') || is(target.value, 'array')){
+            observer = new Observer((mutation)=>{
+                instance.transform.update && instance.transform.update(node, mutation, binding);
+            });
+            observer.observe(target.value);
+        }else{
+            observer = new Observer((mutation)=>{
+                if(mutation.type === target.key){
+                    instance.transform.update && instance.transform.update(node, mutation, binding);
+                }
+            });
+            observer.observe(target.parent);
+        }
+        binding.observer = observer;
     }
 }
 
-function nodeBinding(node, binding){
-    let instance = binding.instance,
-        valueObject = instance.traversal(binding.data, node);
-
-    //call transform.bind with node and value determined by traversal?
-    instance.transform.bind(node, binding);
-    node.bindings.push(binding);
-}
-
-function traversalMethod(traverse){
-    if(is(traverse, 'function')){
-        return traverse;
-    }else if(is(traverse, 'string')){
-        return keypathTraversal.bind(null, traverse);
+function renderNode(node, instance, target){
+    let bindMap,
+        binding;
+    if(instance.transform.bind){
+        bindMap = instance.transform.bind(node, target);
+    }else{
+        bindMap = {
+            node: node,
+            prop: 'node'
+        };
     }
+    binding = bindMap.node.bindings[bindMap.prop];
+    if(binding){
+        binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);
+        binding.observer.disconnect();
+    }
+    bindMap.node.bindings[bindMap.prop] = {
+        template: node,
+        target: target,
+        instance: instance,
+        observer: undefined
+    };
+    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop]);
 }
 
-function keypathTraversal(keypath, data, node){
-    let keys = keypath.split('.'),
+function keypathTraversal(target, keypath){
+    let keys = keypath.toString().split('.'),
         key = keys.slice(-1)[0],
-        parent,
-        value = data;
-    while(keys.length){
-        parent = value;
-        value = resolveKeypath(value, keys);
+        parent = target,
+        value = target;
+    if(keypath !== ''){
+        while(keys.length){
+            parent = value;
+            value = resolveKeypath(value, keys);
+        }
     }
     return {
         key: key,
         parent: parent,
         value: value
-    }
+    };
 }
 
 function resolveKeypath(target, keypath){

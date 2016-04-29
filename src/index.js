@@ -1,10 +1,10 @@
 import * as util from './util';
 import * as vdom from './vdom/index';
-import * as transforms from './transforms/index';
+import * as url from './url/template';
 import Observer from './observer';
-import Transform from './transform';
 import Bind from './bind';
 import Store from './store';
+import Http from './http/index';
 import parse from './parser/parse';
 import compile from './compiler/compile';
 import clone from './clone';
@@ -14,11 +14,11 @@ export default{
     version:'0.1.14',
     util,
     vdom,
-    transforms,
+    url,
     Observer,
-    Transform,
     Bind,
     Store,
+    Http,
     parse,
     compile,
     clone,
