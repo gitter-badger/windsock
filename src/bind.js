@@ -43,16 +43,12 @@ export default class Bind{
 }
 
 function renderNode(node, instance, target){
-    let bindMap,
+    let bindMap = instance.transform.bind && instance.transform.bind(node, target),
         binding;
-    if(instance.transform.bind){
-        bindMap = instance.transform.bind(node, target);
-    }else{
-        bindMap = {
-            node: node,
-            prop: 'node'
-        };
-    }
+    bindMap = bindMap || {
+        node: node,
+        prop: 'node'
+    };
     binding = bindMap.node.bindings[bindMap.prop];
     if(binding){
         binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);

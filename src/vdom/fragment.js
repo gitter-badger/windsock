@@ -91,8 +91,8 @@ export default class Fragment extends Node{
             if(predicate(this.children[i])){
                 result.push(this.children[i]);
             }
-            if(!is(this.children[i].find, 'undefined')){
-                result = result.concat(this.children[i].find(predicate));
+            if(!is(this.children[i].filter, 'undefined')){
+                result = result.concat(this.children[i].filter(predicate));
             }
         }
         return result;
@@ -113,10 +113,7 @@ function defineChildrenParent(instance, children = []){
 }
 
 function nodeNamePredicate(query, child){
-    if(child instanceof Text || child instanceof Fragment){
-        return false;
-    }
-    return child.name === query;
+    return child.name && child.name === query;
 }
 
 function nodeAttributePredicate(query, child){

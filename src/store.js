@@ -1,4 +1,5 @@
 import Signal from './signal';
+
 export default class Store{
     constructor(state = {}, mutations = {}){
         this._state = state;

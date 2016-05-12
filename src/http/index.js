@@ -1,10 +1,11 @@
 import {is, merge, clone} from '../util';
 import Signal from '../signal';
-import * as url from '../url/template';
+import * as url from '../url/index';
 import * as cors from './cors';
 import * as mime from './mime';
 import * as timeout from './timeout';
 import * as override from './override';
+import * as header from './header';
 import client from './client/index';
 
 export default class Http{
@@ -25,10 +26,10 @@ export default class Http{
         this._url.query = obj;
     }
     get path(){
-        return this._url.template;
+        return this._url.path;
     }
     set path(obj){
-        this._url.template = obj;
+        this._url.path = obj;
     }
     GET(data){
         return Http.method(this, 'GET', data);
@@ -51,13 +52,15 @@ export default class Http{
             override: http.override,
             timeout: http.timeout,
             headers: clone(http.headers),
-            url: http.url,
+            url: http._url,
             data: data,
             method: method
         });
     }
     static request(request){
         Http.interceptors.request.dispatch(request);
+        //might not do this here
+        request.url = url.format(request.url);
         return client(request)
             .then(function clientRequestFulfilled(response){
                 Http.interceptors.response.dispatch(response);
@@ -71,9 +74,10 @@ Http.interceptors = {
     response: new Signal()
 };
 
-Http.interceptors.request.add(cors.request);
-Http.interceptors.request.add(mime.request);
-Http.interceptors.response.add(mime.response);
 Http.interceptors.request.add(timeout.request);
+Http.interceptors.request.add(override.request);
+Http.interceptors.request.add(mime.request);
+Http.interceptors.request.add(header.request);
+Http.interceptors.request.add(cors.request);
 Http.interceptors.response.add(timeout.response);
-Http.interceptors.response.add(override.request);
+Http.interceptors.response.add(mime.response);

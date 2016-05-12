@@ -1,5 +1,6 @@
 import {is} from '../util';
-import * as params from './params';
+import * as query from './query';
+import * as path from './path';
 
 let a;
 
@@ -22,8 +23,9 @@ export function parse(str){
         hostname: a.hostname || null,
         hash: a.hash || null,
         search: a.search || null,
-        query: params.parse(a.search, {query:true}),
+        query: query.parse(a.search, {query:true}),
         pathname: a.pathname || null,
+        path: path.parse(a.pathname),
         href: a.href
     };
 }
@@ -33,7 +35,7 @@ export function format(obj){
         host,
         pathname,
         search,
-        query,
+        params,
         hash;
     if(!a){
         return url.format(obj);
@@ -43,10 +45,10 @@ export function format(obj){
     }
     protocol = obj.protocol || '';
     host = obj.host || '';
-    pathname = obj.pathname || '';
+    pathname = path.format(obj.pathname, obj.path);
     search = obj.search || '';
-    query = params.format(obj.query, {query:true});
+    params = query.format(obj.query, {query:true});
     hash = obj.hash || '';
     //plan to actually look at protocol
-    return protocol + '//' + host + pathname + (query || search) + hash;
+    return protocol + '//' + host + pathname + (params || search) + hash;
 }

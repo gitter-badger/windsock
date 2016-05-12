@@ -55,12 +55,12 @@ export function merge(obj){
 }
 
 export function clone(obj){
-    var clone = {};
+    var c = {};
     Object.keys(obj)
         .forEach((key)=>{
-            clone[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
+            c[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
         });
-    return clone;
+    return c;
 }
 
 export function match(target, query){

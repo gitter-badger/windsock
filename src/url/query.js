@@ -6,7 +6,7 @@ export function parse(str, options = {}){
     if(!is(str, 'string')){
         throw new Error('Parameter must be a string');
     }
-    str = options.query ? str.replace('?','') : str;
+    str = options.query ? normalize(str) : str;
     str.split('&')
         .forEach(function paramParseMap(pair){
             if(!pair) return;
@@ -28,5 +28,15 @@ export function format(params, options = {}){
             return encode(key) + val;
         })
         .join('&');
-    return str.length ? (options.query ? '?' + str : str ) : null;
+    return str.length ? (options.query ? '?' + str : str ) : '';
+}
+
+export function normalize(query){
+    if(!is(query, 'string')){
+        throw new Error('Parameter must be a string');
+    }
+    if(query.indexOf('?') === 0){
+        query = query.replace('?','');
+    }
+    return query;
 }

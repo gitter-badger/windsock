@@ -131,11 +131,11 @@
     }
 
     function clone(obj) {
-        var clone = {};
+        var c = {};
         Object.keys(obj).forEach(function (key) {
-            clone[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
+            c[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
         });
-        return clone;
+        return c;
     }
 
     function match(target, query) {
@@ -269,8 +269,16 @@ var util = Object.freeze({
                 if (is(this.parent, 'undefined')) {
                     throw new Error('Failed to remove node');
                 }
-                this.parent.children.splice(this.parent.children.indexOf(this), 1);
+                this.parent.children.splice(this.index(), 1);
                 this.parent = undefined;
+            }
+        }, {
+            key: 'index',
+            value: function index() {
+                if (is(this.parent, 'undefined')) {
+                    return -1;
+                }
+                return this.parent.children.indexOf(this);
             }
         }, {
             key: 'jsonml',
@@ -408,8 +416,8 @@ var util = Object.freeze({
                     if (predicate(this.children[i])) {
                         result.push(this.children[i]);
                     }
-                    if (!is(this.children[i].find, 'undefined')) {
-                        result = result.concat(this.children[i].find(predicate));
+                    if (!is(this.children[i].filter, 'undefined')) {
+                        result = result.concat(this.children[i].filter(predicate));
                     }
                 }
                 return result;
@@ -448,10 +456,7 @@ var util = Object.freeze({
     }
 
     function nodeNamePredicate(query, child) {
-        if (child instanceof Text || child instanceof Fragment) {
-            return false;
-        }
-        return child.name === query;
+        return child.name && child.name === query;
     }
 
     function nodeAttributePredicate(query, child) {
@@ -529,8 +534,16 @@ var util = Object.freeze({
                 if (is(this.parent, 'undefined')) {
                     throw new Error('Failed to remove node');
                 }
-                this.parent.children.splice(this.parent.children.indexOf(this), 1);
+                this.parent.children.splice(this.index(), 1);
                 this.parent = undefined;
+            }
+        }, {
+            key: 'index',
+            value: function index() {
+                if (is(this.parent, 'undefined')) {
+                    return -1;
+                }
+                return this.parent.children.indexOf(this);
             }
         }, {
             key: 'jsonml',
@@ -598,7 +611,7 @@ var util = Object.freeze({
     	Element: Element
     });
 
-    function parse$2(str) {
+    function parse$1(str) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
         var params = {},
@@ -606,7 +619,7 @@ var util = Object.freeze({
         if (!is(str, 'string')) {
             throw new Error('Parameter must be a string');
         }
-        str = options.query ? str.replace('?', '') : str;
+        str = options.query ? normalize(str) : str;
         str.split('&').forEach(function paramParseMap(pair) {
             if (!pair) return;
             pair = pair.split('=');
@@ -615,7 +628,7 @@ var util = Object.freeze({
         return params;
     }
 
-    function format$2(params) {
+    function format$1(params) {
         var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
         var str = void 0,
@@ -627,7 +640,53 @@ var util = Object.freeze({
             var val = params[key] ? '=' + encode(params[key]) : '';
             return encode(key) + val;
         }).join('&');
-        return str.length ? options.query ? '?' + str : str : null;
+        return str.length ? options.query ? '?' + str : str : '';
+    }
+
+    function normalize(query) {
+        if (!is(query, 'string')) {
+            throw new Error('Parameter must be a string');
+        }
+        if (query.indexOf('?') === 0) {
+            query = query.replace('?', '');
+        }
+        return query;
+    }
+
+    function parse$2(path) {
+        var params = {};
+        if (!is(path, 'string')) {
+            throw new Error('Parameter must be a string');
+        }
+        path = normalize$1(path);
+        path && path.split('/').forEach(function pathParseMap(slug, i) {
+            if (slug.indexOf(':') === 0 && slug.length > 1) {
+                params[slug.replace(':', '')] = i;
+            }
+        });
+        return params;
+    }
+
+    function format$2(path, params) {
+        if (!is(params, 'object')) {
+            throw new Error('Parameter must be an object');
+        }
+        for (var key in params) {
+            var val = params[key];
+            val = val.toString ? val.toString() : '';
+            path = path.replace((val.length ? ':' : '/:') + key, val);
+        }
+        return path;
+    }
+
+    function normalize$1(path) {
+        if (!is(path, 'string')) {
+            throw new Error('Parameter must be a string');
+        }
+        if (path.indexOf('/') === 0) {
+            path = path.replace('/', '');
+        }
+        return path;
     }
 
     var a = void 0;
@@ -636,7 +695,7 @@ var util = Object.freeze({
         a = document.createElement('a');
     }
 
-    function parse$1(str) {
+    function parse(str) {
         if (!a) {
             return url.parse(str);
         }
@@ -651,18 +710,19 @@ var util = Object.freeze({
             hostname: a.hostname || null,
             hash: a.hash || null,
             search: a.search || null,
-            query: parse$2(a.search, { query: true }),
+            query: parse$1(a.search, { query: true }),
             pathname: a.pathname || null,
+            path: parse$2(a.pathname),
             href: a.href
         };
     }
 
-    function format$1(obj) {
+    function format(obj) {
         var protocol = void 0,
             host = void 0,
             pathname = void 0,
             search = void 0,
-            query = void 0,
+            params = void 0,
             hash = void 0;
         if (!a) {
             return url.format(obj);
@@ -672,40 +732,12 @@ var util = Object.freeze({
         }
         protocol = obj.protocol || '';
         host = obj.host || '';
-        pathname = obj.pathname || '';
+        pathname = format$2(obj.pathname, obj.path);
         search = obj.search || '';
-        query = format$2(obj.query, { query: true });
+        params = format$1(obj.query, { query: true });
         hash = obj.hash || '';
         //plan to actually look at protocol
-        return protocol + '//' + host + pathname + (query || search) + hash;
-    }
-
-    function parse(str) {
-        var obj = parse$1(str);
-        obj.template = {};
-        obj.pathname.replace('/', '').split('/').forEach(function pathnameParseMap(slug) {
-            if (slug.indexOf(':') === 0 && slug.length > 1) {
-                obj.template[slug.replace(':', '')] = '';
-            }
-        });
-        return obj;
-    }
-
-    function format(obj) {
-        var pathname = void 0,
-            formatted = void 0;
-        if (!is(obj.template, 'object')) {
-            throw new Error('property must be an object');
-        }
-        pathname = obj.pathname;
-        for (var key in obj.template) {
-            var val = obj.template[key];
-            val = val.toString ? val.toString() : '';
-            obj.pathname = obj.pathname.replace((val.length ? ':' : '/:') + key, val);
-        }
-        formatted = format$1(obj);
-        obj.pathname = pathname;
-        return formatted;
+        return protocol + '//' + host + pathname + (params || search) + hash;
     }
 
 var url$1 = Object.freeze({
@@ -1483,16 +1515,12 @@ var url$1 = Object.freeze({
     }();
 
     function renderNode(node, instance, target) {
-        var bindMap = void 0,
+        var bindMap = instance.transform.bind && instance.transform.bind(node, target),
             binding = void 0;
-        if (instance.transform.bind) {
-            bindMap = instance.transform.bind(node, target);
-        } else {
-            bindMap = {
-                node: node,
-                prop: 'node'
-            };
-        }
+        bindMap = bindMap || {
+            node: node,
+            prop: 'node'
+        };
         binding = bindMap.node.bindings[bindMap.prop];
         if (binding) {
             binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);
@@ -1604,18 +1632,17 @@ var url$1 = Object.freeze({
         return Store;
     }();
 
-    var origin = parse$1(location.href);
+    var origin = parse(location.href);
 
-    function request(request) {
-        var requestUrl = parse$1(request.url);
-        request.crossOrigin = origin.protocol !== requestUrl.protocol || origin.host !== requestUrl.host;
+    function request$1(request) {
+        request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
         return request;
     }
 
-    function request$1(request) {
+    function request$2(request) {
         if (is(request.data, 'object') && request.urlencode) {
             request.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-            request.data = format$2(request.data);
+            request.data = format$1(request.data);
         }
         if (is(request.data, 'formData')) {
             delete request.headers['Content-Type'];
@@ -1636,7 +1663,7 @@ var url$1 = Object.freeze({
 
     var t = void 0;
 
-    function request$2(request) {
+    function request$3(request) {
         if (request.timeout) {
             t = setTimeout(function httpTimeoutInterceptor() {
                 request.abort();
@@ -1650,11 +1677,30 @@ var url$1 = Object.freeze({
         return response;
     }
 
-    function request$3(request) {
+    function request$4(request) {
         if (request.override && /^(PUT|PATCH|DELETE)$/i.test(request.method)) {
             request.headers['X-HTTP-Method-Override'] = request.method;
             request.method = 'POST';
         }
+    }
+
+    function request$5(request) {
+        var headers = {
+            'Accept': 'application/json, text/plain, */*'
+        };
+        if (!request.crossOrigin) {
+            headers['X-Requested-With'] = 'XMLHttpRequest';
+        }
+        if (/^(PUT|POST|PATCH|DELETE)$/i.test(request.method)) {
+            headers['Content-Type'] = 'application/json';
+        }
+        request.method = request.method.toUpperCase();
+        request.headers = extend(headers, request.headers);
+        if (is(request.data, 'object') && request.method === 'GET') {
+            extend(request.url.query, request.data);
+            delete request.data;
+        }
+        return request;
     }
 
     function xhr(request) {
@@ -1746,10 +1792,10 @@ var url$1 = Object.freeze({
         }, {
             key: 'path',
             get: function get() {
-                return this._url.template;
+                return this._url.path;
             },
             set: function set(obj) {
-                this._url.template = obj;
+                this._url.path = obj;
             }
         }], [{
             key: 'method',
@@ -1761,7 +1807,7 @@ var url$1 = Object.freeze({
                     override: http.override,
                     timeout: http.timeout,
                     headers: clone(http.headers),
-                    url: http.url,
+                    url: http._url,
                     data: data,
                     method: _method
                 });
@@ -1770,6 +1816,8 @@ var url$1 = Object.freeze({
             key: 'request',
             value: function request(_request) {
                 Http.interceptors.request.dispatch(_request);
+                //might not do this here
+                _request.url = format(_request.url);
                 return client(_request).then(function clientRequestFulfilled(response) {
                     Http.interceptors.response.dispatch(response);
                     return response.ok ? response : Promise.reject(response);
@@ -1784,12 +1832,13 @@ var url$1 = Object.freeze({
         response: new Signal()
     };
 
-    Http.interceptors.request.add(request);
-    Http.interceptors.request.add(request$1);
-    Http.interceptors.response.add(response);
+    Http.interceptors.request.add(request$3);
+    Http.interceptors.request.add(request$4);
     Http.interceptors.request.add(request$2);
+    Http.interceptors.request.add(request$5);
+    Http.interceptors.request.add(request$1);
     Http.interceptors.response.add(response$1);
-    Http.interceptors.response.add(request$3);
+    Http.interceptors.response.add(response);
 
     var VOID_TAGS = ['area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
@@ -1864,7 +1913,7 @@ var url$1 = Object.freeze({
 
         if (source.attributes.length) {
             evt.attributes = {};
-            source.attributes.forEach(function (attribute) {
+            Array.prototype.forEach.call(source.attributes, function (attribute) {
                 evt.attributes[attribute.name] = attribute.value;
             });
         }
@@ -1959,7 +2008,7 @@ var url$1 = Object.freeze({
         callback(evt);
     }
 
-    function parse$3(source) {
+    function parse$4(source) {
         var template = new Fragment(),
             transclude;
         if (is(source, 'string')) {
@@ -2002,29 +2051,29 @@ var url$1 = Object.freeze({
         return template;
     }
 
+    var queue$1 = [];
     var id = void 0;
     var requested = void 0;
     var running = void 0;
-    var queue = void 0;
     function done() {
         id = null;
         requested = false;
         running = false;
-        queue = [];
+        queue$1.length = 0;
     }
 
     done();
 
     function run() {
         running = true;
-        for (var i = 0; i < queue.length; i++) {
-            queue[i].call();
+        for (var i = 0; i < queue$1.length; i++) {
+            queue$1[i].call();
         }
         done();
     }
 
     function add(fn) {
-        queue.push(fn);
+        queue$1.push(fn);
         if (!requested) {
             id = paint(run);
             requested = true;
@@ -2218,6 +2267,109 @@ var url$1 = Object.freeze({
         node.transclude = undefined;
     }
 
+    var Component = function () {
+        function Component(name, root) {
+            babelHelpers.classCallCheck(this, Component);
+
+            var components = this.constructor.components;
+            this.name = name;
+            this.root = root || document;
+            this.components = {};
+            this._template = undefined;
+            this.sources = [];
+            this.templates = [];
+            this.compiled = [];
+            if (components) {
+                for (var _name in components) {
+                    this.components[_name] = new components[_name](_name, true);
+                }
+            }
+            if (!root) {
+                this.query();
+                this.parse();
+                this.compile();
+                this.compiled.forEach(transclude);
+            }
+        }
+
+        babelHelpers.createClass(Component, [{
+            key: 'query',
+            value: function query(root) {
+                var _this = this;
+
+                root = root || this.root;
+                var results = root.querySelectorAll(this.name);
+                this.sources = this.sources.concat(Array.prototype.slice.call(results));
+                this.sources.forEach(function (source) {
+                    for (var name in _this.components) {
+                        _this.components[name].query(source);
+                    }
+                });
+            }
+        }, {
+            key: 'template',
+            value: function template() {
+                if (!this._template) {
+                    this._template = parse$4(this.constructor.template);
+                }
+                return clone$1(this._template, true);
+            }
+        }, {
+            key: 'parse',
+            value: function parse(templates) {
+                var _this2 = this;
+
+                if (templates && this.constructor.template) {
+                    templates = templates.map(function (template) {
+                        var templateClone = _this2.template();
+                        template.parent.insert(templateClone, template.index());
+                        template.destroy();
+                        return templateClone;
+                    });
+                }
+                templates = templates || this.sources.map(function (source) {
+                    var template = void 0;
+                    if (_this2.constructor.template) {
+                        template = _this2.template();
+                        template.transclude = source;
+                    } else {
+                        template = parse$4(source);
+                    }
+                    return template;
+                });
+                this.templates = this.templates.concat(templates);
+                this.templates.forEach(function (template) {
+                    for (var name in _this2.components) {
+                        _this2.components[name].parse(template.filter(name));
+                    }
+                });
+            }
+        }, {
+            key: 'compile',
+            value: function compile$$(compiled) {
+                var _this3 = this;
+
+                compiled = compiled || this.templates.map(compile);
+                this.compiled = this.compiled.concat(compiled);
+                this.compiled.forEach(function (vdom) {
+                    for (var name in _this3.components) {
+                        _this3.components[name].compile(vdom.filter(name));
+                    }
+                });
+            }
+        }]);
+        return Component;
+    }();
+
+    Component.component = function (name, cls) {
+        if (Component.components[name]) {
+            console.warn('Global ' + name + ' component already exists');
+        }
+        Component.components[name] = cls;
+    };
+
+    Component.components = {};
+
     var index = {
         version: '0.1.14',
         util: util,
@@ -2227,10 +2379,11 @@ var url$1 = Object.freeze({
         Bind: Bind,
         Store: Store,
         Http: Http,
-        parse: parse$3,
+        parse: parse$4,
         compile: compile,
         clone: clone$1,
-        transclude: transclude
+        transclude: transclude,
+        Component: Component
     };
 
     return index;

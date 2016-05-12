@@ -1,10 +1,10 @@
 import {is} from '../util';
-import * as params from '../url/params';
+import * as query from '../url/query';
 
 export function request(request){
     if(is(request.data, 'object') && request.urlencode){
         request.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        request.data = params.format(request.data);
+        request.data = query.format(request.data);
     }
     if(is(request.data, 'formData')){
         delete request.headers['Content-Type'];

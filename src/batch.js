@@ -1,15 +1,15 @@
 import {paint, cancelPaint} from './util';
 
+const queue = [];
 let id,
     requested,
-    running,
-    queue;
+    running;
 
 function done(){
     id = null;
     requested = false;
     running = false;
-    queue = [];
+    queue.length = 0;
 }
 
 done();

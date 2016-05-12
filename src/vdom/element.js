@@ -71,8 +71,14 @@ export default class Element extends Fragment{
         if(is(this.parent, 'undefined')){
             throw new Error('Failed to remove node');
         }
-        this.parent.children.splice(this.parent.children.indexOf(this), 1);
+        this.parent.children.splice(this.index(), 1);
         this.parent = undefined;
+    }
+    index(){
+        if(is(this.parent, 'undefined')){
+            return -1;
+        }
+        return this.parent.children.indexOf(this);
     }
 }
 
