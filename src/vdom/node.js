@@ -1,4 +1,5 @@
 import {paint} from '../util';
+import Signal from '../signal';
 
 export default class Node{
     constructor(){
@@ -7,6 +8,7 @@ export default class Node{
         this.DOMNode = undefined;
         this.observers = [];
         this.bindings = {};
+        this.events = {}
     }
     get jsonml(){
         return '';
@@ -25,15 +27,31 @@ export default class Node{
         }
         for(let key in this.bindings){
             this.bindings[key].observer.disconnect();
+            delete this.bindings[key];
+        }
+        for(let evt in this.events){
+            this.events[evt].remove();
+            delete this.events[evt];
         }
     }
     clone(){
-        let node = new Node();
-        node.transclude = this.transclude;
-        for(let key in this.bindings){
-            node.bindings[key] = this.bindings[key];
+        return Node.clone(new Node(), this);
+    }
+    on(evt, callback){
+        if(!this.events[evt]){
+            if(this.compiled){
+                this.events.add(evt, new Signal());
+            }else{
+                this.events[evt] = new Signal();
+            }
         }
-        return node;
+        this.events[evt].add(callback);
+    }
+    off(evt, callback){
+        this.events[evt].remove(callback);
+        if(!this.events[evt]){
+            delete this.events[evt];
+        }
     }
     toJSON(){
         return this.jsonml;
@@ -43,5 +61,17 @@ export default class Node{
     }
     toString(){
         return this.html;
+    }
+    static clone(target, instance, deep = false){
+        target.transclude = instance.transclude;
+        for(let key in instance.bindings){
+            target.bindings[key] = instance.bindings[key];
+        }
+        if(deep){
+            for(let evt in instance.events){
+                target.events[evt] = new Signal();
+                target.events[evt].listeners = instance.events[evt].listeners.slice();
+            }
+        }
     }
 }

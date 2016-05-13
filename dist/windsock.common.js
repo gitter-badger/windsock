@@ -158,6 +158,43 @@ var util = Object.freeze({
     noop: noop
 });
 
+var Signal = function () {
+    function Signal() {
+        babelHelpers.classCallCheck(this, Signal);
+
+        this.listeners = [];
+    }
+
+    babelHelpers.createClass(Signal, [{
+        key: "add",
+        value: function add(listener) {
+            this.listeners.push(listener);
+        }
+    }, {
+        key: "remove",
+        value: function remove(listener) {
+            if (listener) {
+                return this.listeners.splice(this.listeners.indexOf(listener), 1);
+            }
+            this.listeners = [];
+        }
+    }, {
+        key: "dispatch",
+        value: function dispatch() {
+            var _this = this;
+
+            for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+                args[_key] = arguments[_key];
+            }
+
+            return this.listeners.map(function (listener) {
+                return listener.apply(_this, args);
+            });
+        }
+    }]);
+    return Signal;
+}();
+
 var Node = function () {
     function Node() {
         babelHelpers.classCallCheck(this, Node);
@@ -167,6 +204,7 @@ var Node = function () {
         this.DOMNode = undefined;
         this.observers = [];
         this.bindings = {};
+        this.events = {};
     }
 
     babelHelpers.createClass(Node, [{
@@ -184,17 +222,37 @@ var Node = function () {
             }
             for (var key in this.bindings) {
                 this.bindings[key].observer.disconnect();
+                delete this.bindings[key];
+            }
+            for (var evt in this.events) {
+                this.events[evt].remove();
+                delete this.events[evt];
             }
         }
     }, {
         key: 'clone',
         value: function clone() {
-            var node = new Node();
-            node.transclude = this.transclude;
-            for (var key in this.bindings) {
-                node.bindings[key] = this.bindings[key];
+            return Node.clone(new Node(), this);
+        }
+    }, {
+        key: 'on',
+        value: function on(evt, callback) {
+            if (!this.events[evt]) {
+                if (this.compiled) {
+                    this.events.add(evt, new Signal());
+                } else {
+                    this.events[evt] = new Signal();
+                }
             }
-            return node;
+            this.events[evt].add(callback);
+        }
+    }, {
+        key: 'off',
+        value: function off(evt, callback) {
+            this.events[evt].remove(callback);
+            if (!this.events[evt]) {
+                delete this.events[evt];
+            }
         }
     }, {
         key: 'toJSON',
@@ -220,6 +278,22 @@ var Node = function () {
         key: 'html',
         get: function get() {
             return '';
+        }
+    }], [{
+        key: 'clone',
+        value: function clone(target, instance) {
+            var deep = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
+
+            target.transclude = instance.transclude;
+            for (var key in instance.bindings) {
+                target.bindings[key] = instance.bindings[key];
+            }
+            if (deep) {
+                for (var evt in instance.events) {
+                    target.events[evt] = new Signal();
+                    target.events[evt].listeners = instance.events[evt].listeners.slice();
+                }
+            }
         }
     }]);
     return Node;
@@ -253,10 +327,7 @@ var Text = function (_Node) {
         key: 'clone',
         value: function clone() {
             var node = new Text(this.value.textContent);
-            node.transclude = this.transclude;
-            for (var key in this.bindings) {
-                node.bindings[key] = this.bindings[key];
-            }
+            Node.clone(node, this);
             return node;
         }
     }, {
@@ -343,10 +414,7 @@ var Fragment = function (_Node) {
                     fragment.append(child.clone(true));
                 });
             }
-            fragment.transclude = this.transclude;
-            for (var key in this.bindings) {
-                fragment.bindings[key] = this.bindings[key];
-            }
+            Node.clone(fragment, this, deep);
             return fragment;
         }
     }, {
@@ -518,10 +586,7 @@ var Element = function (_Fragment) {
                     element.append(child.clone(true));
                 });
             }
-            element.transclude = this.transclude;
-            for (var key in this.bindings) {
-                element.bindings[key] = this.bindings[key];
-            }
+            Node.clone(element, this, deep);
             return element;
         }
     }, {
@@ -1099,6 +1164,248 @@ function disconnectRecursiveObservers(target, observerList) {
     });
 }
 
+var Store = function () {
+    function Store() {
+        var _this = this;
+
+        var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+        var mutations = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+        babelHelpers.classCallCheck(this, Store);
+
+        this._state = state;
+        this._mutations = {};
+        Object.keys(mutations).forEach(function (name) {
+            _this._mutations[name] = new Signal();
+            _this._mutations[name].add(mutations[name]);
+        });
+    }
+
+    babelHelpers.createClass(Store, [{
+        key: 'dispatch',
+        value: function dispatch(name) {
+            var mutation = this._mutations[name];
+            if (!mutation) {
+                throw new Error(name + ' mutation does not exist');
+            }
+
+            for (var _len = arguments.length, args = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
+                args[_key - 1] = arguments[_key];
+            }
+
+            mutation.dispatch(this._state, args);
+        }
+    }]);
+    return Store;
+}();
+
+var origin = parse(location.href);
+
+function request$1(request) {
+    request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
+    return request;
+}
+
+function request$2(request) {
+    if (is(request.data, 'object') && request.urlencode) {
+        request.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        request.data = format$1(request.data);
+    }
+    if (is(request.data, 'formData')) {
+        delete request.headers['Content-Type'];
+    }
+    if (is(request.data, 'object')) {
+        //need to also do this for formdata
+        request.data = JSON.stringify(request.data);
+    }
+    return request;
+}
+
+function response(response) {
+    try {
+        response.data = JSON.parse(response.data);
+    } catch (e) {}
+    return response;
+}
+
+var t = void 0;
+
+function request$3(request) {
+    if (request.timeout) {
+        t = setTimeout(function httpTimeoutInterceptor() {
+            request.abort();
+        }, request.timeout);
+    }
+    return request;
+}
+
+function response$1(response) {
+    clearTimeout(t);
+    return response;
+}
+
+function request$4(request) {
+    if (request.override && /^(PUT|PATCH|DELETE)$/i.test(request.method)) {
+        request.headers['X-HTTP-Method-Override'] = request.method;
+        request.method = 'POST';
+    }
+}
+
+function request$5(request) {
+    var headers = {
+        'Accept': 'application/json, text/plain, */*'
+    };
+    if (!request.crossOrigin) {
+        headers['X-Requested-With'] = 'XMLHttpRequest';
+    }
+    if (/^(PUT|POST|PATCH|DELETE)$/i.test(request.method)) {
+        headers['Content-Type'] = 'application/json';
+    }
+    request.method = request.method.toUpperCase();
+    request.headers = extend(headers, request.headers);
+    if (is(request.data, 'object') && request.method === 'GET') {
+        extend(request.url.query, request.data);
+        delete request.data;
+    }
+    return request;
+}
+
+function xhr(request) {
+    return new Promise(function xhrPromiseExecutor(resolve) {
+        var client = new XMLHttpRequest(),
+            response = {
+            request: request
+        },
+            handler = function handler() {
+            response.data = client.responseText;
+            response.status = client.status;
+            response.statusText = client.statusText;
+            response.headers = client.getAllResponseHeaders();
+            resolve(response);
+        };
+        request.abort = client.abort;
+        client.timeout = 0;
+        client.onload = handler;
+        client.onabort = handler;
+        client.onerror = handler;
+        client.ontimeout = noop;
+        client.onprogress = noop;
+        client.open(request.method, request.url, true);
+        for (var key in request.headers) {
+            client.setRequestHeader(key, request.headers[key]);
+        }
+        client.send(request.data);
+    });
+}
+
+function client (request) {
+    var client = request.client || xhr;
+    return Promise.resolve(client(request)).then(function requestFulfilled(response) {
+        response.ok = response.status >= 200 && response.status < 300;
+        return response;
+    });
+}
+
+var Http = function () {
+    function Http() {
+        var config = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+        babelHelpers.classCallCheck(this, Http);
+
+        this.urlencode = !!config.urlencode;
+        this.override = !!config.override;
+        this.timeout = config.timeout || 0;
+        this.headers = config.headers || {};
+        this._url = parse(config.url || '');
+    }
+
+    babelHelpers.createClass(Http, [{
+        key: 'GET',
+        value: function GET(data) {
+            return Http.method(this, 'GET', data);
+        }
+    }, {
+        key: 'POST',
+        value: function POST(data) {
+            return Http.method(this, 'POST', data);
+        }
+    }, {
+        key: 'PUT',
+        value: function PUT(data) {
+            return Http.method(this, 'PUT', data);
+        }
+    }, {
+        key: 'PATCH',
+        value: function PATCH(data) {
+            return Http.method(this, 'PATCH', data);
+        }
+    }, {
+        key: 'DELETE',
+        value: function DELETE(data) {
+            return Http.method(this, 'DELETE', data);
+        }
+    }, {
+        key: 'url',
+        get: function get() {
+            return format(this._url);
+        }
+    }, {
+        key: 'params',
+        get: function get() {
+            return this._url.query;
+        },
+        set: function set(obj) {
+            this._url.query = obj;
+        }
+    }, {
+        key: 'path',
+        get: function get() {
+            return this._url.path;
+        },
+        set: function set(obj) {
+            this._url.path = obj;
+        }
+    }], [{
+        key: 'method',
+        value: function method(http, _method) {
+            var data = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
+
+            return Http.request({
+                urlencode: http.urlencode,
+                override: http.override,
+                timeout: http.timeout,
+                headers: clone(http.headers),
+                url: http._url,
+                data: data,
+                method: _method
+            });
+        }
+    }, {
+        key: 'request',
+        value: function request(_request) {
+            Http.interceptors.request.dispatch(_request);
+            //might not do this here
+            _request.url = format(_request.url);
+            return client(_request).then(function clientRequestFulfilled(response) {
+                Http.interceptors.response.dispatch(response);
+                return response.ok ? response : Promise.reject(response);
+            });
+        }
+    }]);
+    return Http;
+}();
+
+Http.interceptors = {
+    request: new Signal(),
+    response: new Signal()
+};
+
+Http.interceptors.request.add(request$3);
+Http.interceptors.request.add(request$4);
+Http.interceptors.request.add(request$2);
+Http.interceptors.request.add(request$5);
+Http.interceptors.request.add(request$1);
+Http.interceptors.response.add(response$1);
+Http.interceptors.response.add(response);
+
 var ARRAY_MUTATOR_METHODS$1 = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
 
 var Observer$1 = function () {
@@ -1557,285 +1864,6 @@ function resolveKeypath(target, keypath) {
     return target[key];
 }
 
-var Signal = function () {
-    function Signal() {
-        babelHelpers.classCallCheck(this, Signal);
-
-        this.listeners = [];
-    }
-
-    babelHelpers.createClass(Signal, [{
-        key: "add",
-        value: function add(listener) {
-            this.listeners.push(listener);
-        }
-    }, {
-        key: "remove",
-        value: function remove(listener) {
-            if (listener) {
-                return this.listeners.splice(this.listeners.indexOf(listener), 1);
-            }
-            this.listeners = [];
-        }
-    }, {
-        key: "dispatch",
-        value: function dispatch() {
-            var _this = this;
-
-            for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-                args[_key] = arguments[_key];
-            }
-
-            return this.listeners.map(function (listener) {
-                return listener.apply(_this, args);
-            });
-        }
-    }]);
-    return Signal;
-}();
-
-var Store = function () {
-    function Store() {
-        var _this = this;
-
-        var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-        var mutations = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
-        babelHelpers.classCallCheck(this, Store);
-
-        this._state = state;
-        this._mutations = {};
-        Object.keys(mutations).forEach(function (name) {
-            _this._mutations[name] = new Signal();
-            _this._mutations[name].add(mutations[name]);
-        });
-    }
-
-    babelHelpers.createClass(Store, [{
-        key: 'dispatch',
-        value: function dispatch(name) {
-            var mutation = this._mutations[name];
-            if (!mutation) {
-                throw new Error(name + ' mutation does not exist');
-            }
-
-            for (var _len = arguments.length, args = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-                args[_key - 1] = arguments[_key];
-            }
-
-            mutation.dispatch(this.state, args);
-        }
-    }]);
-    return Store;
-}();
-
-var origin = parse(location.href);
-
-function request$1(request) {
-    request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
-    return request;
-}
-
-function request$2(request) {
-    if (is(request.data, 'object') && request.urlencode) {
-        request.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-        request.data = format$1(request.data);
-    }
-    if (is(request.data, 'formData')) {
-        delete request.headers['Content-Type'];
-    }
-    if (is(request.data, 'object')) {
-        //need to also do this for formdata
-        request.data = JSON.stringify(request.data);
-    }
-    return request;
-}
-
-function response(response) {
-    try {
-        response.data = JSON.parse(response.data);
-    } catch (e) {}
-    return response;
-}
-
-var t = void 0;
-
-function request$3(request) {
-    if (request.timeout) {
-        t = setTimeout(function httpTimeoutInterceptor() {
-            request.abort();
-        }, request.timeout);
-    }
-    return request;
-}
-
-function response$1(response) {
-    clearTimeout(t);
-    return response;
-}
-
-function request$4(request) {
-    if (request.override && /^(PUT|PATCH|DELETE)$/i.test(request.method)) {
-        request.headers['X-HTTP-Method-Override'] = request.method;
-        request.method = 'POST';
-    }
-}
-
-function request$5(request) {
-    var headers = {
-        'Accept': 'application/json, text/plain, */*'
-    };
-    if (!request.crossOrigin) {
-        headers['X-Requested-With'] = 'XMLHttpRequest';
-    }
-    if (/^(PUT|POST|PATCH|DELETE)$/i.test(request.method)) {
-        headers['Content-Type'] = 'application/json';
-    }
-    request.method = request.method.toUpperCase();
-    request.headers = extend(headers, request.headers);
-    if (is(request.data, 'object') && request.method === 'GET') {
-        extend(request.url.query, request.data);
-        delete request.data;
-    }
-    return request;
-}
-
-function xhr(request) {
-    return new Promise(function xhrPromiseExecutor(resolve) {
-        var client = new XMLHttpRequest(),
-            response = {
-            request: request
-        },
-            handler = function handler() {
-            response.data = client.responseText;
-            response.status = client.status;
-            response.statusText = client.statusText;
-            response.headers = client.getAllResponseHeaders();
-            resolve(response);
-        };
-        request.abort = client.abort;
-        client.timeout = 0;
-        client.onload = handler;
-        client.onabort = handler;
-        client.onerror = handler;
-        client.ontimeout = noop;
-        client.onprogress = noop;
-        client.open(request.method, request.url, true);
-        for (var key in request.headers) {
-            client.setRequestHeader(key, request.headers[key]);
-        }
-        client.send(request.data);
-    });
-}
-
-function client (request) {
-    var client = request.client || xhr;
-    return Promise.resolve(client(request)).then(function requestFulfilled(response) {
-        response.ok = response.status >= 200 && response.status < 300;
-        return response;
-    });
-}
-
-var Http = function () {
-    function Http() {
-        var config = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-        babelHelpers.classCallCheck(this, Http);
-
-        this.urlencode = !!config.urlencode;
-        this.override = !!config.override;
-        this.timeout = config.timeout || 0;
-        this.headers = config.headers || {};
-        this._url = parse(config.url || '');
-    }
-
-    babelHelpers.createClass(Http, [{
-        key: 'GET',
-        value: function GET(data) {
-            return Http.method(this, 'GET', data);
-        }
-    }, {
-        key: 'POST',
-        value: function POST(data) {
-            return Http.method(this, 'POST', data);
-        }
-    }, {
-        key: 'PUT',
-        value: function PUT(data) {
-            return Http.method(this, 'PUT', data);
-        }
-    }, {
-        key: 'PATCH',
-        value: function PATCH(data) {
-            return Http.method(this, 'PATCH', data);
-        }
-    }, {
-        key: 'DELETE',
-        value: function DELETE(data) {
-            return Http.method(this, 'DELETE', data);
-        }
-    }, {
-        key: 'url',
-        get: function get() {
-            return format(this._url);
-        }
-    }, {
-        key: 'params',
-        get: function get() {
-            return this._url.query;
-        },
-        set: function set(obj) {
-            this._url.query = obj;
-        }
-    }, {
-        key: 'path',
-        get: function get() {
-            return this._url.path;
-        },
-        set: function set(obj) {
-            this._url.path = obj;
-        }
-    }], [{
-        key: 'method',
-        value: function method(http, _method) {
-            var data = arguments.length <= 2 || arguments[2] === undefined ? {} : arguments[2];
-
-            return Http.request({
-                urlencode: http.urlencode,
-                override: http.override,
-                timeout: http.timeout,
-                headers: clone(http.headers),
-                url: http._url,
-                data: data,
-                method: _method
-            });
-        }
-    }, {
-        key: 'request',
-        value: function request(_request) {
-            Http.interceptors.request.dispatch(_request);
-            //might not do this here
-            _request.url = format(_request.url);
-            return client(_request).then(function clientRequestFulfilled(response) {
-                Http.interceptors.response.dispatch(response);
-                return response.ok ? response : Promise.reject(response);
-            });
-        }
-    }]);
-    return Http;
-}();
-
-Http.interceptors = {
-    request: new Signal(),
-    response: new Signal()
-};
-
-Http.interceptors.request.add(request$3);
-Http.interceptors.request.add(request$4);
-Http.interceptors.request.add(request$2);
-Http.interceptors.request.add(request$5);
-Http.interceptors.request.add(request$1);
-Http.interceptors.response.add(response$1);
-Http.interceptors.response.add(response);
-
 var VOID_TAGS = ['area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'];
 
 var IGNORE_TAGS = ['script'];
@@ -2166,10 +2194,20 @@ function childrenMutationCallback(record) {
     }
 }
 
+function eventMutationCallback(record) {
+    var node = record.target.parent;
+    if (record.method === 'add') {
+        node.DOMNode.addEventListener(mutation.type, dispatchEventListener(node, mutation.type));
+    } else if (mutation.method === 'delete') {
+        node.DOMNode.removeEventListener(mutation.type);
+    }
+}
+
 function compileDOM(node) {
     var textObserver = void 0,
         attributeObserver = void 0,
-        childrenObserver = void 0;
+        childrenObserver = void 0,
+        eventObserver = void 0;
     if (node instanceof Text) {
         node.DOMNode = document.createTextNode(node.value.textContent);
         textObserver = new Observer(textNodeMutationCallback);
@@ -2194,9 +2232,21 @@ function compileDOM(node) {
     } else {
         throw new Error('Unspecified node instance');
     }
+    eventObserver = new Observer(eventMutationCallback);
+    eventObserver.observe(node.events);
+    node.observers.push(eventObserver);
+    for (var evt in node.events) {
+        node.DOMNode.addEventListener(evt, dispatchEventListener(node, evt));
+    }
     if (node.parent) {
         node.parent.DOMNode.appendChild(node.DOMNode);
     }
+}
+
+function dispatchEventListener(node, evt) {
+    return function eventListenerClosure(e) {
+        node.events[evt].dispatch(e);
+    };
 }
 
 function compileBindings(node) {
@@ -2229,11 +2279,24 @@ function compileNode(node) {
     if (typeof document !== 'undefined') {
         compileDOM(node);
     }
-    compileBindings(node);
     node.compiled = true;
+    compileBindings(node);
     if (node.children) {
         node.children.forEach(compileNode);
     }
+}
+
+function transclude(node, target) {
+    if (typeof document === 'undefined') {
+        throw new Error('transclude requires a document');
+    }
+    if (!node.transclude && !target) {
+        throw new Error('unspecified transclusion target');
+    }
+    target = node.transclude || target;
+    target.parentNode.insertBefore(node.DOMNode, target);
+    target.parentNode.removeChild(target);
+    node.transclude = undefined;
 }
 
 function clone$1(node) {
@@ -2248,19 +2311,6 @@ function clone$1(node) {
         clone = compile(clone);
     }
     return clone;
-}
-
-function transclude(node, target) {
-    if (typeof document === 'undefined') {
-        throw new Error('transclude requires a document');
-    }
-    if (!node.transclude && !target) {
-        throw new Error('unspecified transclusion target');
-    }
-    target = node.transclude || target;
-    target.parentNode.insertBefore(node.DOMNode, target);
-    target.parentNode.removeChild(target);
-    node.transclude = undefined;
 }
 
 var Component = function () {
@@ -2372,14 +2422,14 @@ var index = {
     vdom: vdom,
     url: url$1,
     Observer: Observer,
-    Bind: Bind,
     Store: Store,
     Http: Http,
+    Bind: Bind,
+    Component: Component,
     parse: parse$4,
     compile: compile,
     clone: clone$1,
-    transclude: transclude,
-    Component: Component
+    transclude: transclude
 };
 
 module.exports = index;

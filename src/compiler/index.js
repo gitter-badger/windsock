@@ -92,10 +92,20 @@ function childrenMutationCallback(record){
     }
 }
 
+function eventMutationCallback(record){
+    let node = record.target.parent;
+    if(record.method === 'add'){
+        node.DOMNode.addEventListener(mutation.type, dispatchEventListener(node, mutation.type));
+    }else if(mutation.method === 'delete'){
+        node.DOMNode.removeEventListener(mutation.type);
+    }
+}
+
 export function compileDOM(node){
     let textObserver,
         attributeObserver,
-        childrenObserver;
+        childrenObserver,
+        eventObserver;
     if(node instanceof Text){
         node.DOMNode = document.createTextNode(node.value.textContent);
         textObserver = new Observer(textNodeMutationCallback);
@@ -121,9 +131,21 @@ export function compileDOM(node){
     }else{
         throw new Error('Unspecified node instance');
     }
+    eventObserver = new Observer(eventMutationCallback);
+    eventObserver.observe(node.events);
+    node.observers.push(eventObserver);
+    for(var evt in node.events){
+        node.DOMNode.addEventListener(evt, dispatchEventListener(node, evt));
+    }
     if(node.parent){
         node.parent.DOMNode.appendChild(node.DOMNode);
     }
+}
+
+function dispatchEventListener(node, evt){
+    return function eventListenerClosure(e){
+        node.events[evt].dispatch(e);
+    };
 }
 
 export function compileBindings(node){

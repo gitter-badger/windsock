@@ -32,10 +32,7 @@ export default class Fragment extends Node{
                 fragment.append(child.clone(true));
             });
         }
-        fragment.transclude = this.transclude;
-        for(let key in this.bindings){
-            fragment.bindings[key] = this.bindings[key];
-        }
+        Node.clone(fragment, this, deep);
         return fragment;
     }
     append(node){

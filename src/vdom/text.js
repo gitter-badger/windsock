@@ -30,10 +30,7 @@ export default class Text extends Node{
     }
     clone(){
         let node = new Text(this.value.textContent);
-        node.transclude = this.transclude;
-        for(let key in this.bindings){
-            node.bindings[key] = this.bindings[key];
-        }
+        Node.clone(node, this);
         return node;
     }
     remove(){

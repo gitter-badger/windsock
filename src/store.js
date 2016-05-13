@@ -15,6 +15,6 @@ export default class Store{
         if(!mutation){
             throw new Error(`${name} mutation does not exist`);
         }
-        mutation.dispatch(this.state, args);
+        mutation.dispatch(this._state, args);
     }
 }

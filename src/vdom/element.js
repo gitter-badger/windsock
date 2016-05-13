@@ -1,4 +1,5 @@
 import {is, clone} from '../util';
+import Node from './node';
 import Fragment from './fragment';
 
 export default class Element extends Fragment{
@@ -61,10 +62,7 @@ export default class Element extends Fragment{
                 element.append(child.clone(true));
             });
         }
-        element.transclude = this.transclude;
-        for(let key in this.bindings){
-            element.bindings[key] = this.bindings[key];
-        }
+        Node.clone(element, this, deep);
         return element;
     }
     remove(){

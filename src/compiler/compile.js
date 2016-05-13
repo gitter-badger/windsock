@@ -17,8 +17,8 @@ function compileNode(node){
     if(typeof document !== 'undefined'){
         compiler.compileDOM(node);
     }
-    compiler.compileBindings(node);
     node.compiled = true;
+    compiler.compileBindings(node);
     if(node.children){
         node.children.forEach(compileNode);
     }
