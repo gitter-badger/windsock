@@ -18,7 +18,7 @@ observer.observe(state);
 
 ```
 
-Later you can update the state object and the observers' callback will be invoked synchronously for each mutation respectively.
+Later you can update the state object and the observers callback will be invoked synchronously for each mutation.
 
 ``` js
 state.awesome = false; // :(

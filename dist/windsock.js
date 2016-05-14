@@ -1202,8 +1202,8 @@ var url$1 = Object.freeze({
         return Store;
     }();
 
-    var origin = parse(location.href);
-
+    var location$1 = location$1 || undefined;
+    var origin = !is(location$1, 'undefined') ? parse(location$1.href) : {};
     function request$1(request) {
         request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
         return request;
@@ -2421,7 +2421,7 @@ var url$1 = Object.freeze({
     Component.components = {};
 
     var index = {
-        version: '0.1.14',
+        version: '0.2.1-0',
         util: util,
         vdom: vdom,
         url: url$1,

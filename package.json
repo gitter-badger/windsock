@@ -1,6 +1,6 @@
 {
   "name": "windsock",
-  "version": "0.1.14",
+  "version": "0.2.1",
   "author": "Ben Sawyer",
   "description": "Flux inspired library for building web applications",
   "license": "MIT",
@@ -22,9 +22,9 @@
   "scripts": {
     "build": "node ./build.js",
     "build:watch": "watch 'npm run build' src/",
-    "publish": "bash ./publish.sh",
     "test:unit": "mocha test/unit",
     "test": "npm run test:unit",
-    "docs": "cd docs && gitbook serve"
+    "docs": "gitbook serve ./docs",
+    "release": "bash ./release.sh"
   }
 }

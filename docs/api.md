@@ -14,10 +14,10 @@ A method to invoke on mutation. Callback called with a mutation record.
 - **observe(target, recursive)**
 
     Converts a target into an observable object
-    - target `Object||Array`
+    - target `Object|Array`
         The targets current properties are converted in to accessors and augmented with appropriate mutation methods.
     - recursive `Boolean`
-        Whether or not to also observer child Objects||Arrays, defaults to false
+        Whether or not to also observer child Objects|Arrays, defaults to false
 
 - **disconnect()**
 
@@ -25,9 +25,9 @@ A method to invoke on mutation. Callback called with a mutation record.
 
 ### MutationRecord
 #### MutationRecord Instance Properties
-- **type** `String||Number`
+- **type** `String|Number`
 Property on observable that was modified
-- **target** `Object||Array`
+- **target** `Object|Array`
 The target observable object
 - **method** `String`
 The mutation method
