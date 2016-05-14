@@ -24,7 +24,8 @@
     "build:watch": "watch 'npm run build' src/",
     "test:unit": "mocha test/unit",
     "test": "npm run test:unit",
-    "docs": "gitbook serve ./docs",
+    "docs": "bash ./docs.sh",
+    "docs:serve": "gitbook serve ./docs",
     "release": "bash ./release.sh"
   }
 }
