@@ -5,6 +5,9 @@ indent_style = space
 trim_trailing_whitespace = true
 insert_final_newline = true
 
+[*.{json,yml,yaml,html,css}]
+ indent_size = 2
+
 [*.{js}]
 indent_size = 4
 

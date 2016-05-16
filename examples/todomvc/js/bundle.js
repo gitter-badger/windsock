@@ -2326,8 +2326,9 @@ const mutations = {
         }
     },
     clear: function(state, index){
-        let completed = state.todos.filter(todo=>todo.completed);
+        let completed;
         if(index === true){
+            completed = state.todos.filter(todo=>todo.completed);
             while(completed.length){
                 state.todos.splice(state.todos.indexOf(completed.pop()),1);
             }
@@ -2463,29 +2464,37 @@ let todoBind = new Bind({
             input = node.find({class:'edit'}),
             t = null;
         node.todo = todo;
-        node.find('label').on('click', ()=>{
+        node.find('label').on('click', (e)=>{
+            e.preventDefault();
+            e.stopPropagation();
             if(t){
                 clearTimeout(t);
                 store.dispatch('editing', todo);
             }else{
-                t = setTimeout(()=>{t = null;}, 250);
+                t = setTimeout(()=>{t = null;}, 300);
             }
         });
-        input.on('blur', (e, node)=>{
+        input.on('focus', (e, n)=>{
+            n.DOMNode.value = n.DOMNode.value;
+        });
+        input.on('blur', (e, n)=>{
             store.dispatch('editing', null);
-            if(node.DOMNode.value.length){
-                store.dispatch('edit', todo, node.DOMNode.value);
+            if(n.DOMNode.value.length){
+                store.dispatch('edit', todo, n.DOMNode.value);
+            }else{
+                store.dispatch('clear', state$1.todos.indexOf(todo));
             }
         });
-        input.on('keyup', (e, node)=>{
+        input.on('keyup', (e, n)=>{
             if(e.keyCode === 13){
                 store.dispatch('editing', null);
-                if(node.DOMNode.value.length){
-                    store.dispatch('edit', todo, node.DOMNode.value);
+                if(n.DOMNode.value.length){
+                    store.dispatch('edit', todo, n.DOMNode.value);
                 }
             }
             if(e.keyCode === 27){
                 store.dispatch('editing', null);
+                store.dispatch('clear', state$1.todos.indexOf(todo));
             }
         });
     }
@@ -2495,6 +2504,11 @@ let editingBind = new Bind({
     update: function(node, binding){
         if(node.todo === binding.target.parent[binding.target.key]){
             node.attributes.class += ' editing';
+            if(node.compiled){
+                setTimeout(()=>{
+                    node.find({class:'edit'}).DOMNode.focus();
+                }, 10);
+            }
         }else{
             node.attributes.class = node.attributes.class.replace(' editing','');
         }
