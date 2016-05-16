@@ -8,7 +8,7 @@ export default class Node{
         this.DOMNode = undefined;
         this.observers = [];
         this.bindings = {};
-        this.events = {}
+        this.events = defineEventsParent(this);
     }
     get jsonml(){
         return '';
@@ -74,4 +74,14 @@ export default class Node{
             }
         }
     }
+}
+
+function defineEventsParent(instance, events = {}){
+    Object.defineProperty(events, 'parent', {
+        value: instance,
+        enumerable: false,
+        writable: false,
+        configurable: false
+    });
+    return events;
 }

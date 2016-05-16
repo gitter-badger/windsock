@@ -12,11 +12,11 @@ import compile from './compiler/compile';
 import clone from './clone';
 import transclude from './transclude';
 
-export default{
-    version:'0.2.1-0',
+export {
     util,
     vdom,
     url,
+    router,
     Observer,
     Store,
     Http,

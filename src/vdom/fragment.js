@@ -114,7 +114,7 @@ function nodeNamePredicate(query, child){
 }
 
 function nodeAttributePredicate(query, child){
-    if(child instanceof Text || child instanceof Fragment){
+    if(!child.attributes){
         return false;
     }
     return match(child.attributes, query);

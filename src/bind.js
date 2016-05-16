@@ -2,7 +2,7 @@ import {is} from './util';
 import Observer from './Observer';
 
 export default class Bind{
-    constructor(transform = {}){
+    constructor(transform = {}, recursive = false){
         if(is(transform, 'function')){
             this.transform = {
                 update: transform
@@ -10,6 +10,7 @@ export default class Bind{
         }else{
             this.transform = transform;
         }
+        this.recursive = recursive;
     }
     render(node, target, keypath = ''){
         let targetMap = keypathTraversal(target, keypath);
@@ -27,13 +28,13 @@ export default class Bind{
             observer;
         if(is(target.value, 'object') || is(target.value, 'array')){
             observer = new Observer((mutation)=>{
-                instance.transform.update && instance.transform.update(node, mutation, binding);
+                instance.transform.update && instance.transform.update(node, binding, mutation);
             });
             observer.observe(target.value);
         }else{
             observer = new Observer((mutation)=>{
                 if(mutation.type === target.key){
-                    instance.transform.update && instance.transform.update(node, mutation, binding);
+                    instance.transform.update && instance.transform.update(node, binding, mutation);
                 }
             });
             observer.observe(target.parent);
@@ -60,7 +61,7 @@ function renderNode(node, instance, target){
         instance: instance,
         observer: undefined
     };
-    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop]);
+    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop], instance.recursive);
 }
 
 function keypathTraversal(target, keypath){

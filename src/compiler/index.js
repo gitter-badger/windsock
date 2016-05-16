@@ -95,9 +95,9 @@ function childrenMutationCallback(record){
 function eventMutationCallback(record){
     let node = record.target.parent;
     if(record.method === 'add'){
-        node.DOMNode.addEventListener(mutation.type, dispatchEventListener(node, mutation.type));
-    }else if(mutation.method === 'delete'){
-        node.DOMNode.removeEventListener(mutation.type);
+        node.DOMNode.addEventListener(record.type, dispatchEventListener(node, record.type));
+    }else if(record.method === 'delete'){
+        node.DOMNode.removeEventListener(record.type);
     }
 }
 
@@ -144,7 +144,7 @@ export function compileDOM(node){
 
 function dispatchEventListener(node, evt){
     return function eventListenerClosure(e){
-        node.events[evt].dispatch(e);
+        node.events[evt].dispatch(e, node);
     };
 }
 

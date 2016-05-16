@@ -204,7 +204,7 @@ var Node = function () {
         this.DOMNode = undefined;
         this.observers = [];
         this.bindings = {};
-        this.events = {};
+        this.events = defineEventsParent(this);
     }
 
     babelHelpers.createClass(Node, [{
@@ -298,6 +298,18 @@ var Node = function () {
     }]);
     return Node;
 }();
+
+function defineEventsParent(instance) {
+    var events = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+    Object.defineProperty(events, 'parent', {
+        value: instance,
+        enumerable: false,
+        writable: false,
+        configurable: false
+    });
+    return events;
+}
 
 var Text = function (_Node) {
     babelHelpers.inherits(Text, _Node);
@@ -524,7 +536,7 @@ function nodeNamePredicate(query, child) {
 }
 
 function nodeAttributePredicate(query, child) {
-    if (child instanceof Text || child instanceof Fragment) {
+    if (!child.attributes) {
         return false;
     }
     return match(child.attributes, query);
@@ -804,6 +816,224 @@ function format(obj) {
 var url$1 = Object.freeze({
     parse: parse,
     format: format
+});
+
+var queue = [];
+var active = [];
+var states = {};
+var config = {
+    hash: true,
+    root: '/'
+};
+var request = void 0;
+var routing = false;
+var listener = void 0;
+var i = void 0;
+function register(p, h) {
+    if (!is(h, 'object')) {
+        throw new Error('parameter must be an object');
+    }
+    if (!states[p]) {
+        states[p] = [h];
+    } else {
+        states[p].push(h);
+    }
+}
+
+function go(p) {
+    var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+    var split = p.split('/');
+    split.params = params;
+    queue.push(split);
+    if (!routing) {
+        next();
+    }
+}
+
+function start() {
+    var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+
+    var _ref$hash = _ref.hash;
+    var hash = _ref$hash === undefined ? true : _ref$hash;
+    var _ref$root = _ref.root;
+    var root = _ref$root === undefined ? '/' : _ref$root;
+
+    var evt = hash ? 'hashchange' : 'popstate';
+    if (listener) {
+        console.warn('router already started');
+        return;
+    }
+    config.hash = hash;
+    config.root = hash ? '#' : root;
+    listener = function listener(e) {
+        var pathname = normalize$1(config.hash ? location.hash : location.pathname).split('/'),
+            p = resolve(pathname) || config.root,
+            params = void 0;
+        if (p) {
+            params = {
+                path: parse$2(p),
+                query: parse$1(location.search, {
+                    query: true
+                }),
+                replace: !config.hash,
+                hashChange: config.hash,
+                event: e
+            };
+            for (var key in params.path) {
+                params.path[key] = pathname[params.path[key]];
+            }
+            go(p, params);
+        }
+    };
+    window.addEventListener(evt, listener);
+    listener();
+}
+
+function stop() {
+    var evt = config.hash ? 'hashchange' : 'popstate';
+    if (!listener) {
+        console.warn('router no started');
+        return;
+    }
+    window.removeEventListener(evt, listener);
+    listener = undefined;
+}
+
+function resolve(pathname) {
+    var literal = 0,
+        resolved = void 0;
+    Object.keys(states).forEach(function (p) {
+        var l = compare(p.split('/'), pathname);
+        if (l > literal) {
+            literal = l;
+            resolved = p;
+        }
+    });
+    return resolved;
+}
+
+function compare(p, pathname) {
+    var literal = 0;
+    if (p.length !== pathname.length) {
+        return 0;
+    }
+    for (var n = 0, l = p.length; n < l; n++) {
+        if (p[n].indexOf(':') === 0) {
+            continue;
+        }
+        if (p[n] !== pathname[n]) {
+            return 0;
+        } else {
+            literal++;
+        }
+    }
+    return literal;
+}
+
+function next() {
+    if (queue.length) {
+        routing = true;
+        request = queue.shift();
+        parse$3();
+    } else {
+        routing = false;
+    }
+}
+
+function parse$3() {
+    i = 0;
+    while (i < request.length) {
+        if (request[i] !== active[i]) {
+            deactivate();
+            return;
+        }
+        i++;
+    }
+    deactivate();
+}
+
+function deactivate() {
+    var state = void 0;
+    if (active.length - i > 0) {
+        console.log('deactivating: ' + active.join('/'));
+        state = states[active.join('/')];
+        if (state) {
+            series(state.map(function (h) {
+                return h.deactivate || noop;
+            })).then(function () {
+                active.pop();
+                deactivate();
+            }).catch(function (e) {
+                console.warn(e);
+                next();
+            });
+        } else {
+            active.pop();
+            deactivate();
+        }
+    } else {
+        activate();
+    }
+}
+
+function activate() {
+    var state = void 0;
+    if (active.length < request.length) {
+        active.push(request[active.length]);
+        console.log('activating: ' + active.join('/'));
+        state = states[active.join('/')];
+        if (state) {
+            series(state.map(function (h) {
+                return h.activate || noop;
+            })).then(activate).catch(function (e) {
+                console.warn(e);
+                next();
+            });
+        } else {
+            activate();
+        }
+    } else {
+        if (config.hash) {
+            if (!request.params.hashChange) {
+                if (request.params.replace) {
+                    location.replace(normalize$2());
+                } else {
+                    location.hash = normalize$2();
+                }
+            }
+        } else {
+            if (request.params.replace) {
+                history.replaceState({}, '', normalize$2());
+            } else {
+                history.pushState({}, '', normalize$2());
+            }
+        }
+        next();
+    }
+}
+
+function normalize$2() {
+    var pathname = request.params.path ? format$2(active.join('/'), request.params.path) : active.join('/'),
+        search = request.params.query ? format$1(request.params.query, {
+        query: true
+    }) : '';
+    return config.root + pathname + search;
+}
+
+function series(fns) {
+    return fns.reduce(function (promise, fn) {
+        return promise.then(function () {
+            return fn(request.params);
+        });
+    }, Promise.resolve());
+}
+
+var router = Object.freeze({
+    register: register,
+    go: go,
+    start: start,
+    stop: stop
 });
 
 var ARRAY_MUTATOR_METHODS = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
@@ -1182,23 +1412,23 @@ var Store = function () {
 
     babelHelpers.createClass(Store, [{
         key: 'dispatch',
-        value: function dispatch(name) {
-            var mutation = this._mutations[name];
+        value: function dispatch() {
+            for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+                args[_key] = arguments[_key];
+            }
+
+            var name = args.shift(),
+                mutation = this._mutations[name];
             if (!mutation) {
                 throw new Error(name + ' mutation does not exist');
             }
-
-            for (var _len = arguments.length, args = Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
-                args[_key - 1] = arguments[_key];
-            }
-
-            mutation.dispatch(this._state, args);
+            mutation.dispatch.apply(mutation, [this._state].concat(args));
         }
     }]);
     return Store;
 }();
 
-var location$1 = location$1 || undefined;
+var location$1 = window && window.location || undefined;
 var origin = !is(location$1, 'undefined') ? parse(location$1.href) : {};
 function request$1(request) {
     request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
@@ -1767,6 +1997,7 @@ function disconnectRecursiveObservers$1(target, observerList) {
 var Bind = function () {
     function Bind() {
         var transform = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+        var recursive = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
         babelHelpers.classCallCheck(this, Bind);
 
         if (is(transform, 'function')) {
@@ -1776,6 +2007,7 @@ var Bind = function () {
         } else {
             this.transform = transform;
         }
+        this.recursive = recursive;
     }
 
     babelHelpers.createClass(Bind, [{
@@ -1800,13 +2032,13 @@ var Bind = function () {
                 observer = void 0;
             if (is(target.value, 'object') || is(target.value, 'array')) {
                 observer = new Observer$1(function (mutation) {
-                    instance.transform.update && instance.transform.update(node, mutation, binding);
+                    instance.transform.update && instance.transform.update(node, binding, mutation);
                 });
                 observer.observe(target.value);
             } else {
                 observer = new Observer$1(function (mutation) {
                     if (mutation.type === target.key) {
-                        instance.transform.update && instance.transform.update(node, mutation, binding);
+                        instance.transform.update && instance.transform.update(node, binding, mutation);
                     }
                 });
                 observer.observe(target.parent);
@@ -1835,7 +2067,7 @@ function renderNode(node, instance, target) {
         instance: instance,
         observer: undefined
     };
-    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop]);
+    Bind.observer(bindMap.node, bindMap.node.bindings[bindMap.prop], instance.recursive);
 }
 
 function keypathTraversal(target, keypath) {
@@ -2197,9 +2429,9 @@ function childrenMutationCallback(record) {
 function eventMutationCallback(record) {
     var node = record.target.parent;
     if (record.method === 'add') {
-        node.DOMNode.addEventListener(mutation.type, dispatchEventListener(node, mutation.type));
-    } else if (mutation.method === 'delete') {
-        node.DOMNode.removeEventListener(mutation.type);
+        node.DOMNode.addEventListener(record.type, dispatchEventListener(node, record.type));
+    } else if (record.method === 'delete') {
+        node.DOMNode.removeEventListener(record.type);
     }
 }
 
@@ -2245,7 +2477,7 @@ function compileDOM(node) {
 
 function dispatchEventListener(node, evt) {
     return function eventListenerClosure(e) {
-        node.events[evt].dispatch(e);
+        node.events[evt].dispatch(e, node);
     };
 }
 
@@ -2416,20 +2648,16 @@ Component.component = function (name, cls) {
 
 Component.components = {};
 
-var index = {
-    version: '0.2.1-0',
-    util: util,
-    vdom: vdom,
-    url: url$1,
-    Observer: Observer,
-    Store: Store,
-    Http: Http,
-    Bind: Bind,
-    Component: Component,
-    parse: parse$4,
-    compile: compile,
-    clone: clone$1,
-    transclude: transclude
-};
-
-module.exports = index;
+exports.util = util;
+exports.vdom = vdom;
+exports.url = url$1;
+exports.router = router;
+exports.Observer = Observer;
+exports.Store = Store;
+exports.Http = Http;
+exports.Bind = Bind;
+exports.Component = Component;
+exports.parse = parse$4;
+exports.compile = compile;
+exports.clone = clone$1;
+exports.transclude = transclude;

@@ -1,7 +1,7 @@
 import {is} from '../util';
 import * as url from '../url/index';
 
-let location = location || undefined,
+let location = window && window.location || undefined,
     origin = !is(location, 'undefined') ? url.parse(location.href) : {};
 
 export function request(request){

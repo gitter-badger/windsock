@@ -10,11 +10,12 @@ export default class Store{
                 this._mutations[name].add(mutations[name]);
             });
     }
-    dispatch(name, ...args){
-        let mutation = this._mutations[name];
+    dispatch(...args){
+        let name = args.shift(),
+            mutation = this._mutations[name];
         if(!mutation){
             throw new Error(`${name} mutation does not exist`);
         }
-        mutation.dispatch(this._state, args);
+        mutation.dispatch.apply(mutation, [this._state, ...args]);
     }
 }
