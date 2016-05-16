@@ -2493,8 +2493,9 @@ let todoBind = new Bind({
                 }
             }
             if(e.keyCode === 27){
+                e.preventDefault();
+                e.stopPropagation();
                 store.dispatch('editing', null);
-                store.dispatch('clear', state$1.todos.indexOf(todo));
             }
         });
     }
