@@ -2292,10 +2292,12 @@ const mutations = {
         }
     },
     clear: function(state, index){
+        let completed = state.todos.filter(todo=>todo.completed);
         if(index === true){
-            while(state.todos.length){
-                state.todos.splice(0,1);
+            while(completed.length){
+                state.todos.splice(state.todos.indexOf(completed.pop()),1);
             }
+            state.active = state.todos.length;
         }else{
             state.todos.splice(index, 1);
         }
