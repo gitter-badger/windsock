@@ -11,8 +11,9 @@ import {
 
 const TODOS = 'todos',
       state = {
-          todos: getTodos(),
+          todos: [],
           active: 0,
+          editing: null,
           path: ''
       },
       NONE = 'display:none;',
@@ -20,14 +21,26 @@ const TODOS = 'todos',
           text: ''
       };
 
+getTodos();
+
 function getTodos(){
-    let t = localStorage.getItem(TODOS);
-    return t ? JSON.parse(t) : [];
+    let todos = localStorage.getItem(TODOS);
+    todos = todos ? JSON.parse(todos) : [];
+    state.active = todos.filter(todo=>!todo.completed).length;
+    state.todos = todos;
 }
 
 const mutations = {
     route: function(state, path){
-        state.path = path;
+        if(state.path !== path){
+            state.path = path;
+        }
+    },
+    editing: function(state, todo){
+        state.editing = todo;
+    },
+    edit: function(state, todo, text){
+        todo.text = text;
     },
     add: function(state, text){
         state.todos.push({
@@ -36,10 +49,12 @@ const mutations = {
         });
         state.active++;
     },
-    delete: function(){},
-    toggle: function(state, index){
+    toggle: function(state, index, value){
         if(index === true){
-            //toggle all
+            state.todos.forEach((todo)=>{
+                todo.completed = value;
+            });
+            state.active = value ? 0 : state.todos.length;
         }else{
             state.todos[index].completed = !state.todos[index].completed;
             state.todos[index].completed ? state.active-- : state.active++;
@@ -58,7 +73,9 @@ const mutations = {
     }
 };
 
-const store = new Store(state, mutations);
+const store = new Store(state, mutations, (name, state)=>{
+    localStorage.setItem(TODOS, JSON.stringify(state.todos));
+});
 
 router.register('#', {
     activate: function(){
@@ -148,6 +165,8 @@ let completedIf = new If((node, binding)=>{
 
 let todoBind = new Bind({
     bind: (node, target)=>{
+        let input = node.find({class:'edit'});
+        input.attributes.value = target.value.text;
         node.find('label').children[0].text = target.value.text;
         node.attributes.class = target.value.completed ? 'todo completed' : 'todo';
         if(target.value.completed === false){
@@ -159,29 +178,79 @@ let todoBind = new Bind({
         };
     },
     update: (node, binding, mutation)=>{
-        let checkbox = node.find({class: 'toggle'});
+        let checkbox = node.find({class: 'toggle'}),
+            input = node.find({class: 'edit'});
         if(mutation.type === 'completed'){
             node.attributes.class = mutation.newValue ? 'todo completed' : 'todo';
-            if(mutation.newValue === true && checkbox.attributes.checked){
-                if(checkbox.compiled){
-                    checkbox.attributes.delete('checked');
-                }else{
-                    delete checkbox.attributes.checked;
-                }
-            }
-            if(mutation.newValue === false && !checkbox.attributes.checked){
-                if(checkbox.compiled){
-                    checkbox.attributes.add('checked', 'checked');
-                }else{
-                    checkbox.attributes.checked = null;
-                }
-            }
+            setChecked(checkbox, mutation.newValue);
         }
         if(mutation.type === 'text'){
             node.find('label').children[0].text = mutation.newValue;
+            if(node.compiled){
+                input.DOMNode.value = mutation.newValue;
+            }else{
+                input.attributes.value = mutation.newValue;
+            }
+        }
+    },
+    compile: (node, binding)=>{
+        let todo = binding.target.value,
+            input = node.find({class:'edit'}),
+            t = null;
+        node.todo = todo;
+        node.find('label').on('click', ()=>{
+            if(t){
+                clearTimeout(t);
+                store.dispatch('editing', todo);
+            }else{
+                t = setTimeout(()=>{t = null;}, 250);
+            }
+        });
+        input.on('blur', (e, node)=>{
+            store.dispatch('editing', null);
+            if(node.DOMNode.value.length){
+                store.dispatch('edit', todo, node.DOMNode.value);
+            }
+        });
+        input.on('keyup', (e, node)=>{
+            if(e.keyCode === 13){
+                store.dispatch('editing', null);
+                if(node.DOMNode.value.length){
+                    store.dispatch('edit', todo, node.DOMNode.value);
+                }
+            }
+            if(e.keyCode === 27){
+                store.dispatch('editing', null);
+            }
+        });
+    }
+});
+
+let editingBind = new Bind({
+    update: function(node, binding){
+        if(node.todo === binding.target.parent[binding.target.key]){
+            node.attributes.class += ' editing';
+        }else{
+            node.attributes.class = node.attributes.class.replace(' editing','');
         }
     }
 });
+
+function setChecked(checkbox, completed){
+    if(checkbox.compiled){
+        if(checkbox.DOMNode.checked !== completed){
+            checkbox.DOMNode.checked = completed;
+        }
+    }else{
+        if(completed === true){
+            checkbox.attributes.checked = null;
+        }else{
+            if(checkbox.attributes.checked){
+                delete checkbox.attributes.checked;
+            }
+        }
+    }
+}
 
 let todosBind = new Bind({
     bind: (node, target)=>{
@@ -217,19 +286,47 @@ let todosBind = new Bind({
 });
 
 function renderTodo(template, todo){
-    let c = template.clone(true);
-    c.find({class: 'toggle'})
+    let clone = template.clone(true);
+    clone.find({class: 'toggle'})
         .on('change', ()=>{
             store.dispatch('toggle', state.todos.indexOf(todo));
         });
-    todoBind.render(c, todo);
-    completedIf.render(c, state, 'path');
-    return c;
+    clone.find('button')
+        .on('click', ()=>{
+            store.dispatch('clear', state.todos.indexOf(todo));
+        });
+    todoBind.render(clone, todo);
+    editingBind.render(clone, state, 'editing');
+    return clone;
 }
+
+class Todo extends Component{
+    constructor(name, root){
+        super(name, root);
+    }
+    parse(s){
+        //these events and bindings will be cloned by parent Todos component
+        super.parse(s);
+        this.templates.forEach((template)=>{
+            completedIf.render(template, state, 'path');
+        });
+    }
+}
+
+Todo.components = {};
+
+Todo.template = '<li class="completed">\
+    <div class="view">\
+        <input class="toggle" type="checkbox" checked>\
+        <label>Taste JavaScript</label>\
+        <button class="destroy"></button>\
+    </div>\
+    <input class="edit" value="Create a TodoMVC template">\
+</li>';
 
 class Todos extends Component{
     constructor(name, root){
-        super('todos', root);
+        super(name, root);
     }
     parse(s){
         super.parse(s);
@@ -240,24 +337,19 @@ class Todos extends Component{
     }
 }
 
-Todos.components = {};
+Todos.components = {
+    todo: Todo
+};
 
 Todos.template = '<ul class="todo-list">\
-    <li class="completed">\
-        <div class="view">\
-            <input class="toggle" type="checkbox" checked>\
-            <label>Taste JavaScript</label>\
-            <button class="destroy"></button>\
-        </div>\
-        <input class="edit" value="Create a TodoMVC template">\
-    </li>\
+    <todo></todo>\
 </ul>';
 
 let newTodoBind = new Bind({
     compile: (node, binding)=>{
         node.on('keyup', (e, input)=>{
-            if(e.keyCode === 13 && node.DOMNode.value){
-                store.dispatch('add', node.DOMNode.value);
+            if(e.keyCode === 13){
+                store.dispatch('add', input.DOMNode.value);
                 binding.target.parent[binding.target.key] = '';
             }
         });
@@ -270,17 +362,58 @@ let newTodoBind = new Bind({
 });
 
 let activeBind = new Bind({
-    parse: activeCount,
-    compiled: activeCount,
+    bind: activeCount,
     update: activeCount
 });
 
 function activeCount(node, binding){
-    node.children[0].text = binding.target.parent[binding.target.key];
+    let target = binding.target || binding;
+    node.children[0].text = target.parent[target.key];
 }
 
 let clearIfBind = new If(()=>{
     return state.active < state.todos.length;
+});
+
+let activeLinkBind = new Bind({
+    bind: activeLink,
+    update: activeLink
+});
+
+function activeLink(node, binding){
+    let target = binding.target || binding,
+        path = `#/${target.parent[target.key]}`;
+    if(node.attributes.href === path){
+        if(node.compiled){
+            if(!node.attributes.class){
+                node.attributes.add('class', 'selected');
+                return;
+            }
+        }
+        node.attributes.class = 'selected';
+    }else{
+        if(node.compiled){
+            if(node.attributes.class){
+                node.attributes.delete('class');
+            }
+        }else{
+            if(node.attributes.class){
+                delete node.attributes.class;
+            }
+        }
+    }
+}
+
+let toggleAllBind = new Bind({
+    bind: function(node){
+        node.on('change', (e, node)=>{
+            store.dispatch('toggle', true, node.DOMNode.checked);
+        });
+        setChecked(node, state.active === 0);
+    },
+    update: function(node){
+        setChecked(node, state.active === 0);
+    }
 });
 
 class App extends Component{
@@ -292,9 +425,11 @@ class App extends Component{
         this.templates.forEach((template)=>{
             let footer = template.find('footer'),
                 clear = footer.find({class:'clear-completed'});
+            activeLinkBind.render(footer.filter('a'), state, 'path');
             newTodoBind.render(template.find('input'), newTodo, 'text');
             lengthIf.render(footer, state, 'todos');
             activeBind.render(footer.find('strong'), state, 'active');
+            toggleAllBind.render(template.find({class: 'toggle-all'}), state, 'active');
             clear.on('click', ()=>{
                 store.dispatch('clear', true);
             });

@@ -18,8 +18,9 @@ function compileNode(node){
         compiler.compileDOM(node);
     }
     node.compiled = true;
-    compiler.compileBindings(node);
+
     if(node.children){
         node.children.forEach(compileNode);
     }
+    compiler.compileBindings(node);
 }

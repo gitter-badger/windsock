@@ -572,48 +572,47 @@ const active = [];
 const states = {};
 const config = {
         hash: true,
-        root: '/'
+        root: '/',
+        reactivate: true
     };
 let request;
 let routing = false;
+let re = [];
 let listener;
 let i;
-function register(p, h) {
-    if (!is(h, 'object')) {
+function register(p, h){
+    if(!is(h, 'object')){
         throw new Error('parameter must be an object');
     }
-    if (!states[p]) {
+    if(!states[p]){
         states[p] = [h];
-    } else {
+    }else{
         states[p].push(h);
     }
 }
 
-function go(p, params = {}) {
+function go(p, params = {}){
     let split = p.split('/');
     split.params = params;
     queue.push(split);
-    if (!routing) {
+    if(!routing){
         next();
     }
 }
 
-function start({
-    hash = true,
-    root = '/'
-} = {}) {
+function start({hash = true, root = '/'} = {}){
     let evt = hash ? 'hashchange' : 'popstate';
-    if (listener) {
+    if(listener){
         console.warn('router already started');
         return;
     }
     config.hash = hash;
     config.root = hash ? '#' : root;
-    listener = (e) => {
+    listener = (e)=>{
         let pathname = normalize$1(config.hash ? location.hash : location.pathname).split('/'),
             p = resolve(pathname) || config.root,
             params;
-        if (p) {
+        if(p){
             params = {
                 path: parse$2(p),
                 query: parse$1(location.search, {
@@ -623,7 +622,7 @@ function start({
                 hashChange: config.hash,
                 event: e
             };
-            for (let key in params.path) {
+            for(let key in params.path){
                 params.path[key] = pathname[params.path[key]];
             }
             go(p, params);
@@ -633,13 +632,13 @@ function start({
     listener();
 }
 
-function resolve(pathname) {
+function resolve(pathname){
     let literal = 0,
         resolved;
     Object.keys(states)
-        .forEach((p) => {
+        .forEach((p)=>{
             let l = compare(p.split('/'), pathname);
-            if (l > literal) {
+            if(l > literal){
                 literal = l;
                 resolved = p;
             }
@@ -647,38 +646,38 @@ function resolve(pathname) {
     return resolved;
 }
 
-function compare(p, pathname) {
+function compare(p, pathname){
     let literal = 0;
-    if (p.length !== pathname.length) {
+    if(p.length !== pathname.length){
         return 0;
     }
-    for (let n = 0, l = p.length; n < l; n++) {
-        if (p[n].indexOf(':') === 0) {
+    for(let n = 0, l = p.length; n < l; n++){
+        if(p[n].indexOf(':') === 0){
             continue;
         }
-        if (p[n] !== pathname[n]) {
+        if(p[n] !== pathname[n]){
             return 0;
-        } else {
+        }else{
             literal++;
         }
     }
     return literal;
 }
 
-function next() {
-    if (queue.length) {
+function next(){
+    if(queue.length){
         routing = true;
         request = queue.shift();
         parse$3();
-    } else {
+    }else{
         routing = false;
     }
 }
 
-function parse$3() {
+function parse$3(){
     i = 0;
-    while (i < request.length) {
-        if (request[i] !== active[i]) {
+    while(i < request.length){
+        if(request[i] !== active[i]){
             deactivate();
             return;
         }
@@ -687,59 +686,76 @@ function parse$3() {
     deactivate();
 }
 
-function deactivate() {
+function deactivate(){
     let state;
-    if (active.length - i > 0) {
-        console.log('deactivating: ' + active.join('/'));
+    if(active.length - i > 0){
         state = states[active.join('/')];
-        if (state) {
+        if(state){
             series(state.map(h => h.deactivate || noop))
-                .then(() => {
+                .then(()=>{
                     active.pop();
                     deactivate();
                 })
-                .catch((e) => {
+                .catch((e)=>{
                     console.warn(e);
                     next();
                 });
-        } else {
+        }else{
             active.pop();
             deactivate();
         }
-    } else {
-        activate();
+    }else{
+        config.reactivate ? reactivate() : activate();
     }
 }
 
-function activate() {
+function reactivate(){
+    if(re.length < active.length){
+        re = active.slice(0, re.length + 1);
+        state = states[re.join('/')];
+        if(state){
+            series(state.map(h => h.activate || noop))
+                .then(reactivate)
+                .catch((e)=>{
+                    console.warn(e);
+                    re = [];
+                    next();
+                });
+            return;
+        }
+    }
+    re = [];
+    activate();
+}
+
+function activate(){
     let state;
-    if (active.length < request.length) {
+    if(active.length < request.length){
         active.push(request[active.length]);
-        console.log('activating: ' + active.join('/'));
         state = states[active.join('/')];
-        if (state) {
+        if(state){
             series(state.map(h => h.activate || noop))
                 .then(activate)
-                .catch((e) => {
+                .catch((e)=>{
                     console.warn(e);
                     next();
                 });
-        } else {
+        }else{
             activate();
         }
-    } else {
-        if (config.hash) {
-            if (!request.params.hashChange) {
-                if (request.params.replace) {
+    }else{
+        if(config.hash){
+            if(!request.params.hashChange){
+                if(request.params.replace){
                     location.replace(normalize$2())
-                } else {
+                }else{
                     location.hash = normalize$2();
                 }
             }
-        } else {
-            if (request.params.replace) {
+        }else{
+            if(request.params.replace){
                 history.replaceState({}, '', normalize$2());
-            } else {
+            }else{
                 history.pushState({}, '', normalize$2());
             }
         }
@@ -747,7 +763,7 @@ function activate() {
     }
 }
 
-function normalize$2() {
+function normalize$2(){
     let pathname = request.params.path ? format$2(active.join('/'), request.params.path) : active.join('/'),
         search = request.params.query ? format$1(request.params.query, {
             query: true
@@ -755,9 +771,9 @@ function normalize$2() {
     return config.root + pathname + search;
 }
 
-function series(fns) {
-    return fns.reduce((promise, fn) => {
-        return promise.then(() => {
+function series(fns){
+    return fns.reduce((promise, fn)=>{
+        return promise.then(()=>{
             return fn(request.params);
         });
     }, Promise.resolve());
@@ -1088,22 +1104,24 @@ function disconnectRecursiveObservers(target, observerList){
 }
 
 class Store{
-    constructor(state = {}, mutations = {}){
-        this._state = state;
-        this._mutations = {};
+    constructor(state = {}, mutations = {}, post){
+        this.state = state;
+        this.mutations = {};
+        this.post = post;
         Object.keys(mutations)
             .forEach((name)=>{
-                this._mutations[name] = new Signal();
-                this._mutations[name].add(mutations[name]);
+                this.mutations[name] = new Signal();
+                this.mutations[name].add(mutations[name]);
             });
     }
     dispatch(...args){
         let name = args.shift(),
-            mutation = this._mutations[name];
+            mutation = this.mutations[name];
         if(!mutation){
             throw new Error(`${name} mutation does not exist`);
         }
-        mutation.dispatch.apply(mutation, [this._state, ...args]);
+        mutation.dispatch.apply(mutation, [this.state, ...args]);
+        this.post && this.post(name, this.state, ...args);
     }
 }
 
@@ -2141,10 +2159,11 @@ function compileNode(node){
         compileDOM(node);
     }
     node.compiled = true;
-    compileBindings(node);
+
     if(node.children){
         node.children.forEach(compileNode);
     }
+    compileBindings(node);
 }
 
 function transclude(node, target){
@@ -2257,23 +2276,36 @@ Component.component = function(name, cls){
 Component.components = {};
 
 const TODOS = 'todos';
-const state = {
-          todos: getTodos(),
+const state$1 = {
+          todos: [],
           active: 0,
+          editing: null,
           path: ''
       };
 const NONE = 'display:none;';
 const newTodo = {
           text: ''
       };
+getTodos();
+
 function getTodos(){
-    let t = localStorage.getItem(TODOS);
-    return t ? JSON.parse(t) : [];
+    let todos = localStorage.getItem(TODOS);
+    todos = todos ? JSON.parse(todos) : [];
+    state$1.active = todos.filter(todo=>!todo.completed).length;
+    state$1.todos = todos;
 }
 
 const mutations = {
     route: function(state, path){
-        state.path = path;
+        if(state.path !== path){
+            state.path = path;
+        }
+    },
+    editing: function(state, todo){
+        state.editing = todo;
+    },
+    edit: function(state, todo, text){
+        todo.text = text;
     },
     add: function(state, text){
         state.todos.push({
@@ -2282,10 +2314,12 @@ const mutations = {
         });
         state.active++;
     },
-    delete: function(){},
-    toggle: function(state, index){
+    toggle: function(state, index, value){
         if(index === true){
-            //toggle all
+            state.todos.forEach((todo)=>{
+                todo.completed = value;
+            });
+            state.active = value ? 0 : state.todos.length;
         }else{
             state.todos[index].completed = !state.todos[index].completed;
             state.todos[index].completed ? state.active-- : state.active++;
@@ -2304,7 +2338,9 @@ const mutations = {
     }
 };
 
-const store = new Store(state, mutations);
+const store = new Store(state$1, mutations, (name, state)=>{
+    localStorage.setItem(TODOS, JSON.stringify(state.todos));
+});
 
 register('#', {
     activate: function(){
@@ -2394,6 +2430,8 @@ let completedIf = new If((node, binding)=>{
 
 let todoBind = new Bind({
     bind: (node, target)=>{
+        let input = node.find({class:'edit'});
+        input.attributes.value = target.value.text;
         node.find('label').children[0].text = target.value.text;
         node.attributes.class = target.value.completed ? 'todo completed' : 'todo';
         if(target.value.completed === false){
@@ -2405,29 +2443,79 @@ let todoBind = new Bind({
         };
     },
     update: (node, binding, mutation)=>{
-        let checkbox = node.find({class: 'toggle'});
+        let checkbox = node.find({class: 'toggle'}),
+            input = node.find({class: 'edit'});
         if(mutation.type === 'completed'){
             node.attributes.class = mutation.newValue ? 'todo completed' : 'todo';
-            if(mutation.newValue === true && checkbox.attributes.checked){
-                if(checkbox.compiled){
-                    checkbox.attributes.delete('checked');
-                }else{
-                    delete checkbox.attributes.checked;
-                }
-            }
-            if(mutation.newValue === false && !checkbox.attributes.checked){
-                if(checkbox.compiled){
-                    checkbox.attributes.add('checked', 'checked');
-                }else{
-                    checkbox.attributes.checked = null;
-                }
-            }
+            setChecked(checkbox, mutation.newValue);
         }
         if(mutation.type === 'text'){
             node.find('label').children[0].text = mutation.newValue;
+            if(node.compiled){
+                input.DOMNode.value = mutation.newValue;
+            }else{
+                input.attributes.value = mutation.newValue;
+            }
+        }
+    },
+    compile: (node, binding)=>{
+        let todo = binding.target.value,
+            input = node.find({class:'edit'}),
+            t = null;
+        node.todo = todo;
+        node.find('label').on('click', ()=>{
+            if(t){
+                clearTimeout(t);
+                store.dispatch('editing', todo);
+            }else{
+                t = setTimeout(()=>{t = null;}, 250);
+            }
+        });
+        input.on('blur', (e, node)=>{
+            store.dispatch('editing', null);
+            if(node.DOMNode.value.length){
+                store.dispatch('edit', todo, node.DOMNode.value);
+            }
+        });
+        input.on('keyup', (e, node)=>{
+            if(e.keyCode === 13){
+                store.dispatch('editing', null);
+                if(node.DOMNode.value.length){
+                    store.dispatch('edit', todo, node.DOMNode.value);
+                }
+            }
+            if(e.keyCode === 27){
+                store.dispatch('editing', null);
+            }
+        });
+    }
+});
+
+let editingBind = new Bind({
+    update: function(node, binding){
+        if(node.todo === binding.target.parent[binding.target.key]){
+            node.attributes.class += ' editing';
+        }else{
+            node.attributes.class = node.attributes.class.replace(' editing','');
         }
     }
 });
+
+function setChecked(checkbox, completed){
+    if(checkbox.compiled){
+        if(checkbox.DOMNode.checked !== completed){
+            checkbox.DOMNode.checked = completed;
+        }
+    }else{
+        if(completed === true){
+            checkbox.attributes.checked = null;
+        }else{
+            if(checkbox.attributes.checked){
+                delete checkbox.attributes.checked;
+            }
+        }
+    }
+}
 
 let todosBind = new Bind({
     bind: (node, target)=>{
@@ -2463,47 +2551,70 @@ let todosBind = new Bind({
 });
 
 function renderTodo(template, todo){
-    let c = template.clone(true);
-    c.find({class: 'toggle'})
+    let clone = template.clone(true);
+    clone.find({class: 'toggle'})
         .on('change', ()=>{
-            store.dispatch('toggle', state.todos.indexOf(todo));
+            store.dispatch('toggle', state$1.todos.indexOf(todo));
         });
-    todoBind.render(c, todo);
-    completedIf.render(c, state, 'path');
-    return c;
+    clone.find('button')
+        .on('click', ()=>{
+            store.dispatch('clear', state$1.todos.indexOf(todo));
+        });
+    todoBind.render(clone, todo);
+    editingBind.render(clone, state$1, 'editing');
+    return clone;
 }
+
+class Todo extends Component{
+    constructor(name, root){
+        super(name, root);
+    }
+    parse(s){
+        //these events and bindings will be cloned by parent Todos component
+        super.parse(s);
+        this.templates.forEach((template)=>{
+            completedIf.render(template, state$1, 'path');
+        });
+    }
+}
+
+Todo.components = {};
+
+Todo.template = '<li class="completed">\
+    <div class="view">\
+        <input class="toggle" type="checkbox" checked>\
+        <label>Taste JavaScript</label>\
+        <button class="destroy"></button>\
+    </div>\
+    <input class="edit" value="Create a TodoMVC template">\
+</li>';
 
 class Todos extends Component{
     constructor(name, root){
-        super('todos', root);
+        super(name, root);
     }
     parse(s){
         super.parse(s);
         this.templates.forEach((template)=>{
             let li = template.find('li');
-            todosBind.render(li, state, 'todos');
+            todosBind.render(li, state$1, 'todos');
         });
     }
 }
 
-Todos.components = {};
+Todos.components = {
+    todo: Todo
+};
 
 Todos.template = '<ul class="todo-list">\
-    <li class="completed">\
-        <div class="view">\
-            <input class="toggle" type="checkbox" checked>\
-            <label>Taste JavaScript</label>\
-            <button class="destroy"></button>\
-        </div>\
-        <input class="edit" value="Create a TodoMVC template">\
-    </li>\
+    <todo></todo>\
 </ul>';
 
 let newTodoBind = new Bind({
     compile: (node, binding)=>{
         node.on('keyup', (e, input)=>{
-            if(e.keyCode === 13 && node.DOMNode.value){
-                store.dispatch('add', node.DOMNode.value);
+            if(e.keyCode === 13){
+                store.dispatch('add', input.DOMNode.value);
                 binding.target.parent[binding.target.key] = '';
             }
         });
@@ -2516,17 +2627,58 @@ let newTodoBind = new Bind({
 });
 
 let activeBind = new Bind({
-    parse: activeCount,
-    compiled: activeCount,
+    bind: activeCount,
     update: activeCount
 });
 
 function activeCount(node, binding){
-    node.children[0].text = binding.target.parent[binding.target.key];
+    let target = binding.target || binding;
+    node.children[0].text = target.parent[target.key];
 }
 
 let clearIfBind = new If(()=>{
-    return state.active < state.todos.length;
+    return state$1.active < state$1.todos.length;
+});
+
+let activeLinkBind = new Bind({
+    bind: activeLink,
+    update: activeLink
+});
+
+function activeLink(node, binding){
+    let target = binding.target || binding,
+        path = `#/${target.parent[target.key]}`;
+    if(node.attributes.href === path){
+        if(node.compiled){
+            if(!node.attributes.class){
+                node.attributes.add('class', 'selected');
+                return;
+            }
+        }
+        node.attributes.class = 'selected';
+    }else{
+        if(node.compiled){
+            if(node.attributes.class){
+                node.attributes.delete('class');
+            }
+        }else{
+            if(node.attributes.class){
+                delete node.attributes.class;
+            }
+        }
+    }
+}
+
+let toggleAllBind = new Bind({
+    bind: function(node){
+        node.on('change', (e, node)=>{
+            store.dispatch('toggle', true, node.DOMNode.checked);
+        });
+        setChecked(node, state$1.active === 0);
+    },
+    update: function(node){
+        setChecked(node, state$1.active === 0);
+    }
 });
 
 class App extends Component{
@@ -2538,13 +2690,15 @@ class App extends Component{
         this.templates.forEach((template)=>{
             let footer = template.find('footer'),
                 clear = footer.find({class:'clear-completed'});
+            activeLinkBind.render(footer.filter('a'), state$1, 'path');
             newTodoBind.render(template.find('input'), newTodo, 'text');
-            lengthIf.render(footer, state, 'todos');
-            activeBind.render(footer.find('strong'), state, 'active');
+            lengthIf.render(footer, state$1, 'todos');
+            activeBind.render(footer.find('strong'), state$1, 'active');
+            toggleAllBind.render(template.find({class: 'toggle-all'}), state$1, 'active');
             clear.on('click', ()=>{
                 store.dispatch('clear', true);
             });
-            clearIfBind.render(clear, state, 'active');
+            clearIfBind.render(clear, state$1, 'active');
         });
     }
 }

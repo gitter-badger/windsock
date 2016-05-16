@@ -827,10 +827,12 @@ var url$1 = Object.freeze({
     var states = {};
     var config = {
         hash: true,
-        root: '/'
+        root: '/',
+        reactivate: true
     };
     var request = void 0;
     var routing = false;
+    var re = [];
     var listener = void 0;
     var i = void 0;
     function register(p, h) {
@@ -960,7 +962,6 @@ var url$1 = Object.freeze({
     function deactivate() {
         var state = void 0;
         if (active.length - i > 0) {
-            console.log('deactivating: ' + active.join('/'));
             state = states[active.join('/')];
             if (state) {
                 series(state.map(function (h) {
@@ -977,15 +978,33 @@ var url$1 = Object.freeze({
                 deactivate();
             }
         } else {
-            activate();
+            config.reactivate ? reactivate() : activate();
         }
+    }
+
+    function reactivate() {
+        if (re.length < active.length) {
+            re = active.slice(0, re.length + 1);
+            state = states[re.join('/')];
+            if (state) {
+                series(state.map(function (h) {
+                    return h.activate || noop;
+                })).then(reactivate).catch(function (e) {
+                    console.warn(e);
+                    re = [];
+                    next();
+                });
+                return;
+            }
+        }
+        re = [];
+        activate();
     }
 
     function activate() {
         var state = void 0;
         if (active.length < request.length) {
             active.push(request[active.length]);
-            console.log('activating: ' + active.join('/'));
             state = states[active.join('/')];
             if (state) {
                 series(state.map(function (h) {
@@ -1400,17 +1419,20 @@ var router = Object.freeze({
 
     var Store = function () {
         function Store() {
+            var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+
             var _this = this;
 
-            var state = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
             var mutations = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+            var post = arguments[2];
             babelHelpers.classCallCheck(this, Store);
 
-            this._state = state;
-            this._mutations = {};
+            this.state = state;
+            this.mutations = {};
+            this.post = post;
             Object.keys(mutations).forEach(function (name) {
-                _this._mutations[name] = new Signal();
-                _this._mutations[name].add(mutations[name]);
+                _this.mutations[name] = new Signal();
+                _this.mutations[name].add(mutations[name]);
             });
         }
 
@@ -1422,11 +1444,12 @@ var router = Object.freeze({
                 }
 
                 var name = args.shift(),
-                    mutation = this._mutations[name];
+                    mutation = this.mutations[name];
                 if (!mutation) {
                     throw new Error(name + ' mutation does not exist');
                 }
-                mutation.dispatch.apply(mutation, [this._state].concat(args));
+                mutation.dispatch.apply(mutation, [this.state].concat(args));
+                this.post && this.post.apply(this, [name, this.state].concat(args));
             }
         }]);
         return Store;
@@ -2516,10 +2539,11 @@ var router = Object.freeze({
             compileDOM(node);
         }
         node.compiled = true;
-        compileBindings(node);
+
         if (node.children) {
             node.children.forEach(compileNode);
         }
+        compileBindings(node);
     }
 
     function transclude(node, target) {
