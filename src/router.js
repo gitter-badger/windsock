@@ -1,7 +1,4 @@
-import {
-    is,
-    noop
-} from './util';
+import {is,noop} from './util';
 import * as query from './url/query';
 import * as path from './url/path';
 
@@ -174,6 +171,7 @@ function deactivate(){
 }
 
 function reactivate(){
+    let state;
     if(re.length < active.length){
         re = active.slice(0, re.length + 1);
         state = states[re.join('/')];

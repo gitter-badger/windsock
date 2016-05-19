@@ -983,6 +983,7 @@ var url$1 = Object.freeze({
     }
 
     function reactivate() {
+        var state = void 0;
         if (re.length < active.length) {
             re = active.slice(0, re.length + 1);
             state = states[re.join('/')];
@@ -1455,7 +1456,7 @@ var router = Object.freeze({
         return Store;
     }();
 
-    var location$1 = window && window.location || undefined;
+    var location$1 = typeof window !== 'undefined' && window.location || undefined;
     var origin = !is(location$1, 'undefined') ? parse(location$1.href) : {};
     function request$1(request) {
         request.crossOrigin = origin.protocol !== request.url.protocol || origin.host !== request.url.host;
@@ -2029,6 +2030,7 @@ var router = Object.freeze({
 
             if (is(transform, 'function')) {
                 this.transform = {
+                    bind: transform,
                     update: transform
                 };
             } else {
@@ -2085,6 +2087,7 @@ var router = Object.freeze({
         };
         binding = bindMap.node.bindings[bindMap.prop];
         if (binding) {
+            console.warn('Removing \'' + bindMap.prop + '\' binding from node');
             binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);
             binding.observer.disconnect();
         }
@@ -2574,107 +2577,152 @@ var router = Object.freeze({
     }
 
     var Component = function () {
-        function Component(name, root) {
+        function Component(_ref) {
+            var _ref$root = _ref.root;
+            var root = _ref$root === undefined ? true : _ref$root;
+            var _ref$components = _ref.components;
+            var components = _ref$components === undefined ? {} : _ref$components;
+            var _ref$selectors = _ref.selectors;
+            var selectors = _ref$selectors === undefined ? '' : _ref$selectors;
+            var template = _ref.template;
+            var query = _ref.query;
+            var parse = _ref.parse;
+            var compile$$ = _ref.compile;
             babelHelpers.classCallCheck(this, Component);
 
-            var components = this.constructor.components;
-            this.name = name;
-            this.root = root || document;
+            this.root = root;
             this.components = {};
-            this._template = undefined;
-            this.sources = [];
-            this.templates = [];
-            this.compiled = [];
-            if (components) {
-                for (var _name in components) {
-                    this.components[_name] = new components[_name](_name, true);
-                }
-            }
-            if (!root) {
-                this.query();
-                this.parse();
-                this.compile();
-                this.compiled.forEach(transclude);
-            }
+            this.selectors = selectors;
+            this.template = template;
+            this.query = query;
+            this.parse = parse;
+            this.compile = compile$$;
+            init(this, components);
         }
 
-        babelHelpers.createClass(Component, [{
-            key: 'query',
-            value: function query(root) {
-                var _this = this;
-
-                root = root || this.root;
-                var results = root.querySelectorAll(this.name);
-                this.sources = this.sources.concat(Array.prototype.slice.call(results));
-                this.sources.forEach(function (source) {
-                    for (var name in _this.components) {
-                        _this.components[name].query(source);
-                    }
-                });
+        babelHelpers.createClass(Component, null, [{
+            key: 'selector',
+            value: function selector(component, type) {
+                if (is(component.selectors, 'string')) {
+                    return component.selectors;
+                }
+                if (component.selectors[type]) {
+                    return component.selectors[type];
+                }
+                if (component.selectors.name) {
+                    return component.selectors.name;
+                }
+                throw new Error('Failed to resolve selector ' + type);
             }
         }, {
-            key: 'template',
-            value: function template() {
-                if (!this._template) {
-                    this._template = parse$4(this.constructor.template);
-                }
-                return clone$1(this._template, true);
+            key: 'query',
+            value: function query(component, DOMNode) {
+                var sources = DOMNode.querySelectorAll(Component.selector(component, 'name'));
+                sources = Array.prototype.slice.call(sources);
+                sources.forEach(function (node) {
+                    var child = void 0;
+                    //this hook should be read only!
+                    //don't do anything to the node here pls
+                    component.query && component.query(node, component);
+                    for (var name in component.components) {
+                        child = component.components[name];
+                        Component.query(child, node);
+                    }
+                });
+                return sources;
             }
         }, {
             key: 'parse',
-            value: function parse(templates) {
-                var _this2 = this;
+            value: function parse(component, sources) {
+                var templates = [],
+                    child = void 0,
+                    selector = void 0,
+                    results = void 0;
 
-                if (templates && this.constructor.template) {
-                    templates = templates.map(function (template) {
-                        var templateClone = _this2.template();
-                        template.parent.insert(templateClone, template.index());
-                        template.destroy();
-                        return templateClone;
-                    });
-                }
-                templates = templates || this.sources.map(function (source) {
+                //a root node will call this with (component, [DOMNodes])
+                //subsequent children will invoke this method with already parsed sources
+                sources.forEach(function (node) {
+                    //node is either a DOMNode or a virtualDOM node
                     var template = void 0;
-                    if (_this2.constructor.template) {
-                        template = _this2.template();
-                        template.transclude = source;
+                    if (component.root) {
+                        //if the root component declared a template clone it and copy the transcluded otherwise just parse the node
+                        if (component.template) {
+                            template = clone$1(component.template, true);
+                            template.transclude = node;
+                        } else {
+                            template = parse$4(node);
+                        }
                     } else {
-                        template = parse$4(source);
+                        //an already parsed node, if component has a template, clone it and replace the current node, otherwise just set template to node
+                        if (component.template) {
+                            template = clone$1(component.template, true);
+                            node.parent.insert(template, node.index());
+                            //could append to parent instead or replace
+                            node.destroy();
+                        } else {
+                            template = node;
+                        }
                     }
-                    return template;
-                });
-                this.templates = this.templates.concat(templates);
-                this.templates.forEach(function (template) {
-                    for (var name in _this2.components) {
-                        _this2.components[name].parse(template.filter(name));
+                    //read or write as well as replace
+                    template = component.parse && component.parse(template, component) || template;
+                    templates.push(template);
+
+                    for (var name in component.components) {
+                        child = component.components[name];
+                        selector = Component.selector(child, 'name');
+                        results = template.filter(selector);
+                        Component.parse(child, results);
                     }
                 });
+
+                return templates;
             }
         }, {
             key: 'compile',
-            value: function compile$$(compiled) {
-                var _this3 = this;
+            value: function compile$$(component, templates) {
+                var compiled = [],
+                    child = void 0,
+                    selector = void 0,
+                    results = void 0;
 
-                compiled = compiled || this.templates.map(compile);
-                this.compiled = this.compiled.concat(compiled);
-                this.compiled.forEach(function (vdom) {
-                    for (var name in _this3.components) {
-                        _this3.components[name].compile(vdom.filter(name));
+                templates.forEach(function (template) {
+                    var compiledNode = template.compiled ? template : compile(template);
+                    //read or write but do not replace
+                    component.compile && component.compile(compiledNode, component, template);
+                    compiled.push(compiledNode);
+
+                    for (var name in component.components) {
+                        child = component.components[name];
+                        selector = Component.selector(child, 'compile');
+                        results = compiledNode.filter(selector);
+                        Component.compile(child, results);
                     }
                 });
+
+                return compiled;
             }
         }]);
         return Component;
     }();
 
-    Component.component = function (name, cls) {
-        if (Component.components[name]) {
-            console.warn('Global ' + name + ' component already exists');
+    function init(c, components) {
+        var sources = void 0,
+            templates = void 0,
+            compiled = void 0;
+        c.template = c.template && parse$4(c.template);
+        for (var name in components) {
+            c.components[name] = new components[name]({
+                root: false,
+                selectors: name
+            });
         }
-        Component.components[name] = cls;
-    };
-
-    Component.components = {};
+        if (c.root) {
+            sources = Component.query(c, document);
+            templates = Component.parse(c, sources);
+            compiled = Component.compile(c, templates);
+            compiled.forEach(transclude); //could append to instead of transclude
+        }
+    }
 
     exports.util = util;
     exports.vdom = vdom;

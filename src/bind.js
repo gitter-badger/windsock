@@ -5,6 +5,7 @@ export default class Bind{
     constructor(transform = {}, recursive = false){
         if(is(transform, 'function')){
             this.transform = {
+                bind: transform,
                 update: transform
             };
         }else{
@@ -52,6 +53,7 @@ function renderNode(node, instance, target){
     };
     binding = bindMap.node.bindings[bindMap.prop];
     if(binding){
+        console.warn(`Removing '${bindMap.prop}' binding from node`);
         binding.instance.transform.unbind && binding.instance.transform.unbind(bindMap.node, binding);
         binding.observer.disconnect();
     }

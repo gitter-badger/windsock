@@ -10,8 +10,7 @@ if(version){
     fs.writeFileSync('src/index.js', index);
 }
 
-rollup
-    .rollup({
+rollup.rollup({
         entry: 'src/index.js',
         plugins: [babel()]
     })
@@ -22,8 +21,7 @@ rollup
         });
     })
     .then(function(){
-        return rollup
-                .rollup({
+        return rollup.rollup({
                     entry: 'src/index.js',
                     plugins: [babel()]
                 })
@@ -39,6 +37,19 @@ rollup
                             ascii_only: true
                         }
                     }).code);
+                });
+    })
+    .then(function(){
+        return rollup.rollup({
+                    entry: 'examples/todomvc/src/index.js',
+                    plugins: [babel()]
+                })
+                .then(function(bundle){
+                    var result = bundle.generate({
+                        format: 'umd',
+                        moduleName: 'app'
+                    });
+                    fs.writeFileSync('examples/todomvc/bundle.js', result.code);
                 });
     })
     .catch(function(e){

@@ -1,0 +1,7 @@
+# Components
+
+The purpose of querying the parent is to allow the child to manipulate it, so after it has been manipulated by one child component, that component will not need to retain a reference to the results as long as the children can query the new template.
+
+If a parent parse changes its structure from that of the source the child should parse the newly queried parent templates. However if the parents parse doesn't modify the structure at all, the childs source elements will be bound to the appropriate template and a query of the parent template will return the parsed templates of the child source nodes. Either way the parent template must be re-queried to determine the new child templates and the child selector must be un-changed from the nodelist query. The query selector used for querying the live DOM and the parent template will be a name selector. It is them up to the child whether to replace those instances and provide a new selector for compilation.
+
+The same process is repeated for compilation to provide the components a chance to do any further work in the templates prior to tranclusion into the live DOM. The same scenario applies here where if the parent modifies the compiled DOM, the result of querying the parent compiled virtual DOM might not be a direct relation to the childs templates result.

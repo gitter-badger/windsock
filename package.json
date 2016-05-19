@@ -21,7 +21,7 @@
   },
   "scripts": {
     "build": "node ./build.js",
-    "build:watch": "watch 'npm run build' src/",
+    "build:watch": "watch 'npm run build' src/ examples/**/src",
     "test:unit": "mocha test/unit",
     "test": "npm run test:unit",
     "docs": "bash ./docs.sh",
