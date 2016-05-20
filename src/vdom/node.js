@@ -37,12 +37,13 @@ export default class Node{
     clone(){
         return Node.clone(new Node(), this);
     }
-    on(evt, callback){
+    on(evt, callback, capture = false){
         if(!this.events[evt]){
             if(this.compiled){
                 this.events.add(evt, new Signal());
             }else{
                 this.events[evt] = new Signal();
+                this.events[evt].capture = capture;
             }
         }
         this.events[evt].add(callback);
@@ -70,6 +71,7 @@ export default class Node{
         if(deep){
             for(let evt in instance.events){
                 target.events[evt] = new Signal();
+                target.events[evt].capture = instance.events[evt].capture;
                 target.events[evt].listeners = instance.events[evt].listeners.slice();
             }
         }

@@ -19,6 +19,7 @@ export default new Bind({
     update: (node, binding, mutation)=>{
         let checkbox = node.find({class: 'toggle'}),
             input = node.find({class: 'edit'});
+
         if(mutation.type === 'completed'){
             node.attributes.class = mutation.newValue ? 'todo completed' : 'todo';
             if(checkbox.compiled){
@@ -48,22 +49,24 @@ export default new Bind({
             input = node.find({class:'edit'}),
             t = null;
 
+        node.todo = todo;
+
         node.find('label').on('click', (e)=>{
             e.preventDefault();
             e.stopPropagation();
             if(t){
                 clearTimeout(t);
-                store.dispatch('editing', index);
+                store.dispatch('editing', todo);
                 t = null;
             }else{
                 t = setTimeout(()=>{t = null;}, 450);
             }
         });
         node.find({class: 'toggle'}).on('change', ()=>{
-            store.dispatch('toggle', state.todos.indexOf(todo));
+            store.dispatch('toggle', index);
         });
         node.find('button').on('click', ()=>{
-            store.dispatch('clear', state.todos.indexOf(todo));
+            store.dispatch('clear', index);
         });
         input.on('focus', (e, n)=>{
             n.DOMNode.value = n.DOMNode.value;
@@ -73,7 +76,7 @@ export default new Bind({
             if(n.DOMNode.value.length){
                 store.dispatch('edit', todo, n.DOMNode.value);
             }else{
-                store.dispatch('clear', state.todos.indexOf(todo));
+                store.dispatch('clear', index);
             }
         });
         input.on('keyup', (e, n)=>{

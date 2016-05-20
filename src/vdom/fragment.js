@@ -11,11 +11,7 @@ export default class Fragment extends Node{
         throw new Error('Cannot convert to jsonml');
     }
     get html(){
-        return this.children
-            .map((child)=>{
-                return child.html;
-            })
-            .join('');
+        return this.children.map(fragmentChildHtmlMapper).join('');
     }
     destroy(){
         super.destroy();
@@ -28,7 +24,7 @@ export default class Fragment extends Node{
     clone(deep = false){
         let fragment = new Fragment();
         if(deep && this.children.length){
-            this.children.forEach((child)=>{
+            this.children.forEach(function fragmenChildCloneIterator(child){
                 fragment.append(child.clone(true));
             });
         }
@@ -97,6 +93,10 @@ export default class Fragment extends Node{
     text(){
         return this.filter(textFilter).join('');
     }
+}
+
+function fragmentChildHtmlMapper(child){
+    return child.html;
 }
 
 function defineChildrenParent(instance, children = []){

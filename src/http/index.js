@@ -1,4 +1,4 @@
-import {is, merge, clone} from '../util';
+import {clone} from '../util';
 import Signal from '../signal';
 import * as url from '../url/index';
 import * as cors from './cors';

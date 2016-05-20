@@ -107,7 +107,6 @@ function is(target, type) {
 
 function extend(obj) {
     for (var i = 1, l = arguments.length; i < l; i++) {
-        //enumerable including prototype
         for (var key in arguments[i]) {
             obj[key] = arguments[i][key];
         }
@@ -115,20 +114,9 @@ function extend(obj) {
     return obj;
 }
 
-function merge(obj) {
-    for (var i = 1, l = arguments.length; i < l; i++) {
-        for (var key in arguments[i]) {
-            if (obj[key]) {
-                obj[key] = arguments[i][key];
-            }
-        }
-    }
-    return obj;
-}
-
 function clone(obj) {
     var c = {};
-    Object.keys(obj).forEach(function (key) {
+    Object.keys(obj).forEach(function cloneKeyIterator(key) {
         c[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
     });
     return c;
@@ -152,7 +140,6 @@ var util = Object.freeze({
     capitalize: capitalize,
     is: is,
     extend: extend,
-    merge: merge,
     clone: clone,
     match: match,
     noop: noop
@@ -237,11 +224,14 @@ var Node = function () {
     }, {
         key: 'on',
         value: function on(evt, callback) {
+            var capture = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
+
             if (!this.events[evt]) {
                 if (this.compiled) {
                     this.events.add(evt, new Signal());
                 } else {
                     this.events[evt] = new Signal();
+                    this.events[evt].capture = capture;
                 }
             }
             this.events[evt].add(callback);
@@ -291,6 +281,7 @@ var Node = function () {
             if (deep) {
                 for (var evt in instance.events) {
                     target.events[evt] = new Signal();
+                    target.events[evt].capture = instance.events[evt].capture;
                     target.events[evt].listeners = instance.events[evt].listeners.slice();
                 }
             }
@@ -422,7 +413,7 @@ var Fragment = function (_Node) {
 
             var fragment = new Fragment();
             if (deep && this.children.length) {
-                this.children.forEach(function (child) {
+                this.children.forEach(function fragmenChildCloneIterator(child) {
                     fragment.append(child.clone(true));
                 });
             }
@@ -511,13 +502,15 @@ var Fragment = function (_Node) {
     }, {
         key: 'html',
         get: function get() {
-            return this.children.map(function (child) {
-                return child.html;
-            }).join('');
+            return this.children.map(fragmentChildHtmlMapper).join('');
         }
     }]);
     return Fragment;
 }(Node);
+
+function fragmentChildHtmlMapper(child) {
+    return child.html;
+}
 
 function defineChildrenParent(instance) {
     var children = arguments.length <= 1 || arguments[1] === undefined ? [] : arguments[1];
@@ -726,6 +719,12 @@ function normalize(query) {
     return query;
 }
 
+var query = Object.freeze({
+    parse: parse$1,
+    format: format$1,
+    normalize: normalize
+});
+
 function parse$2(path) {
     var params = {};
     if (!is(path, 'string')) {
@@ -762,6 +761,12 @@ function normalize$1(path) {
     return path;
 }
 
+var path = Object.freeze({
+    parse: parse$2,
+    format: format$2,
+    normalize: normalize$1
+});
+
 var a = void 0;
 
 if (typeof document !== 'undefined') {
@@ -770,7 +775,7 @@ if (typeof document !== 'undefined') {
 
 function parse(str) {
     if (!a) {
-        return url.parse(str);
+        throw new Error('Unable to parse in enviorment');
     }
     if (!is(str, 'string')) {
         throw new Error('Parameter must be a string');
@@ -798,7 +803,7 @@ function format(obj) {
         params = void 0,
         hash = void 0;
     if (!a) {
-        return url.format(obj);
+        throw new Error('Unable to format in enviorment');
     }
     if (!is(obj, 'object')) {
         throw new Error('Parameter must be an object');
@@ -813,7 +818,9 @@ function format(obj) {
     return protocol + '//' + host + pathname + (params || search) + hash;
 }
 
-var url$1 = Object.freeze({
+var url = Object.freeze({
+    query: query,
+    path: path,
     parse: parse,
     format: format
 });
@@ -1477,7 +1484,9 @@ function request$2(request) {
 function response(response) {
     try {
         response.data = JSON.parse(response.data);
-    } catch (e) {}
+    } catch (e) {
+        console.warn(e);
+    }
     return response;
 }
 
@@ -2056,12 +2065,12 @@ var Bind = function () {
                 instance = binding.instance,
                 observer = void 0;
             if (is(target.value, 'object') || is(target.value, 'array')) {
-                observer = new Observer$1(function (mutation) {
+                observer = new Observer$1(function objectBindObserverCallback(mutation) {
                     instance.transform.update && instance.transform.update(node, binding, mutation);
                 });
                 observer.observe(target.value);
             } else {
-                observer = new Observer$1(function (mutation) {
+                observer = new Observer$1(function targetBindObserverCallback(mutation) {
                     if (mutation.type === target.key) {
                         instance.transform.update && instance.transform.update(node, binding, mutation);
                     }
@@ -2195,7 +2204,7 @@ function parseDOM(source, callback) {
 
     if (source.attributes.length) {
         evt.attributes = {};
-        Array.prototype.forEach.call(source.attributes, function (attribute) {
+        Array.prototype.forEach.call(source.attributes, function nodeAttributeIterator(attribute) {
             evt.attributes[attribute.name] = attribute.value;
         });
     }
@@ -2334,20 +2343,18 @@ function parse$4(source) {
 }
 
 var queue$1 = [];
+
 var id = void 0;
 var requested = void 0;
-var running = void 0;
 function done() {
     id = null;
     requested = false;
-    running = false;
     queue$1.length = 0;
 }
 
 done();
 
 function run() {
-    running = true;
     for (var i = 0; i < queue$1.length; i++) {
         queue$1[i].call();
     }
@@ -2393,7 +2400,7 @@ function attrNamespace(name) {
 
 function textNodeMutationCallback(record) {
     if (record.type === 'textContent' && record.oldValue !== record.newValue) {
-        add(function () {
+        add(function batchedTextNodeMutation() {
             record.target.parent.DOMNode.textContent = record.newValue;
         });
     }
@@ -2407,13 +2414,13 @@ function attributeMutationCallback(record) {
     node = record.target.parent;
     switch (record.method) {
         case 'delete':
-            add(function () {
+            add(function batchedAttributeDeleteMutation() {
                 node.DOMNode.removeAttributeNS(attrNamespace(record.type), record.type);
             });
             break;
         case 'add':
         case 'set':
-            add(function () {
+            add(function batchedAttributeSetMutation() {
                 node.DOMNode.setAttributeNS(attrNamespace(record.type), record.type, record.newValue);
             });
             break;
@@ -2424,27 +2431,27 @@ function childrenMutationCallback(record) {
     var DOMNode = record.target.parent.DOMNode;
     switch (record.method) {
         case 'push':
-            record.newValue.forEach(function (child) {
-                add(function () {
+            record.newValue.forEach(function childrenMutationValueIterator(child) {
+                add(function batchedChildrenPushMutation() {
                     DOMNode.appendChild(child.DOMNode);
                 });
             });
             break;
         case 'unshift':
-            record.newValue.forEach(function (child) {
-                add(function () {
+            record.newValue.forEach(function childrenMutationValueIterator(child) {
+                add(function batched() {
                     DOMNode.insertBefore(child.DOMNode, DOMNode.firstChild);
                 });
             });
             break;
         case 'splice':
             if (record.oldValue && record.oldValue.length) {
-                add(function () {
+                add(function batchedChildrenRemoveMutation() {
                     DOMNode.removeChild(record.oldValue[0].DOMNode);
                 });
             }
             if (record.args.length === 3) {
-                add(function () {
+                add(function batchedChildrenInsertMutation() {
                     DOMNode.insertBefore(record.newValue[0].DOMNode, DOMNode.childNodes[record.type]);
                 });
             }
@@ -2473,7 +2480,7 @@ function compileDOM(node) {
         node.observers.push(textObserver);
     } else if (node instanceof Element) {
         node.DOMNode = document.createElementNS(xmlNamespace(node), node.name);
-        Object.keys(node.attributes).forEach(function (key) {
+        Object.keys(node.attributes).forEach(function compileNodeAttributeIterator(key) {
             node.DOMNode.setAttributeNS(attrNamespace(key), key, node.attributes[key]);
         });
         attributeObserver = new Observer(attributeMutationCallback);
@@ -2501,12 +2508,6 @@ function compileDOM(node) {
     }
 }
 
-function dispatchEventListener(node, evt) {
-    return function eventListenerClosure(e) {
-        node.events[evt].dispatch(e, node);
-    };
-}
-
 function compileBindings(node) {
     Object.keys(node.bindings).forEach(function mapClonedBindings(key) {
         var binding = node.bindings[key];
@@ -2519,6 +2520,12 @@ function compileBindings(node) {
         };
         Bind.observer(node, node.bindings[key]);
     });
+}
+
+function dispatchEventListener(node, evt) {
+    return function eventListenerClosure(e) {
+        node.events[evt].dispatch(e, node);
+    };
 }
 
 function compile(template) {
@@ -2660,7 +2667,7 @@ var Component = function () {
                     }
                 }
                 //read or write as well as replace
-                template = component.parse && component.parse(template, component) || template;
+                template = component.parse && component.parse(template, component, node) || template;
                 templates.push(template);
 
                 for (var name in component.components) {
@@ -2703,7 +2710,7 @@ var Component = function () {
 
 function init(c, components) {
     var sources = void 0,
-        templates = void 0,
+        parsed = void 0,
         compiled = void 0;
     c.template = c.template && parse$4(c.template);
     for (var name in components) {
@@ -2714,15 +2721,15 @@ function init(c, components) {
     }
     if (c.root) {
         sources = Component.query(c, document);
-        templates = Component.parse(c, sources);
-        compiled = Component.compile(c, templates);
+        parsed = Component.parse(c, sources);
+        compiled = Component.compile(c, parsed);
         compiled.forEach(transclude); //could append to instead of transclude
     }
 }
 
 exports.util = util;
 exports.vdom = vdom;
-exports.url = url$1;
+exports.url = url;
 exports.router = router;
 exports.Observer = Observer;
 exports.Store = Store;

@@ -22,7 +22,7 @@ const parse = (template, component)=>{
 };
 
 export default class Todo extends Item{
-    constructor({root}, data, index){
+    constructor({root}, data){
         super({
             selectors: {
                 name: 'todo',
@@ -31,7 +31,7 @@ export default class Todo extends Item{
             template,
             parse,
             root,
-        }, data, index);
+        }, data);
     }
 }
 

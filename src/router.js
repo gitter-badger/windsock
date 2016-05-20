@@ -111,20 +111,6 @@ function compare(p, pathname){
     return literal;
 }
 
-function match(pathname, formatted){
-    if(pathname.length !== formatted.length){
-        return false;
-    }
-    for(let index = 0, l = pathname.length; index < l; index++){
-        if(pathname[index].indexOf(':') === 0){
-            continue;
-        }
-        if(pathname[index] !== formatted[index]){
-            return false;
-        }
-    }
-}
-
 function next(){
     if(queue.length){
         routing = true;

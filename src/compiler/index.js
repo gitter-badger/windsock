@@ -33,7 +33,7 @@ function attrNamespace(name){
 
 function textNodeMutationCallback(record){
     if(record.type === 'textContent' && record.oldValue !== record.newValue){
-        batch.add(()=>{
+        batch.add(function batchedTextNodeMutation(){
             record.target.parent.DOMNode.textContent = record.newValue;
         });
     }
@@ -47,13 +47,13 @@ function attributeMutationCallback(record){
     node = record.target.parent;
     switch(record.method){
         case 'delete':
-            batch.add(()=>{
+            batch.add(function batchedAttributeDeleteMutation(){
                 node.DOMNode.removeAttributeNS(attrNamespace(record.type), record.type);
             });
             break;
         case 'add':
         case 'set':
-            batch.add(()=>{
+            batch.add(function batchedAttributeSetMutation(){
                 node.DOMNode.setAttributeNS(attrNamespace(record.type), record.type, record.newValue);
             });
             break;
@@ -64,27 +64,27 @@ function childrenMutationCallback(record){
     let DOMNode = record.target.parent.DOMNode;
     switch(record.method){
         case 'push':
-            record.newValue.forEach((child)=>{
-                batch.add(()=>{
+            record.newValue.forEach(function childrenMutationValueIterator(child){
+                batch.add(function batchedChildrenPushMutation(){
                     DOMNode.appendChild(child.DOMNode);
                 });
             });
             break;
         case 'unshift':
-            record.newValue.forEach((child)=>{
-                batch.add(()=>{
+            record.newValue.forEach(function childrenMutationValueIterator(child){
+                batch.add(function batched(){
                     DOMNode.insertBefore(child.DOMNode, DOMNode.firstChild);
                 });
             });
             break;
         case 'splice':
             if(record.oldValue && record.oldValue.length){
-                batch.add(()=>{
+                batch.add(function batchedChildrenRemoveMutation(){
                     DOMNode.removeChild(record.oldValue[0].DOMNode);
                 });
             }
             if(record.args.length === 3){
-                batch.add(()=>{
+                batch.add(function batchedChildrenInsertMutation(){
                     DOMNode.insertBefore(record.newValue[0].DOMNode, DOMNode.childNodes[record.type]);
                 });
             }
@@ -114,7 +114,7 @@ export function compileDOM(node){
     }else if(node instanceof Element){
         node.DOMNode = document.createElementNS(xmlNamespace(node), node.name);
         Object.keys(node.attributes)
-            .forEach((key)=>{
+            .forEach(function compileNodeAttributeIterator(key){
                 node.DOMNode.setAttributeNS(attrNamespace(key), key, node.attributes[key]);
             });
         attributeObserver = new Observer(attributeMutationCallback);
@@ -142,12 +142,6 @@ export function compileDOM(node){
     }
 }
 
-function dispatchEventListener(node, evt){
-    return function eventListenerClosure(e){
-        node.events[evt].dispatch(e, node);
-    };
-}
-
 export function compileBindings(node){
     Object.keys(node.bindings)
         .forEach(function mapClonedBindings(key){
@@ -161,4 +155,10 @@ export function compileBindings(node){
             };
             Bind.observer(node, node.bindings[key]);
         });
+}
+
+function dispatchEventListener(node, evt){
+    return function eventListenerClosure(e){
+        node.events[evt].dispatch(e, node);
+    };
 }

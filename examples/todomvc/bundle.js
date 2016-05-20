@@ -179,6 +179,7 @@
         update: function update(node, binding, mutation) {
             var checkbox = node.find({ class: 'toggle' }),
                 input = node.find({ class: 'edit' });
+
             if (mutation.type === 'completed') {
                 node.attributes.class = mutation.newValue ? 'todo completed' : 'todo';
                 if (checkbox.compiled) {
@@ -207,12 +208,14 @@
                 input = node.find({ class: 'edit' }),
                 t = null;
 
+            node.todo = todo;
+
             node.find('label').on('click', function (e) {
                 e.preventDefault();
                 e.stopPropagation();
                 if (t) {
                     clearTimeout(t);
-                    store.dispatch('editing', index);
+                    store.dispatch('editing', todo);
                     t = null;
                 } else {
                     t = setTimeout(function () {
@@ -221,10 +224,10 @@
                 }
             });
             node.find({ class: 'toggle' }).on('change', function () {
-                store.dispatch('toggle', state.todos.indexOf(todo));
+                store.dispatch('toggle', index);
             });
             node.find('button').on('click', function () {
-                store.dispatch('clear', state.todos.indexOf(todo));
+                store.dispatch('clear', index);
             });
             input.on('focus', function (e, n) {
                 n.DOMNode.value = n.DOMNode.value;
@@ -234,7 +237,7 @@
                 if (n.DOMNode.value.length) {
                     store.dispatch('edit', todo, n.DOMNode.value);
                 } else {
-                    store.dispatch('clear', state.todos.indexOf(todo));
+                    store.dispatch('clear', index);
                 }
             });
             input.on('keyup', function (e, n) {
@@ -335,7 +338,7 @@
             };
         },
         update: function update(node, binding) {
-            if (binding.target.parent[binding.target.key] === node.attributes['data-index']) {
+            if (binding.target.parent[binding.target.key] === node.todo) {
                 node.attributes.class += ' editing';
                 if (node.compiled) {
                     setTimeout(function () {
@@ -359,7 +362,7 @@
     var Todo = function (_Item) {
         babelHelpers.inherits(Todo, _Item);
 
-        function Todo(_ref, data, index) {
+        function Todo(_ref, data) {
             var root = _ref.root;
             babelHelpers.classCallCheck(this, Todo);
             return babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Todo).call(this, {
@@ -370,7 +373,7 @@
                 template: template$2,
                 parse: parse$2,
                 root: root
-            }, data, index));
+            }, data));
         }
 
         return Todo;

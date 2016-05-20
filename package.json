@@ -13,6 +13,7 @@
   "main": "dist/windsock.common.js",
   "devDependencies": {
     "babel-preset-es2015-rollup": "^1.1.1",
+    "eslint": "^2.10.2",
     "mocha": "^2.4.5",
     "rollup": "^0.25.4",
     "rollup-plugin-babel": "^2.4.0",
@@ -22,10 +23,10 @@
   "scripts": {
     "build": "node ./build.js",
     "build:watch": "watch 'npm run build' src/ examples/**/src",
+    "test": "./node_modules/eslint/bin/eslint.js src/ && npm run test:unit",
     "test:unit": "mocha test/unit",
-    "test": "npm run test:unit",
-    "docs": "bash ./docs.sh",
-    "docs:serve": "gitbook serve ./docs",
+    "docs": "gitbook serve ./docs",
+    "docs:publish": "bash ./docs.sh",
     "release": "bash ./release.sh"
   }
 }

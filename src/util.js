@@ -35,20 +35,8 @@ export function is(target, type){
 
 export function extend(obj){
     for(let i = 1, l = arguments.length; i < l; i++){
-        //enumerable including prototype
         for(let key in arguments[i]){
             obj[key] = arguments[i][key];
-        }
-    }
-    return obj;
-}
-
-export function merge(obj){
-    for(let i = 1, l = arguments.length; i < l; i++){
-        for(let key in arguments[i]){
-            if(obj[key]){
-                obj[key] = arguments[i][key];
-            }
         }
     }
     return obj;
@@ -57,7 +45,7 @@ export function merge(obj){
 export function clone(obj){
     var c = {};
     Object.keys(obj)
-        .forEach((key)=>{
+        .forEach(function cloneKeyIterator(key){
             c[key] = is(obj[key], 'object') ? clone(obj[key]) : obj[key];
         });
     return c;

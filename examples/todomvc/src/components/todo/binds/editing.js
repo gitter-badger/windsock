@@ -8,7 +8,7 @@ export default new Bind({
         };
     },
     update:(node, binding)=>{
-        if(binding.target.parent[binding.target.key] === node.attributes['data-index']){
+        if(binding.target.parent[binding.target.key] === node.todo){
             node.attributes.class += ' editing';
             if(node.compiled){
                 setTimeout(()=>{

@@ -8,9 +8,14 @@ if(typeof document !== 'undefined'){
     a = document.createElement('a');
 }
 
+export {
+    query,
+    path
+};
+
 export function parse(str){
     if(!a){
-        return url.parse(str);
+        throw new Error('Unable to parse in enviorment');
     }
     if(!is(str, 'string')){
         throw new Error('Parameter must be a string');
@@ -38,7 +43,7 @@ export function format(obj){
         params,
         hash;
     if(!a){
-        return url.format(obj);
+        throw new Error('Unable to format in enviorment');
     }
     if(!is(obj, 'object')){
         throw new Error('Parameter must be an object');

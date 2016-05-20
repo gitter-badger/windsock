@@ -92,7 +92,7 @@ export function parseDOM(source, callback){
 
    if(source.attributes.length){
        evt.attributes = {};
-       Array.prototype.forEach.call(source.attributes, (attribute)=>{
+       Array.prototype.forEach.call(source.attributes, function nodeAttributeIterator(attribute){
            evt.attributes[attribute.name] = attribute.value;
        });
    }

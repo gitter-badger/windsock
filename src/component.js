@@ -12,7 +12,7 @@ export default class Component{
         template,
         query,
         parse,
-        compile,
+        compile
     }){
         this.root = root;
         this.components = {};
@@ -81,7 +81,7 @@ export default class Component{
                 }
             }
             //read or write as well as replace
-            template = component.parse && component.parse(template, component) || template;
+            template = component.parse && component.parse(template, component, node) || template;
             templates.push(template);
 
             for(let name in component.components){
@@ -120,7 +120,7 @@ export default class Component{
 
 function init(c, components){
     let sources,
-        templates,
+        parsed,
         compiled;
     c.template = c.template && parse(c.template);
     for(let name in components){
@@ -131,8 +131,8 @@ function init(c, components){
     }
     if(c.root){
         sources = Component.query(c, document);
-        templates = Component.parse(c, sources);
-        compiled = Component.compile(c, templates);
+        parsed = Component.parse(c, sources);
+        compiled = Component.compile(c, parsed);
         compiled.forEach(transclude); //could append to instead of transclude
     }
 }

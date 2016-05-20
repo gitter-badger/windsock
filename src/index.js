@@ -25,5 +25,5 @@ export {
     parse,
     compile,
     clone,
-    transclude,
+    transclude
 }

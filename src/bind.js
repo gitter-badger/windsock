@@ -28,12 +28,12 @@ export default class Bind{
             instance = binding.instance,
             observer;
         if(is(target.value, 'object') || is(target.value, 'array')){
-            observer = new Observer((mutation)=>{
+            observer = new Observer(function objectBindObserverCallback(mutation){
                 instance.transform.update && instance.transform.update(node, binding, mutation);
             });
             observer.observe(target.value);
         }else{
-            observer = new Observer((mutation)=>{
+            observer = new Observer(function targetBindObserverCallback(mutation){
                 if(mutation.type === target.key){
                     instance.transform.update && instance.transform.update(node, binding, mutation);
                 }
