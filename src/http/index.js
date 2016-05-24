@@ -19,10 +19,10 @@ export default class Http{
     get url(){
         return url.format(this._url);
     }
-    get params(){
+    get query(){
         return this._url.query;
     }
-    set params(obj){
+    set query(obj){
         this._url.query = obj;
     }
     get path(){

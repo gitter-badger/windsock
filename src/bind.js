@@ -14,7 +14,11 @@ export default class Bind{
         this.recursive = recursive;
     }
     render(node, target, keypath = ''){
-        let targetMap = keypathTraversal(target, keypath);
+        let targetMap;
+        if(node.compiled){
+            throw new Error('Requires an uncompiled node');
+        }
+        targetMap = keypathTraversal(target, keypath);
         if(is(node, 'array')){
             for(let i = 0, l = node.length; i < l; i++){
               renderNode(node[i], this, targetMap);

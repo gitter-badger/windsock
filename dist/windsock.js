@@ -1615,7 +1615,7 @@ var router = Object.freeze({
                 return format(this._url);
             }
         }, {
-            key: 'params',
+            key: 'query',
             get: function get() {
                 return this._url.query;
             },
@@ -2053,7 +2053,11 @@ var router = Object.freeze({
             value: function render(node, target) {
                 var keypath = arguments.length <= 2 || arguments[2] === undefined ? '' : arguments[2];
 
-                var targetMap = keypathTraversal(target, keypath);
+                var targetMap = void 0;
+                if (node.compiled) {
+                    throw new Error('Requires an uncompiled node');
+                }
+                targetMap = keypathTraversal(target, keypath);
                 if (is(node, 'array')) {
                     for (var i = 0, l = node.length; i < l; i++) {
                         renderNode(node[i], this, targetMap);

@@ -52,6 +52,19 @@ rollup.rollup({
                     fs.writeFileSync('examples/todomvc/bundle.js', result.code);
                 });
     })
+    .then(function(){
+        return rollup.rollup({
+                    entry: 'examples/tldr/src/index.js',
+                    plugins: [babel()]
+                })
+                .then(function(bundle){
+                    var result = bundle.generate({
+                        format: 'umd',
+                        moduleName: 'app'
+                    });
+                    fs.writeFileSync('examples/tldr/bundle.js', result.code);
+                });
+    })
     .catch(function(e){
         console.log(e);
     });

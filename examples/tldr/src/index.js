@@ -1,11 +1,10 @@
-# tl;dr
-
-Source available in [tl;dr example](https://github.com/bsawyer/windsock/tree/master/examples/tldr)
-
-## Creating an observable
-
-``` javascript
-import Observer from 'windsock';
+import {
+    clone,
+    Bind,
+    Component,
+    Observer,
+    Store
+} from 'windsock';
 
 const state = {
     awesome: true
@@ -17,19 +16,8 @@ let observer = new Observer((mutation)=>{
 
 observer.observe(state);
 
-```
-
-Later you can update the state object and the observers callback will be invoked synchronously for each mutation.
-
-``` javascript
-state.awesome = false; //logs false, true
-state.delete('awesome'); //logs undefined, false
-```
-
-## Creating a store
-
-``` javascript
-import Store from 'windsock';
+state.awesome = false;
+state.delete('awesome');
 
 let mutations = {
     add: (state, id, user)=>{
@@ -37,49 +25,9 @@ let mutations = {
     }
 };
 
-
 let store = new Store(state, mutations);
 
 store.dispatch('add', 1, {name:'Mr. Meeseeks'});
-
-```
-
-Now you can define an asynchronous operation to retrieve some data and dispatch the mutation.
-
-> **NOTE:** Always keep mutation callbacks synchronous.
-
-``` javascript
-import Http from 'windsock';
-
-let user = new Http({
-    url: '/user/:id'
-});
-
-user.path.id = 1;
-
-http.GET()
-    .then((data)=>{
-        store.dispatch('add', data);
-    });
-```
-
-## Creating a Component
-
-With your store and observable in place we can expose this to the user with a component. You can create a binding that observes the state model appending list items and attaching a click event that exposes a sample async method with a callback to dispatch the stores mutation.
-
-First we have our users custom element which will be replaced by the component somewhere in the document.
-
-``` html
-<users></users>
-```
-
-Then we have our bind and instantiate our user component.
-
-``` javascript
-import Bind from 'windsock';
-import Component from 'windsock';
-import parse from 'windsock';
-import clone from 'windsock';
 
 const bind = new Bind({
     bind: (node, target)=>{
@@ -133,11 +81,9 @@ const options = {
 };
 
 class Users extends Component{
-    constructor({root}){
-        options.root = root;
+    constructor(){
         super(options);
     }
 }
 
 let users = new Users();
-```
