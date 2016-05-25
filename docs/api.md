@@ -439,20 +439,7 @@ The `router` is a singleton object that exposes methods for registering and rout
 ### `router.register(path, config)`
 Registers a state configuration obj at path on the states singleton registry
 
-### `router.go(path, params)`
-Adds a state request with parameters to the queue to be processed
-
-### `router.start(config)`
-Starts the router by adding event listeners to hashchange or popstate based on `config.hash`
-
-### `router.stop()`
-Removes the event listener on the window
-
-## State Registration
-
-A state configuration object is responsible for determining whether or not a state can be activated/deactivated. It's optional to return a promise in either callback to resolve or reject preventing that route request from completing.
-
-### path
+#### path `String`
 A string representing the desired url, supports template segments
 ``` javascript
 router.register('user/:id', state);
@@ -464,7 +451,7 @@ router.go('user/:id', {
 });
 ```
 
-### config
+#### config `Object`
 - activate `Function`
 
     A function to call when the state is activated or reactivated
@@ -473,6 +460,27 @@ router.go('user/:id', {
 
     A function to call when the state is deactivated
 
+### `router.go(path, params)`
+Adds a state request with parameters to the queue to be processed
+
+### `router.start(config)`
+Starts the router by adding event listeners to hashchange or popstate based on `config.hash`
+
+#### config `Object`
+- hash `Boolean`
+
+    A boolean value indicating whether or not to set the root to '#'. Defaults to true.
+
+- root `String`
+
+    A string value to prepend to paths.
+
+### `router.stop()`
+Removes the event listener on the window
+
+## State Registration
+
+A state configuration object is responsible for determining whether or not a state can be activated/deactivated. It's optional to return a promise in either callback to resolve or reject preventing that route request from completing.
 
 # Store
 

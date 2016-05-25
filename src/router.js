@@ -7,7 +7,7 @@ const queue = [],
     states = {},
     config = {
         hash: true,
-        root: '/',
+        root: '',
         reactivate: true
     };
 
@@ -37,7 +37,7 @@ export function go(p, params = {}){
     }
 }
 
-export function start({hash = true, root = '/'} = {}){
+export function start({hash = true, root = config.root} = {}){
     let evt = hash ? 'hashchange' : 'popstate';
     if(listener){
         console.warn('router already started');
@@ -90,14 +90,12 @@ function resolve(pathname){
                 resolved = p;
             }
         });
-    return resolved;
+    resolved = resolved && resolved.split('/');
+    return resolved && resolved.concat(pathname.slice(resolved.length)).join('/');
 }
 
 function compare(p, pathname){
     let literal = 0;
-    if(p.length !== pathname.length){
-        return 0;
-    }
     for(let n = 0, l = p.length; n < l; n++){
         if(p[n].indexOf(':') === 0){
             continue;
@@ -212,11 +210,12 @@ function activate(){
 }
 
 function normalize(){
-    let pathname = request.params.path ? path.format(active.join('/'), request.params.path) : active.join('/'),
+    let root = config.hash ? config.root : '/' + config.root,
+        pathname = request.params.path ? path.format(active.join('/'), request.params.path) : active.join('/'),
         search = request.params.query ? query.format(request.params.query, {
             query: true
         }) : '';
-    return config.root + pathname + search;
+    return root + pathname + search;
 }
 
 function series(fns){

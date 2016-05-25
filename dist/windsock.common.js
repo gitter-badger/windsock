@@ -830,7 +830,7 @@ var active = [];
 var states = {};
 var config = {
     hash: true,
-    root: '/',
+    root: '',
     reactivate: true
 };
 var request = void 0;
@@ -866,7 +866,7 @@ function start() {
     var _ref$hash = _ref.hash;
     var hash = _ref$hash === undefined ? true : _ref$hash;
     var _ref$root = _ref.root;
-    var root = _ref$root === undefined ? '/' : _ref$root;
+    var root = _ref$root === undefined ? config.root : _ref$root;
 
     var evt = hash ? 'hashchange' : 'popstate';
     if (listener) {
@@ -919,14 +919,12 @@ function resolve(pathname) {
             resolved = p;
         }
     });
-    return resolved;
+    resolved = resolved && resolved.split('/');
+    return resolved && resolved.concat(pathname.slice(resolved.length)).join('/');
 }
 
 function compare(p, pathname) {
     var literal = 0;
-    if (p.length !== pathname.length) {
-        return 0;
-    }
     for (var n = 0, l = p.length; n < l; n++) {
         if (p[n].indexOf(':') === 0) {
             continue;
@@ -1041,11 +1039,12 @@ function activate() {
 }
 
 function normalize$2() {
-    var pathname = request.params.path ? format$2(active.join('/'), request.params.path) : active.join('/'),
+    var root = config.hash ? config.root : '/' + config.root,
+        pathname = request.params.path ? format$2(active.join('/'), request.params.path) : active.join('/'),
         search = request.params.query ? format$1(request.params.query, {
         query: true
     }) : '';
-    return config.root + pathname + search;
+    return root + pathname + search;
 }
 
 function series(fns) {
