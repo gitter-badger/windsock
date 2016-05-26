@@ -117,7 +117,7 @@ function init(c, components){
     let sources,
         parsed,
         compiled;
-    c.template = c.template && parse(c.template);
+    c.template = is(c.template, 'function') ? c.template : c.template && parse(c.template);
     for(let name in components){
         c.components[name] = new components[name]({
             root: false,

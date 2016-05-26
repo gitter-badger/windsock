@@ -2731,7 +2731,7 @@ var router = Object.freeze({
         var sources = void 0,
             parsed = void 0,
             compiled = void 0;
-        c.template = c.template && parse$4(c.template);
+        c.template = is(c.template, 'function') ? c.template : c.template && parse$4(c.template);
         for (var name in components) {
             c.components[name] = new components[name]({
                 root: false,
