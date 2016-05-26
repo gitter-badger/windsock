@@ -528,7 +528,7 @@
 
     var compile$1 = function compile(compiled, component) {
         compiled.find({ class: 'new-todo' }).on('keyup', function (e, input) {
-            if (e.keyCode === 13) {
+            if (e.keyCode === 13 && input.DOMNode.value) {
                 store.dispatch('add', input.DOMNode.value);
                 input.DOMNode.value = '';
             }

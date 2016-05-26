@@ -38,7 +38,7 @@ export default class Component{
     static query(component, DOMNode){
         let sources = DOMNode.querySelectorAll(Component.selector(component, 'name'));
         sources = Array.prototype.slice.call(sources);
-        sources.forEach((node)=>{
+        sources.forEach(function componentQueryIterator(node){
             let child;
             //this hook should be read only!
             //don't do anything to the node here pls
@@ -58,28 +58,23 @@ export default class Component{
 
         //a root node will call this with (component, [DOMNodes])
         //subsequent children will invoke this method with already parsed sources
-        sources.forEach((node)=>{
+        sources.forEach(function componentParseIterator(node){
             //node is either a DOMNode or a virtualDOM node
             let template;
-            if(component.root){
-                //if the root component declared a template clone it and copy the transcluded otherwise just parse the node
-                if(component.template){
-                    template = clone(component.template, true);
+
+            if(component.template){
+                template = is(component.template, 'function') ? component.template(node) : clone(component.template, true);
+                if(component.root){
                     template.transclude = node;
                 }else{
-                    template = parse(node);
-                }
-            }else{
-                //an already parsed node, if component has a template, clone it and replace the current node, otherwise just set template to node
-                if(component.template){
-                    template = clone(component.template, true);
                     node.parent.insert(template, node.index());
                     //could append to parent instead or replace
                     node.destroy();
-                }else{
-                    template = node;
                 }
+            }else{
+                template = component.root ? parse(node) : node;
             }
+
             //read or write as well as replace
             template = component.parse && component.parse(template, component, node) || template;
             templates.push(template);
@@ -100,7 +95,7 @@ export default class Component{
             selector,
             results;
 
-        templates.forEach((template)=>{
+        templates.forEach(function componenetCompileIterator(template){
             let compiledNode = template.compiled ? template : compile(template);
             //read or write but do not replace
             component.compile && component.compile(compiledNode, component, template);

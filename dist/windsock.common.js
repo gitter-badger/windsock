@@ -831,7 +831,8 @@ var states = {};
 var config = {
     hash: true,
     root: '',
-    reactivate: true
+    reactivate: true,
+    otherwise: null
 };
 var request = void 0;
 var routing = false;
@@ -839,6 +840,9 @@ var re = [];
 var listener = void 0;
 var i = void 0;
 function register(p, h) {
+    if (invalid(p)) {
+        throw new Error('invalid path');
+    }
     if (!is(h, 'object')) {
         throw new Error('parameter must be an object');
     }
@@ -852,7 +856,12 @@ function register(p, h) {
 function go(p) {
     var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-    var split = p.split('/');
+    var split = void 0;
+    if (invalid(p)) {
+        config.otherwise && go(config.otherwise);
+        throw new Error('parameter must be an object');
+    }
+    split = p.split('/');
     split.params = params;
     queue.push(split);
     if (!routing) {
@@ -864,9 +873,11 @@ function start() {
     var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 
     var _ref$hash = _ref.hash;
-    var hash = _ref$hash === undefined ? true : _ref$hash;
+    var hash = _ref$hash === undefined ? config.hash : _ref$hash;
     var _ref$root = _ref.root;
     var root = _ref$root === undefined ? config.root : _ref$root;
+    var _ref$otherwise = _ref.otherwise;
+    var otherwise = _ref$otherwise === undefined ? config.otherwise : _ref$otherwise;
 
     var evt = hash ? 'hashchange' : 'popstate';
     if (listener) {
@@ -875,6 +886,7 @@ function start() {
     }
     config.hash = hash;
     config.root = hash ? '#' : root;
+    config.otherwise = otherwise;
     listener = function listener(e) {
         var pathname = normalize$1(config.hash ? location.hash : location.pathname).split('/'),
             p = resolve(pathname) || config.root,
@@ -892,7 +904,7 @@ function start() {
             for (var key in params.path) {
                 params.path[key] = pathname[params.path[key]];
             }
-            go(p, params);
+            invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
         }
     };
     window.addEventListener(evt, listener);
@@ -1053,6 +1065,11 @@ function series(fns) {
             return fn(request.params);
         });
     }, Promise.resolve());
+}
+
+function invalid(p) {
+    return (/^\/|[^#]\/$/.test(p)
+    );
 }
 
 var router = Object.freeze({
@@ -2625,7 +2642,7 @@ var Component = function () {
         value: function query(component, DOMNode) {
             var sources = DOMNode.querySelectorAll(Component.selector(component, 'name'));
             sources = Array.prototype.slice.call(sources);
-            sources.forEach(function (node) {
+            sources.forEach(function componentQueryIterator(node) {
                 var child = void 0;
                 //this hook should be read only!
                 //don't do anything to the node here pls
@@ -2647,28 +2664,23 @@ var Component = function () {
 
             //a root node will call this with (component, [DOMNodes])
             //subsequent children will invoke this method with already parsed sources
-            sources.forEach(function (node) {
+            sources.forEach(function componentParseIterator(node) {
                 //node is either a DOMNode or a virtualDOM node
                 var template = void 0;
-                if (component.root) {
-                    //if the root component declared a template clone it and copy the transcluded otherwise just parse the node
-                    if (component.template) {
-                        template = clone$1(component.template, true);
+
+                if (component.template) {
+                    template = is(component.template, 'function') ? component.template(node) : clone$1(component.template, true);
+                    if (component.root) {
                         template.transclude = node;
                     } else {
-                        template = parse$4(node);
-                    }
-                } else {
-                    //an already parsed node, if component has a template, clone it and replace the current node, otherwise just set template to node
-                    if (component.template) {
-                        template = clone$1(component.template, true);
                         node.parent.insert(template, node.index());
                         //could append to parent instead or replace
                         node.destroy();
-                    } else {
-                        template = node;
                     }
+                } else {
+                    template = component.root ? parse$4(node) : node;
                 }
+
                 //read or write as well as replace
                 template = component.parse && component.parse(template, component, node) || template;
                 templates.push(template);
@@ -2691,7 +2703,7 @@ var Component = function () {
                 selector = void 0,
                 results = void 0;
 
-            templates.forEach(function (template) {
+            templates.forEach(function componenetCompileIterator(template) {
                 var compiledNode = template.compiled ? template : compile(template);
                 //read or write but do not replace
                 component.compile && component.compile(compiledNode, component, template);

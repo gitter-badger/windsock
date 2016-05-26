@@ -53,7 +53,7 @@ const parse = (template, component)=>{
 const compile = (compiled, component)=>{
     compiled.find({class:'new-todo'})
         .on('keyup', (e, input)=>{
-            if(e.keyCode === 13){
+            if(e.keyCode === 13 && input.DOMNode.value){
                 store.dispatch('add', input.DOMNode.value);
                 input.DOMNode.value = '';
             }

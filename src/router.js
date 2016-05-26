@@ -8,7 +8,8 @@ const queue = [],
     config = {
         hash: true,
         root: '',
-        reactivate: true
+        reactivate: true,
+        otherwise: null
     };
 
 let request,
@@ -18,6 +19,9 @@ let request,
     i;
 
 export function register(p, h){
+    if(invalid(p)){
+        throw new Error('invalid path');
+    }
     if(!is(h, 'object')){
         throw new Error('parameter must be an object');
     }
@@ -29,7 +33,12 @@ export function register(p, h){
 }
 
 export function go(p, params = {}){
-    let split = p.split('/');
+    let split;
+    if(invalid(p)){
+        config.otherwise && go(config.otherwise);
+        throw new Error('parameter must be an object');
+    }
+    split = p.split('/');
     split.params = params;
     queue.push(split);
     if(!routing){
@@ -37,7 +46,7 @@ export function go(p, params = {}){
     }
 }
 
-export function start({hash = true, root = config.root} = {}){
+export function start({hash = config.hash, root = config.root, otherwise = config.otherwise} = {}){
     let evt = hash ? 'hashchange' : 'popstate';
     if(listener){
         console.warn('router already started');
@@ -45,6 +54,7 @@ export function start({hash = true, root = config.root} = {}){
     }
     config.hash = hash;
     config.root = hash ? '#' : root;
+    config.otherwise = otherwise;
     listener = (e)=>{
         let pathname = path.normalize(config.hash ? location.hash : location.pathname).split('/'),
             p = resolve(pathname) || config.root,
@@ -62,7 +72,7 @@ export function start({hash = true, root = config.root} = {}){
             for(let key in params.path){
                 params.path[key] = pathname[params.path[key]];
             }
-            go(p, params);
+            invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
         }
     };
     window.addEventListener(evt, listener);
@@ -224,4 +234,8 @@ function series(fns){
             return fn(request.params);
         });
     }, Promise.resolve());
+}
+
+function invalid(p){
+    return /^\/|[^#]\/$/.test(p);
 }
