@@ -51,7 +51,7 @@ function hasChildren(source, callback){
 
 function parseTag(tag){
     var evt = {},
-        reg = /(([\w\-]+([\s]|[\/>]))|([\w\-]+)=["']([^"']+)["'])/g,
+        reg = /(([\w\-:]+([\s]|[\/>]))|([\w\-:]+)=["']([^"']+)["'])/g,
         match = tag.match(reg);
     if(match.length > 1) evt.attributes = {};
     for(let i = 0, l = match.length; i < l; i++){

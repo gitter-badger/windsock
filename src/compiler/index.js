@@ -6,7 +6,8 @@ import Bind from '../bind';
 const NAMESPACE_URI = {
     html: 'http://www.w3.org/1999/xhtml',
     svg: 'http://www.w3.org/2000/svg',
-    xlink: 'http://www.w3.org/1999/xlink'
+    xlink: 'http://www.w3.org/1999/xlink',
+    xmlns: 'http://www.w3.org/1999/xlink'
 };
 
 function xmlNamespace(node){
@@ -14,7 +15,7 @@ function xmlNamespace(node){
         if(node.DOMNode){
             return node.DOMNode.namespaceURI;
         }
-        if(node.name === 'svg'){
+        if(node.name.indexOf('svg') === 0){
             return NAMESPACE_URI.svg;
         }
         node = node.parent instanceof Element ? node.parent : false;
