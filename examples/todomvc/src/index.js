@@ -4,20 +4,20 @@ import {router} from 'windsock';
 
 const app = new App();
 
-router.register('#', {
+router.register('', {
     activate: function(){
         store.dispatch('route', '');
     }
 });
-router.register('#/active', {
+router.register('active', {
     activate: function() {
         store.dispatch('route', 'active');
     }
 });
-router.register('#/completed', {
+router.register('completed', {
     activate: function() {
         store.dispatch('route', 'completed');
     }
 });
 
-router.start();
+router.start({reactivate: true});

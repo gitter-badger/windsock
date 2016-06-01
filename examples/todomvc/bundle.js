@@ -566,22 +566,22 @@
 
     var app = new App();
 
-    windsock.router.register('#', {
+    windsock.router.register('', {
         activate: function activate() {
             store.dispatch('route', '');
         }
     });
-    windsock.router.register('#/active', {
+    windsock.router.register('active', {
         activate: function activate() {
             store.dispatch('route', 'active');
         }
     });
-    windsock.router.register('#/completed', {
+    windsock.router.register('completed', {
         activate: function activate() {
             store.dispatch('route', 'completed');
         }
     });
 
-    windsock.router.start();
+    windsock.router.start({ reactivate: true });
 
 }));

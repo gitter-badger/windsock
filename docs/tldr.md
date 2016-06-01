@@ -57,7 +57,7 @@ let user = new Http({
 
 user.path.id = 1;
 
-http.GET()
+user.GET()
     .then((data)=>{
         store.dispatch('add', data);
     });

@@ -7,8 +7,8 @@ const queue = [],
     states = {},
     config = {
         hash: true,
-        root: '',
-        reactivate: true,
+        root: 'root',
+        reactivate: false,
         otherwise: null
     };
 
@@ -25,20 +25,24 @@ export function register(p, h){
     if(!is(h, 'object')){
         throw new Error('parameter must be an object');
     }
+    p = prefix(p);
     if(!states[p]){
         states[p] = [h];
     }else{
         states[p].push(h);
     }
+    return states[p];
 }
 
-export function go(p, params = {}){
+export function go(p, params = {path: {}}){
     let split;
     if(invalid(p)){
-        config.otherwise && go(config.otherwise);
-        throw new Error('parameter must be an object');
+        throw new Error('Invalid path format');
     }
-    split = p.split('/');
+    if(invalidParams(p, params.path)){
+        throw new Error(`Invalid params for path ${p}`);
+    }
+    split = prefix(p).split('/');
     split.params = params;
     queue.push(split);
     if(!routing){
@@ -46,77 +50,114 @@ export function go(p, params = {}){
     }
 }
 
-export function start({hash = config.hash, root = config.root, otherwise = config.otherwise} = {}){
-    let evt = hash ? 'hashchange' : 'popstate';
-    if(listener){
-        console.warn('router already started');
-        return;
-    }
-    config.hash = hash;
-    config.root = hash ? '#' : root;
-    config.otherwise = otherwise;
-    listener = (e)=>{
-        let pathname = path.normalize(config.hash ? location.hash : location.pathname).split('/'),
-            p = resolve(pathname) || config.root,
+export function start({hash, root, reactivate, otherwise} = {}){
+    config.hash = is(hash, 'undefined') ? config.hash : hash;
+    config.root = is(root, 'undefined') ? config.root : root;
+    config.reactivate = is(reactivate, 'undefined') ? config.reactivate : reactivate;
+    config.otherwise = is(otherwise, 'undefined') ? config.otherwise : otherwise;
+
+    listen((evt)=>{
+        let pathname = path.normalize(config.hash ? location.hash.replace('#', '') : location.pathname),
+            p = resolve(pathname),
             params;
         if(p){
+            p = p.slice(1).join('/');
+            pathname = pathname.split('/');
             params = {
                 path: path.parse(p),
                 query: query.parse(location.search, {
                     query: true
                 }),
-                replace: !config.hash,
-                hashChange: config.hash,
-                event: e
+                replace: true,
+                event: evt
             };
             for(let key in params.path){
                 params.path[key] = pathname[params.path[key]];
             }
             invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
         }
-    };
-    window.addEventListener(evt, listener);
-    listener();
+    });
+    listener && listener();
 }
 
 export function stop(){
-    let evt = config.hash ? 'hashchange' : 'popstate';
-    if(!listener){
-        console.warn('router no started');
+    listen();
+}
+
+export function started(){
+    return !!listener;
+}
+
+function listen(fn) {
+    let evt;
+    if(typeof window === 'undefined'){
         return;
     }
-    window.removeEventListener(evt, listener);
-    listener = undefined;
+    evt = config.hash ? 'hashchange' : 'popstate';
+    if(!fn){
+        if(!listener){
+            throw new Error('router no started');
+        }
+        typeof window !== 'undefined' && window.removeEventListener(evt, listener);
+        listener = undefined;
+    }else{
+        if(listener){
+            throw new Error('router already started');
+        }
+        listener = fn;
+        window.addEventListener(evt, listener);
+    }
+}
+
+function prefix(p){
+    return `${config.root}${p ? '/' + p : ''}`;
 }
 
 function resolve(pathname){
-    let literal = 0,
+    let match = {
+            literal: 0,
+            variable: 0
+        },
         resolved;
+    pathname = prefix(pathname).split('/');
     Object.keys(states)
         .forEach((p)=>{
-            let l = compare(p.split('/'), pathname);
-            if(l > literal){
-                literal = l;
+            let slugs = p.split('/'),
+                result;
+            if(slugs.length > pathname.length){
+                return;
+            }
+            result = compare(slugs, pathname);
+            //if compare returns 0, just throw it out
+            if(result.literal === 0){
+                return;
+            }
+            if(result.literal > match.literal || (result.literal === match.literal && result.variable > match.variable)){
+                match = result;
                 resolved = p;
             }
         });
     resolved = resolved && resolved.split('/');
-    return resolved && resolved.concat(pathname.slice(resolved.length)).join('/');
+    return resolved && resolved.concat(pathname.slice(resolved.length));
 }
 
 function compare(p, pathname){
-    let literal = 0;
+    let result = {
+        literal: 0,
+        variable: 0
+    };
     for(let n = 0, l = p.length; n < l; n++){
         if(p[n].indexOf(':') === 0){
-            continue;
-        }
-        if(p[n] !== pathname[n]){
-            return 0;
+            result.variable++;
         }else{
-            literal++;
+            if(p[n] !== pathname[n]){
+                result.literal = 0;
+                return result;
+            }
+            result.literal++;
         }
     }
-    return literal;
+    return result;
 }
 
 function next(){
@@ -199,29 +240,20 @@ function activate(){
         }else{
             activate();
         }
-    }else{
-        if(config.hash){
-            if(!request.params.hashChange){
-                if(request.params.replace){
-                    location.replace(normalize())
-                }else{
-                    location.hash = normalize();
-                }
-            }
+    }else if(typeof window !== 'undefined'){
+        if(request.params.replace){
+            typeof window.history !== 'undefined' && window.history.replaceState({}, '', normalize());
         }else{
-            if(request.params.replace){
-                history.replaceState({}, '', normalize());
-            }else{
-                history.pushState({}, '', normalize());
-            }
+            typeof window.history !== 'undefined' && window.history.pushState({}, '', normalize());
         }
         next();
     }
 }
 
 function normalize(){
-    let root = config.hash ? config.root : '/' + config.root,
-        pathname = request.params.path ? path.format(active.join('/'), request.params.path) : active.join('/'),
+    let root = config.hash ? '#/' : '/',
+        p = active.slice(1).join('/'),
+        pathname = request.params.path ? path.format(p, request.params.path) : p,
         search = request.params.query ? query.format(request.params.query, {
             query: true
         }) : '';
@@ -238,4 +270,14 @@ function series(fns){
 
 function invalid(p){
     return /^\/|[^#]\/$/.test(p);
+}
+
+function invalidParams(p, params){
+    var pathMap = path.parse(p);
+    for(let key in pathMap){
+        if(is(params[key], 'undefined')){
+            return true;
+        }
+    }
+    return false;
 }

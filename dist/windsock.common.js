@@ -830,8 +830,8 @@ var active = [];
 var states = {};
 var config = {
     hash: true,
-    root: '',
-    reactivate: true,
+    root: 'root',
+    reactivate: false,
     otherwise: null
 };
 var request = void 0;
@@ -846,22 +846,26 @@ function register(p, h) {
     if (!is(h, 'object')) {
         throw new Error('parameter must be an object');
     }
+    p = prefix(p);
     if (!states[p]) {
         states[p] = [h];
     } else {
         states[p].push(h);
     }
+    return states[p];
 }
 
 function go(p) {
-    var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+    var params = arguments.length <= 1 || arguments[1] === undefined ? { path: {} } : arguments[1];
 
     var split = void 0;
     if (invalid(p)) {
-        config.otherwise && go(config.otherwise);
-        throw new Error('parameter must be an object');
+        throw new Error('Invalid path format');
     }
-    split = p.split('/');
+    if (invalidParams(p, params.path)) {
+        throw new Error('Invalid params for path ' + p);
+    }
+    split = prefix(p).split('/');
     split.params = params;
     queue.push(split);
     if (!routing) {
@@ -872,82 +876,117 @@ function go(p) {
 function start() {
     var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
 
-    var _ref$hash = _ref.hash;
-    var hash = _ref$hash === undefined ? config.hash : _ref$hash;
-    var _ref$root = _ref.root;
-    var root = _ref$root === undefined ? config.root : _ref$root;
-    var _ref$otherwise = _ref.otherwise;
-    var otherwise = _ref$otherwise === undefined ? config.otherwise : _ref$otherwise;
+    var hash = _ref.hash;
+    var root = _ref.root;
+    var reactivate = _ref.reactivate;
+    var otherwise = _ref.otherwise;
 
-    var evt = hash ? 'hashchange' : 'popstate';
-    if (listener) {
-        console.warn('router already started');
-        return;
-    }
-    config.hash = hash;
-    config.root = hash ? '#' : root;
-    config.otherwise = otherwise;
-    listener = function listener(e) {
-        var pathname = normalize$1(config.hash ? location.hash : location.pathname).split('/'),
-            p = resolve(pathname) || config.root,
+    config.hash = is(hash, 'undefined') ? config.hash : hash;
+    config.root = is(root, 'undefined') ? config.root : root;
+    config.reactivate = is(reactivate, 'undefined') ? config.reactivate : reactivate;
+    config.otherwise = is(otherwise, 'undefined') ? config.otherwise : otherwise;
+
+    listen(function (evt) {
+        var pathname = normalize$1(config.hash ? location.hash.replace('#', '') : location.pathname),
+            p = resolve(pathname),
             params = void 0;
         if (p) {
+            p = p.slice(1).join('/');
+            pathname = pathname.split('/');
             params = {
                 path: parse$2(p),
                 query: parse$1(location.search, {
                     query: true
                 }),
-                replace: !config.hash,
-                hashChange: config.hash,
-                event: e
+                replace: true,
+                event: evt
             };
             for (var key in params.path) {
                 params.path[key] = pathname[params.path[key]];
             }
             invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
         }
-    };
-    window.addEventListener(evt, listener);
-    listener();
+    });
+    listener && listener();
 }
 
 function stop() {
-    var evt = config.hash ? 'hashchange' : 'popstate';
-    if (!listener) {
-        console.warn('router no started');
+    listen();
+}
+
+function started() {
+    return !!listener;
+}
+
+function listen(fn) {
+    var evt = void 0;
+    if (typeof window === 'undefined') {
         return;
     }
-    window.removeEventListener(evt, listener);
-    listener = undefined;
+    evt = config.hash ? 'hashchange' : 'popstate';
+    if (!fn) {
+        if (!listener) {
+            throw new Error('router no started');
+        }
+        typeof window !== 'undefined' && window.removeEventListener(evt, listener);
+        listener = undefined;
+    } else {
+        if (listener) {
+            throw new Error('router already started');
+        }
+        listener = fn;
+        window.addEventListener(evt, listener);
+    }
+}
+
+function prefix(p) {
+    return '' + config.root + (p ? '/' + p : '');
 }
 
 function resolve(pathname) {
-    var literal = 0,
+    var match = {
+        literal: 0,
+        variable: 0
+    },
         resolved = void 0;
+    pathname = prefix(pathname).split('/');
     Object.keys(states).forEach(function (p) {
-        var l = compare(p.split('/'), pathname);
-        if (l > literal) {
-            literal = l;
+        var slugs = p.split('/'),
+            result = void 0;
+        if (slugs.length > pathname.length) {
+            return;
+        }
+        result = compare(slugs, pathname);
+        //if compare returns 0, just throw it out
+        if (result.literal === 0) {
+            return;
+        }
+        if (result.literal > match.literal || result.literal === match.literal && result.variable > match.variable) {
+            match = result;
             resolved = p;
         }
     });
     resolved = resolved && resolved.split('/');
-    return resolved && resolved.concat(pathname.slice(resolved.length)).join('/');
+    return resolved && resolved.concat(pathname.slice(resolved.length));
 }
 
 function compare(p, pathname) {
-    var literal = 0;
+    var result = {
+        literal: 0,
+        variable: 0
+    };
     for (var n = 0, l = p.length; n < l; n++) {
         if (p[n].indexOf(':') === 0) {
-            continue;
-        }
-        if (p[n] !== pathname[n]) {
-            return 0;
+            result.variable++;
         } else {
-            literal++;
+            if (p[n] !== pathname[n]) {
+                result.literal = 0;
+                return result;
+            }
+            result.literal++;
         }
     }
-    return literal;
+    return result;
 }
 
 function next() {
@@ -1030,29 +1069,20 @@ function activate() {
         } else {
             activate();
         }
-    } else {
-        if (config.hash) {
-            if (!request.params.hashChange) {
-                if (request.params.replace) {
-                    location.replace(normalize$2());
-                } else {
-                    location.hash = normalize$2();
-                }
-            }
+    } else if (typeof window !== 'undefined') {
+        if (request.params.replace) {
+            typeof window.history !== 'undefined' && window.history.replaceState({}, '', normalize$2());
         } else {
-            if (request.params.replace) {
-                history.replaceState({}, '', normalize$2());
-            } else {
-                history.pushState({}, '', normalize$2());
-            }
+            typeof window.history !== 'undefined' && window.history.pushState({}, '', normalize$2());
         }
         next();
     }
 }
 
 function normalize$2() {
-    var root = config.hash ? config.root : '/' + config.root,
-        pathname = request.params.path ? format$2(active.join('/'), request.params.path) : active.join('/'),
+    var root = config.hash ? '#/' : '/',
+        p = active.slice(1).join('/'),
+        pathname = request.params.path ? format$2(p, request.params.path) : p,
         search = request.params.query ? format$1(request.params.query, {
         query: true
     }) : '';
@@ -1072,11 +1102,22 @@ function invalid(p) {
     );
 }
 
+function invalidParams(p, params) {
+    var pathMap = parse$2(p);
+    for (var key in pathMap) {
+        if (is(params[key], 'undefined')) {
+            return true;
+        }
+    }
+    return false;
+}
+
 var router = Object.freeze({
     register: register,
     go: go,
     start: start,
-    stop: stop
+    stop: stop,
+    started: started
 });
 
 var ARRAY_MUTATOR_METHODS = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
