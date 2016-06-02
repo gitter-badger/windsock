@@ -1,7 +1,7 @@
 {
   "env": {
     "development": {
-      "presets": ["es2015"]
+      "presets": ["es2015", "stage-1"]
     },
     "production": {
       "presets": ["es2015-rollup"]

@@ -1,4 +1,4 @@
-import {Observer} from '../../src/index';
+import {Observer} from '../../src';
 import assert from 'assert';
 
 describe('Observer', ()=>{

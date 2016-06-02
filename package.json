@@ -13,6 +13,7 @@
   "main": "dist/windsock.common.js",
   "devDependencies": {
     "babel-preset-es2015-rollup": "^1.1.1",
+    "babel-preset-stage-1": "^6.5.0",
     "babel-register": "^6.9.0",
     "eslint": "^2.10.2",
     "mocha": "^2.4.5",
@@ -24,7 +25,7 @@
   "scripts": {
     "build": "BABEL_ENV=production node ./build.js",
     "build:watch": "watch 'npm run build' src/ examples/**/src",
-    "test": "./node_modules/eslint/bin/eslint.js src/ && npm run test:unit",
+    "test": "eslint src/ && npm run test:unit",
     "test:unit": "BABEL_ENV=development mocha test/unit --compilers js:babel-register",
     "docs": "gitbook serve ./docs",
     "docs:publish": "bash ./docs.sh",
