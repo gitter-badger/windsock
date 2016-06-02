@@ -1,4 +1,4 @@
-import {router} from '../../src';
+import * as router from '../../src/router';
 import assert from 'assert';
 
 describe('router', ()=>{
