@@ -450,7 +450,7 @@ router.go('user/:id', {
 ```
 
 #### path `String`
-A string representing the desired url, supports template segments
+A string representing the desired url, supports parameters
 
 #### config `Object`
 - activate `Function`
@@ -462,7 +462,24 @@ A string representing the desired url, supports template segments
     A function to call when the state is deactivated. Optionally return a promise to resolve or reject preventing the route request from completing.
 
 ### `router.go(path, params)`
-Adds a state request with parameters to the queue to be processed
+Adds a state request with parameters to the queue to be processed. Will throw an error if starts or ends with a `/` or if the path has parameter(s) that are not defined in params object.
+
+#### path `String`
+A string representing the desired url, supports parameters.
+
+#### params `Object`
+
+- path `Object`
+
+    An object map that will populate the path parameter with values.
+
+- query `Object`
+
+    An object map that will populate the query parameters with values.
+
+ - replace `Boolean`
+
+    A boolean value indicating whether or not replace the previous history entry.
 
 ### `router.start(config)`
 Starts the router by adding event listeners to hashchange or popstate based on `config.hash`. Will throw an error if already listening, please check if started `router.started()`.

@@ -2788,6 +2788,7 @@ exports.util = util;
 exports.vdom = vdom;
 exports.url = url;
 exports.router = router;
+exports.Signal = Signal;
 exports.Observer = Observer;
 exports.Store = Store;
 exports.Http = Http;

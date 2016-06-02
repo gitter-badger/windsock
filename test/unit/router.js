@@ -1,4 +1,4 @@
-import {router} from '../../src';
+import {router} from '../../src/index';
 import assert from 'assert';
 
 describe('router', ()=>{

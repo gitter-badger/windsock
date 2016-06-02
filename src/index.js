@@ -2,6 +2,7 @@ import * as util from './util';
 import * as vdom from './vdom/index';
 import * as url from './url/index';
 import * as router from './router';
+import Signal from './signal';
 import Observer from './observer';
 import Store from './store';
 import Http from './http/index';
@@ -17,6 +18,7 @@ export {
     vdom,
     url,
     router,
+    Signal,
     Observer,
     Store,
     Http,
