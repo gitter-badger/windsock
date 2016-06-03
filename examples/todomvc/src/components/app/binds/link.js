@@ -5,23 +5,9 @@ export default new Bind((node, binding)=>{
         path = `#/${target.parent[target.key]}`;
 
     if(node.attributes.href === path){
-        if(node.compiled){
-            if(!node.attributes.class){
-                node.attributes.add('class', 'selected');
-                return;
-            }
-        }
-        node.attributes.class = 'selected';
+        node.class.add('selected');
     }else{
-        if(node.compiled){
-            if(node.attributes.class){
-                node.attributes.delete('class');
-            }
-        }else{
-            if(node.attributes.class){
-                delete node.attributes.class;
-            }
-        }
+        node.class.remove('selected');
     }
     return {
         node: node,

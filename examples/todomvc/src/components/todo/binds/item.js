@@ -45,7 +45,6 @@ export default new Bind({
     },
     compile: (node, binding)=>{
         let todo = binding.target.value,
-            index = state.todos.indexOf(todo),
             input = node.find({class:'edit'}),
             t = null;
 
@@ -62,11 +61,11 @@ export default new Bind({
                 t = setTimeout(()=>{t = null;}, 450);
             }
         });
-        node.find({class: 'toggle'}).on('change', ()=>{
-            store.dispatch('toggle', index);
+        node.find({class: 'toggle'}).on('change', (e, n)=>{
+            store.dispatch('toggle', state.todos.indexOf(todo));
         });
-        node.find('button').on('click', ()=>{
-            store.dispatch('clear', index);
+        node.find('button').on('click', (e, n)=>{
+            store.dispatch('clear', state.todos.indexOf(todo));
         });
         input.on('focus', (e, n)=>{
             n.DOMNode.value = n.DOMNode.value;
@@ -76,7 +75,7 @@ export default new Bind({
             if(n.DOMNode.value.length){
                 store.dispatch('edit', todo, n.DOMNode.value);
             }else{
-                store.dispatch('clear', index);
+                store.dispatch('clear', state.todos.indexOf(todo));
             }
         });
         input.on('keyup', (e, n)=>{

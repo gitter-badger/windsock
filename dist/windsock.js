@@ -656,6 +656,14 @@ var util = Object.freeze({
                 }
                 return html.join('');
             }
+        }, {
+            key: 'class',
+            get: function get() {
+                if (is(this.classList, 'undefined')) {
+                    this.classList = new ClassList(this.attributes, this.compiled);
+                }
+                return this.classList;
+            }
         }]);
         return Element;
     }(Fragment);
@@ -670,6 +678,77 @@ var util = Object.freeze({
             configurable: false
         });
         return attributes;
+    }
+
+    var ClassList = function () {
+        function ClassList(attributes, compiled) {
+            babelHelpers.classCallCheck(this, ClassList);
+
+            this.compiled = compiled;
+            this.attributes = attributes;
+        }
+
+        babelHelpers.createClass(ClassList, [{
+            key: 'toggle',
+            value: function toggle(str) {
+                if (invalidClassName(str)) {
+                    throw new Error('Invalid classname \'' + str + '\' passed to toggle method');
+                }
+                this.contains(str) ? this.remove(str) : this.add(str);
+            }
+        }, {
+            key: 'add',
+            value: function add(str) {
+                if (invalidClassName(str)) {
+                    throw new Error('Invalid classname \'' + str + '\' passed to add method');
+                }
+                if (!this.contains(str)) {
+                    if (is(this.attributes.class, 'undefined') && this.compiled) {
+                        this.attributes.add('class', str);
+                        return;
+                    }
+                    if (is(this.attributes.class, 'string') && this.attributes.class.length) {
+                        str = this.attributes.class + ' ' + str;
+                    }
+                    this.attributes.class = str;
+                }
+            }
+        }, {
+            key: 'remove',
+            value: function remove(str) {
+                if (invalidClassName(str)) {
+                    throw new Error('Invalid classname \'' + str + '\' passed to remove method');
+                }
+                if (this.contains(str)) {
+                    if (this.attributes.class.length > str.length) {
+                        str = ' ' + str;
+                    }
+                    this.attributes.class = this.attributes.class.replace(str, '');
+                }
+            }
+        }, {
+            key: 'contains',
+            value: function contains(str) {
+                if (invalidClassName(str)) {
+                    throw new Error('Invalid classname \'' + str + '\' passed to contains method');
+                }
+                return this.index(str) !== -1;
+            }
+        }, {
+            key: 'index',
+            value: function index(str) {
+                if (invalidClassName(str)) {
+                    throw new Error('Invalid classname \'' + str + '\' passed to index method');
+                }
+                return this.attributes.class ? this.attributes.class.split(' ').indexOf(str) : -1;
+            }
+        }]);
+        return ClassList;
+    }();
+
+    function invalidClassName(str) {
+        return (/\s/.test(str)
+        );
     }
 
 

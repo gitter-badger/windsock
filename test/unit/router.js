@@ -2,7 +2,7 @@ import * as router from '../../src/router';
 import assert from 'assert';
 
 describe('router', ()=>{
-    describe('register()', ()=>{
+    describe('register', ()=>{
         it('should be defined', ()=>{
             assert.notStrictEqual(typeof router.register, 'undefined');
         });
@@ -29,7 +29,7 @@ describe('router', ()=>{
             assert.strictEqual(state[0], config);
         });
     });
-    describe('go()', ()=>{
+    describe('go', ()=>{
         it('should be defined', ()=>{
             assert.notStrictEqual(typeof router.go, 'undefined');
         });
@@ -40,7 +40,7 @@ describe('router', ()=>{
             assert.strictEqual(router.go.length, 1);
         });
     });
-    describe('start()', ()=>{
+    describe('start', ()=>{
         it('should be defined', ()=>{
             assert.notStrictEqual(typeof router.start, 'undefined');
         });

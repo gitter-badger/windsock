@@ -7,9 +7,9 @@ export default new Conditional((node)=>{
             return true;
             break;
         case 'active':
-            return node.attributes.class.indexOf('completed') === -1;
+            return !node.class.contains('completed');
             break;
         case 'completed':
-            return node.attributes.class.indexOf('completed') !== -1;
+            return node.class.contains('completed');
     }
 });

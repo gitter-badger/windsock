@@ -9,14 +9,14 @@ export default new Bind({
     },
     update:(node, binding)=>{
         if(binding.target.parent[binding.target.key] === node.todo){
-            node.attributes.class += ' editing';
+            node.class.add('editing');
             if(node.compiled){
                 setTimeout(()=>{
                     node.find({class:'edit'}).DOMNode.focus();
                 }, 10);
             }
         }else{
-            node.attributes.class = node.attributes.class && node.attributes.class.replace(' editing','');
+            node.class.remove('editing');
         }
     }
 });

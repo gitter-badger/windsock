@@ -34,28 +34,3 @@ export default class Todo extends Item{
         }, data);
     }
 }
-
-// export default class Todo extends Component{
-//     constructor(name, root){
-//         super(name, root);
-//     }
-//     template(todo){
-//         //THIS IS INVOKED BY PAREND TEMPLATE RENDER WITH TODO DATA
-//         debugger;
-//         let template = super.template(todo);
-//         item.render(template, todo);
-//         return template;
-//     }
-//     parse(templates){
-//         debugger;
-//         //super.parse(templates);
-//
-//         this.templates.forEach((template)=>{
-//             //completedIf.render(template, state, 'path');
-//         });
-//     }
-//     compile(compiled){
-//         super.compile(compiled);
-//         debugger;
-//     }
-// }

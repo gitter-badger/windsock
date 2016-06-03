@@ -47,6 +47,12 @@ export default class Element extends Fragment{
         }
         return html.join('');
     }
+    get class(){
+        if(is(this.classList, 'undefined')){
+            this.classList = new ClassList(this.attributes, this.compiled);
+        }
+        return this.classList;
+    }
     destroy(){
         super.destroy();
         if(!is(this.parent, 'undefined')){
@@ -88,4 +94,59 @@ function defineAttributesParent(instance, attributes = {}){
         configurable: false
     });
     return attributes;
+}
+
+class ClassList{
+    constructor(attributes, compiled){
+        this.compiled = compiled;
+        this.attributes = attributes;
+    }
+    toggle(str){
+        if(invalidClassName(str)){
+            throw new Error(`Invalid classname '${str}' passed to toggle method`);
+        }
+        this.contains(str) ? this.remove(str) : this.add(str);
+    }
+    add(str){
+        if(invalidClassName(str)){
+            throw new Error(`Invalid classname '${str}' passed to add method`);
+        }
+        if(!this.contains(str)){
+            if(is(this.attributes.class, 'undefined') && this.compiled){
+                this.attributes.add('class', str);
+                return;
+            }
+            if(is(this.attributes.class, 'string') && this.attributes.class.length){
+                str = `${this.attributes.class} ${str}`;
+            }
+            this.attributes.class = str;
+        }
+    }
+    remove(str){
+        if(invalidClassName(str)){
+            throw new Error(`Invalid classname '${str}' passed to remove method`);
+        }
+        if(this.contains(str)){
+            if(this.attributes.class.length > str.length){
+                str = ' ' + str;
+            }
+            this.attributes.class = this.attributes.class.replace(str, '');
+        }
+    }
+    contains(str){
+        if(invalidClassName(str)){
+            throw new Error(`Invalid classname '${str}' passed to contains method`);
+        }
+        return this.index(str) !== -1;
+    }
+    index(str){
+        if(invalidClassName(str)){
+            throw new Error(`Invalid classname '${str}' passed to index method`);
+        }
+        return this.attributes.class ? this.attributes.class.split(' ').indexOf(str) : -1;
+    }
+}
+
+function invalidClassName(str){
+    return /\s/.test(str);
 }

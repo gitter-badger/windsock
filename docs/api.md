@@ -123,6 +123,30 @@ An object map representing the elements attributes
 #### `element.empty`
 Boolean value indicating whether or not the element is empty/self closing
 
+#### `element.class`
+Read-only property for returning a `classList` object for manipulating the element classes
+
+##### Methods
+- `element.class.toggle(str)`
+
+    Toggles the existence of a single class name. Throws an error for invalid class name.
+
+- `element.class.add(str)`
+
+    Appends a single class name if it does not already exist. Throws an error for invalid class name.
+
+- `element.class.remove(str)`
+
+    Removes a single class name if it exists. Throws an error for invalid class name.
+
+- `element.class.contains(str)`
+
+    Returns a boolean value whether the class exists. Throws an error for invalid class name.
+
+- `element.class.index(str)`
+
+    Returns a index of class if exists otherwise -1. Throws an error for invalid class name.
+
 ### Methods
 
 #### `element.index()`
@@ -191,35 +215,35 @@ Removes itself from target observers list and removes reference to target.
 The array mutation methods simply forward their arguments to the associated method on the Array.prototype, windsock does not modify the Array.prototype.
 
 ### Observable Methods
-- object.add(key, value)
+- `object.add(key, value)`
 
     Adds a value at the specific key on the object
 
-- object.delete(key)
+- `object.delete(key)`
 
     Deletes a property on an object
 
-- array.fill(...)
+- `array.fill(...)`
 
     Invokes Array.prototype.fill
 
-- array.pop(...)
+- `array.pop(...)`
 
     Invokes Array.prototype.pop
 
-- array.push(...)
+- `array.push(...)`
 
     Invokes Array.prototype.push
 
-- array.shift(...)
+- `array.shift(...)`
 
     Invokes Array.prototype.shift
 
-- array.splice(...)
+- `array.splice(...)`
 
     Invokes Array.prototype.splice
 
-- array.unshift(...)
+- `array.unshift(...)`
 
     Invokes Array.prototype.unshift
 

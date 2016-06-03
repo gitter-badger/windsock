@@ -204,7 +204,6 @@
         },
         compile: function compile(node, binding) {
             var todo = binding.target.value,
-                index = state.todos.indexOf(todo),
                 input = node.find({ class: 'edit' }),
                 t = null;
 
@@ -223,11 +222,11 @@
                     }, 450);
                 }
             });
-            node.find({ class: 'toggle' }).on('change', function () {
-                store.dispatch('toggle', index);
+            node.find({ class: 'toggle' }).on('change', function (e, n) {
+                store.dispatch('toggle', state.todos.indexOf(todo));
             });
-            node.find('button').on('click', function () {
-                store.dispatch('clear', index);
+            node.find('button').on('click', function (e, n) {
+                store.dispatch('clear', state.todos.indexOf(todo));
             });
             input.on('focus', function (e, n) {
                 n.DOMNode.value = n.DOMNode.value;
@@ -237,7 +236,7 @@
                 if (n.DOMNode.value.length) {
                     store.dispatch('edit', todo, n.DOMNode.value);
                 } else {
-                    store.dispatch('clear', index);
+                    store.dispatch('clear', state.todos.indexOf(todo));
                 }
             });
             input.on('keyup', function (e, n) {
@@ -323,10 +322,10 @@
                 return true;
                 break;
             case 'active':
-                return node.attributes.class.indexOf('completed') === -1;
+                return !node.class.contains('completed');
                 break;
             case 'completed':
-                return node.attributes.class.indexOf('completed') !== -1;
+                return node.class.contains('completed');
         }
     });
 
@@ -339,14 +338,14 @@
         },
         update: function update(node, binding) {
             if (binding.target.parent[binding.target.key] === node.todo) {
-                node.attributes.class += ' editing';
+                node.class.add('editing');
                 if (node.compiled) {
                     setTimeout(function () {
                         node.find({ class: 'edit' }).DOMNode.focus();
                     }, 10);
                 }
             } else {
-                node.attributes.class = node.attributes.class && node.attributes.class.replace(' editing', '');
+                node.class.remove('editing');
             }
         }
     });
@@ -477,23 +476,9 @@
             path = '#/' + target.parent[target.key];
 
         if (node.attributes.href === path) {
-            if (node.compiled) {
-                if (!node.attributes.class) {
-                    node.attributes.add('class', 'selected');
-                    return;
-                }
-            }
-            node.attributes.class = 'selected';
+            node.class.add('selected');
         } else {
-            if (node.compiled) {
-                if (node.attributes.class) {
-                    node.attributes.delete('class');
-                }
-            } else {
-                if (node.attributes.class) {
-                    delete node.attributes.class;
-                }
-            }
+            node.class.remove('selected');
         }
         return {
             node: node,
