@@ -1,4 +1,4 @@
-import {is,noop} from './util';
+import {is,noop,match} from './util';
 import * as query from './url/query';
 import * as path from './url/path';
 
@@ -6,19 +6,43 @@ const queue = [],
     active = [],
     states = {},
     config = {
-        hash: true,
-        root: 'root',
-        reactivate: false,
-        otherwise: null
+        hash: undefined,
+        root: undefined,
+        reactivate: undefined,
+        otherwise: undefined,
+        post: undefined
     };
 
-let request,
-    routing = false,
-    re = [],
-    listener,
+let listener,
+    request,
+    routing,
+    re,
     i;
 
-export function register(p, h){
+export function reset(){
+    started() && stop();
+    while(queue.length){
+        queue.pop();
+    }
+    while(active.length){
+        active.pop();
+    }
+    Object.keys(states).forEach(p => delete states[p]);
+    config.hash = true;
+    config.root = 'root';
+    config.reactivate = false;
+    config.otherwise = undefined;
+    config.post = undefined;
+    listener = undefined;
+    request = undefined;
+    routing = false;
+    re = [];
+    i = undefined;
+}
+
+reset();
+
+export function register(p, h = {}){
     if(invalid(p)){
         throw new Error('invalid path');
     }
@@ -34,29 +58,35 @@ export function register(p, h){
     return states[p];
 }
 
-export function go(p, params = {path: {}}){
-    let split;
+export function go(p, params = {}){
+    let prefixed,
+        segments,
+        req;
     if(invalid(p)){
         throw new Error('Invalid path format');
     }
     if(invalidParams(p, params.path)){
         throw new Error(`Invalid params for path ${p}`);
     }
-    split = prefix(p).split('/');
-    split.params = params;
-    queue.push(split);
+    prefixed = prefix(p);
+    segments = (states[prefixed] || is(config.otherwise, 'undefined')) ? prefixed.split('/') : prefix(config.otherwise).split('/');
+    params.requested = p;
+    params.query = params.query || {};
+    req = new Request(segments, params);
+    queue.push(req);
     if(!routing){
         next();
     }
+    return req.promise;
 }
 
-export function start({hash, root, reactivate, otherwise} = {}){
+export function start({hash, root, reactivate, otherwise, post} = {}){
     config.hash = is(hash, 'undefined') ? config.hash : hash;
     config.root = is(root, 'undefined') ? config.root : root;
     config.reactivate = is(reactivate, 'undefined') ? config.reactivate : reactivate;
-    config.otherwise = is(otherwise, 'undefined') ? config.otherwise : otherwise;
-
-    listen((evt)=>{
+    config.otherwise = is(otherwise, 'undefined') || invalid(otherwise) ? config.otherwise : otherwise;
+    config.post = is(post, 'undefined') || !is(post, 'function') ? config.post : post;
+    listen(function listenCallback(evt){
         let pathname = path.normalize(config.hash ? location.hash.replace('#', '') : location.pathname),
             p = resolve(pathname),
             params;
@@ -74,7 +104,7 @@ export function start({hash, root, reactivate, otherwise} = {}){
             for(let key in params.path){
                 params.path[key] = pathname[params.path[key]];
             }
-            invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
+            !invalid(p) && go(p, params);
         }
     });
     listener && listener();
@@ -86,6 +116,38 @@ export function stop(){
 
 export function started(){
     return !!listener;
+}
+
+export class Request{
+    constructor(segments, params = {}){
+        if(!segments){
+            throw new Error('unspecified segments');
+        }
+        if(!is(segments, 'array')){
+            throw new Error('segments must be an array');
+        }
+        this.segments = segments;
+        this.requested = params.requested;
+        this.resolved = undefined;
+        this.target = undefined;
+        this.previous = params.previous;
+        this.path = params.path;
+        this.query = params.query;
+        this.replace = params.replace;
+        this.event = params.event;
+        this.promise = new Promise((res, rej)=>{
+            this.resolve = res;
+            this.reject = rej;
+        });
+    }
+    toString(){
+        let p = this.segments.slice(1).join('/'),
+            pathname = this.path ? path.format(p, this.path) : p,
+            search = this.query ? query.format(this.query, {
+                query: true
+            }) : '';
+        return pathname + search;
+    }
 }
 
 function listen(fn) {
@@ -137,8 +199,11 @@ function resolve(pathname){
                 resolved = p;
             }
         });
-    resolved = resolved && resolved.split('/');
-    return resolved && resolved.concat(pathname.slice(resolved.length));
+    if(resolved){
+        resolved = resolved.split('/');
+        resolved = resolved.concat(pathname.slice(resolved.length));
+    }
+    return resolved;
 }
 
 function compare(p, pathname){
@@ -161,9 +226,12 @@ function compare(p, pathname){
 }
 
 function next(){
+    let previous;
     if(queue.length){
         routing = true;
+        previous = request;
         request = queue.shift();
+        request.previous = previous;
         parse();
     }else{
         routing = false;
@@ -172,8 +240,8 @@ function next(){
 
 function parse(){
     i = 0;
-    while(i < request.length){
-        if(request[i] !== active[i]){
+    while(i < request.segments.length){
+        if(request.segments[i] !== active[i]){
             deactivate();
             return;
         }
@@ -187,13 +255,14 @@ function deactivate(){
     if(active.length - i > 0){
         state = states[active.join('/')];
         if(state){
+            request.target = active.slice(1).join('/');
             series(state.map(h => h.deactivate || noop))
                 .then(()=>{
                     active.pop();
                     deactivate();
                 })
                 .catch((e)=>{
-                    console.warn(e);
+                    request.reject(e);
                     next();
                 });
         }else{
@@ -201,8 +270,19 @@ function deactivate(){
             deactivate();
         }
     }else{
-        config.reactivate ? reactivate() : activate();
+        reactivateRequest() ? reactivate() : activate();
     }
+}
+
+function reactivateRequest(){
+    let prev = request.previous;
+    if(config.reactivate || request.segments.length === 1){
+        return true;
+    }
+    if(prev){
+        return request.requested === prev.requested && (!match(request.query, prev.query) || !match(prev.query, request.query));
+    }
+    return false;
 }
 
 function reactivate(){
@@ -211,10 +291,11 @@ function reactivate(){
         re = active.slice(0, re.length + 1);
         state = states[re.join('/')];
         if(state){
+            request.target = active.slice(1).join('/');
             series(state.map(h => h.activate || noop))
                 .then(reactivate)
                 .catch((e)=>{
-                    console.warn(e);
+                    request.reject(e);
                     re = [];
                     next();
                 });
@@ -227,43 +308,39 @@ function reactivate(){
 
 function activate(){
     let state;
-    if(active.length < request.length){
-        active.push(request[active.length]);
+    if(active.length < request.segments.length){
+        active.push(request.segments[active.length]);
         state = states[active.join('/')];
         if(state){
+            request.target = active.slice(1).join('/');
             series(state.map(h => h.activate || noop))
                 .then(activate)
                 .catch((e)=>{
-                    console.warn(e);
+                    request.reject(e);
                     next();
                 });
         }else{
             activate();
         }
-    }else if(typeof window !== 'undefined'){
-        if(request.params.replace){
-            typeof window.history !== 'undefined' && window.history.replaceState({}, '', normalize());
-        }else{
-            typeof window.history !== 'undefined' && window.history.pushState({}, '', normalize());
+    }else {
+        request.resolved = request.toString();
+        if(typeof window !== 'undefined'){
+            if(request.replace){
+                typeof window.history !== 'undefined' && window.history.replaceState({}, '', (config.hash ? '#/' : '/') + request.resolved);
+            }else{
+                typeof window.history !== 'undefined' && window.history.pushState({}, '', (config.hash ? '#/' : '/') + request.resolved);
+            }
         }
+        request.resolve(request);
+        config.post && config.post(request);
         next();
     }
-}
-
-function normalize(){
-    let root = config.hash ? '#/' : '/',
-        p = active.slice(1).join('/'),
-        pathname = request.params.path ? path.format(p, request.params.path) : p,
-        search = request.params.query ? query.format(request.params.query, {
-            query: true
-        }) : '';
-    return root + pathname + search;
 }
 
 function series(fns){
     return fns.reduce((promise, fn)=>{
         return promise.then(()=>{
-            return fn(request.params);
+            return fn(request);
         });
     }, Promise.resolve());
 }
@@ -272,10 +349,14 @@ function invalid(p){
     return /^\/|[^#]\/$/.test(p);
 }
 
-function invalidParams(p, params){
-    var pathMap = path.parse(p);
+function invalidParams(p, obj){
+    let pathMap = path.parse(p),
+        keys = Object.keys(pathMap);
+    if(keys.length && (is(obj, 'undefined') || !is(obj, 'object'))){
+        return true;
+    }
     for(let key in pathMap){
-        if(is(params[key], 'undefined')){
+        if(is(obj[key], 'undefined')){
             return true;
         }
     }

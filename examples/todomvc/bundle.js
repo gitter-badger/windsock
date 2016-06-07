@@ -551,22 +551,15 @@
 
     var app = new App();
 
-    windsock.router.register('', {
-        activate: function activate() {
-            store.dispatch('route', '');
-        }
-    });
-    windsock.router.register('active', {
-        activate: function activate() {
-            store.dispatch('route', 'active');
-        }
-    });
-    windsock.router.register('completed', {
-        activate: function activate() {
-            store.dispatch('route', 'completed');
-        }
-    });
+    windsock.router.register('');
+    windsock.router.register('active');
+    windsock.router.register('completed');
 
-    windsock.router.start({ reactivate: true });
+    windsock.router.start({
+        otherwise: '',
+        post: function post(req) {
+            store.dispatch('route', req.resolved);
+        }
+    });
 
 }));

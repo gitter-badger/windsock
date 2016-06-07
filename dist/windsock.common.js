@@ -834,10 +834,7 @@ function normalize$1(path) {
     if (!is(path, 'string')) {
         throw new Error('Parameter must be a string');
     }
-    if (path.indexOf('/') === 0) {
-        path = path.replace('/', '');
-    }
-    return path;
+    return path.replace(/^\/|\/$/g, '');
 }
 
 var path = Object.freeze({
@@ -908,17 +905,45 @@ var queue = [];
 var active = [];
 var states = {};
 var config = {
-    hash: true,
-    root: 'root',
-    reactivate: false,
-    otherwise: null
+    hash: undefined,
+    root: undefined,
+    reactivate: undefined,
+    otherwise: undefined,
+    post: undefined
 };
-var request = void 0;
-var routing = false;
-var re = [];
 var listener = void 0;
+var request = void 0;
+var routing = void 0;
+var re = void 0;
 var i = void 0;
-function register(p, h) {
+function reset() {
+    started() && stop();
+    while (queue.length) {
+        queue.pop();
+    }
+    while (active.length) {
+        active.pop();
+    }
+    Object.keys(states).forEach(function (p) {
+        return delete states[p];
+    });
+    config.hash = true;
+    config.root = 'root';
+    config.reactivate = false;
+    config.otherwise = undefined;
+    config.post = undefined;
+    listener = undefined;
+    request = undefined;
+    routing = false;
+    re = [];
+    i = undefined;
+}
+
+reset();
+
+function register(p) {
+    var h = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
     if (invalid(p)) {
         throw new Error('invalid path');
     }
@@ -935,21 +960,27 @@ function register(p, h) {
 }
 
 function go(p) {
-    var params = arguments.length <= 1 || arguments[1] === undefined ? { path: {} } : arguments[1];
+    var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-    var split = void 0;
+    var prefixed = void 0,
+        segments = void 0,
+        req = void 0;
     if (invalid(p)) {
         throw new Error('Invalid path format');
     }
     if (invalidParams(p, params.path)) {
         throw new Error('Invalid params for path ' + p);
     }
-    split = prefix(p).split('/');
-    split.params = params;
-    queue.push(split);
+    prefixed = prefix(p);
+    segments = states[prefixed] || is(config.otherwise, 'undefined') ? prefixed.split('/') : prefix(config.otherwise).split('/');
+    params.requested = p;
+    params.query = params.query || {};
+    req = new Request(segments, params);
+    queue.push(req);
     if (!routing) {
         next();
     }
+    return req.promise;
 }
 
 function start() {
@@ -959,13 +990,14 @@ function start() {
     var root = _ref.root;
     var reactivate = _ref.reactivate;
     var otherwise = _ref.otherwise;
+    var post = _ref.post;
 
     config.hash = is(hash, 'undefined') ? config.hash : hash;
     config.root = is(root, 'undefined') ? config.root : root;
     config.reactivate = is(reactivate, 'undefined') ? config.reactivate : reactivate;
-    config.otherwise = is(otherwise, 'undefined') ? config.otherwise : otherwise;
-
-    listen(function (evt) {
+    config.otherwise = is(otherwise, 'undefined') || invalid(otherwise) ? config.otherwise : otherwise;
+    config.post = is(post, 'undefined') || !is(post, 'function') ? config.post : post;
+    listen(function listenCallback(evt) {
         var pathname = normalize$1(config.hash ? location.hash.replace('#', '') : location.pathname),
             p = resolve(pathname),
             params = void 0;
@@ -983,7 +1015,7 @@ function start() {
             for (var key in params.path) {
                 params.path[key] = pathname[params.path[key]];
             }
-            invalid(p) ? config.otherwise && go(config.otherwise) : go(p, params);
+            !invalid(p) && go(p, params);
         }
     });
     listener && listener();
@@ -996,6 +1028,48 @@ function stop() {
 function started() {
     return !!listener;
 }
+
+var Request = function () {
+    function Request(segments) {
+        var _this = this;
+
+        var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+        babelHelpers.classCallCheck(this, Request);
+
+        if (!segments) {
+            throw new Error('unspecified segments');
+        }
+        if (!is(segments, 'array')) {
+            throw new Error('segments must be an array');
+        }
+        this.segments = segments;
+        this.requested = params.requested;
+        this.resolved = undefined;
+        this.target = undefined;
+        this.previous = params.previous;
+        this.path = params.path;
+        this.query = params.query;
+        this.replace = params.replace;
+        this.event = params.event;
+        this.promise = new Promise(function (res, rej) {
+            _this.resolve = res;
+            _this.reject = rej;
+        });
+    }
+
+    babelHelpers.createClass(Request, [{
+        key: 'toString',
+        value: function toString() {
+            var p = this.segments.slice(1).join('/'),
+                pathname = this.path ? format$2(p, this.path) : p,
+                search = this.query ? format$1(this.query, {
+                query: true
+            }) : '';
+            return pathname + search;
+        }
+    }]);
+    return Request;
+}();
 
 function listen(fn) {
     var evt = void 0;
@@ -1045,8 +1119,11 @@ function resolve(pathname) {
             resolved = p;
         }
     });
-    resolved = resolved && resolved.split('/');
-    return resolved && resolved.concat(pathname.slice(resolved.length));
+    if (resolved) {
+        resolved = resolved.split('/');
+        resolved = resolved.concat(pathname.slice(resolved.length));
+    }
+    return resolved;
 }
 
 function compare(p, pathname) {
@@ -1069,9 +1146,12 @@ function compare(p, pathname) {
 }
 
 function next() {
+    var previous = void 0;
     if (queue.length) {
         routing = true;
+        previous = request;
         request = queue.shift();
+        request.previous = previous;
         parse$3();
     } else {
         routing = false;
@@ -1080,8 +1160,8 @@ function next() {
 
 function parse$3() {
     i = 0;
-    while (i < request.length) {
-        if (request[i] !== active[i]) {
+    while (i < request.segments.length) {
+        if (request.segments[i] !== active[i]) {
             deactivate();
             return;
         }
@@ -1095,13 +1175,14 @@ function deactivate() {
     if (active.length - i > 0) {
         state = states[active.join('/')];
         if (state) {
+            request.target = active.slice(1).join('/');
             series(state.map(function (h) {
                 return h.deactivate || noop;
             })).then(function () {
                 active.pop();
                 deactivate();
             }).catch(function (e) {
-                console.warn(e);
+                request.reject(e);
                 next();
             });
         } else {
@@ -1109,8 +1190,19 @@ function deactivate() {
             deactivate();
         }
     } else {
-        config.reactivate ? reactivate() : activate();
+        reactivateRequest() ? reactivate() : activate();
     }
+}
+
+function reactivateRequest() {
+    var prev = request.previous;
+    if (config.reactivate || request.segments.length === 1) {
+        return true;
+    }
+    if (prev) {
+        return request.requested === prev.requested && (!match(request.query, prev.query) || !match(prev.query, request.query));
+    }
+    return false;
 }
 
 function reactivate() {
@@ -1119,10 +1211,11 @@ function reactivate() {
         re = active.slice(0, re.length + 1);
         state = states[re.join('/')];
         if (state) {
+            request.target = active.slice(1).join('/');
             series(state.map(function (h) {
                 return h.activate || noop;
             })).then(reactivate).catch(function (e) {
-                console.warn(e);
+                request.reject(e);
                 re = [];
                 next();
             });
@@ -1135,43 +1228,39 @@ function reactivate() {
 
 function activate() {
     var state = void 0;
-    if (active.length < request.length) {
-        active.push(request[active.length]);
+    if (active.length < request.segments.length) {
+        active.push(request.segments[active.length]);
         state = states[active.join('/')];
         if (state) {
+            request.target = active.slice(1).join('/');
             series(state.map(function (h) {
                 return h.activate || noop;
             })).then(activate).catch(function (e) {
-                console.warn(e);
+                request.reject(e);
                 next();
             });
         } else {
             activate();
         }
-    } else if (typeof window !== 'undefined') {
-        if (request.params.replace) {
-            typeof window.history !== 'undefined' && window.history.replaceState({}, '', normalize$2());
-        } else {
-            typeof window.history !== 'undefined' && window.history.pushState({}, '', normalize$2());
+    } else {
+        request.resolved = request.toString();
+        if (typeof window !== 'undefined') {
+            if (request.replace) {
+                typeof window.history !== 'undefined' && window.history.replaceState({}, '', (config.hash ? '#/' : '/') + request.resolved);
+            } else {
+                typeof window.history !== 'undefined' && window.history.pushState({}, '', (config.hash ? '#/' : '/') + request.resolved);
+            }
         }
+        request.resolve(request);
+        config.post && config.post(request);
         next();
     }
-}
-
-function normalize$2() {
-    var root = config.hash ? '#/' : '/',
-        p = active.slice(1).join('/'),
-        pathname = request.params.path ? format$2(p, request.params.path) : p,
-        search = request.params.query ? format$1(request.params.query, {
-        query: true
-    }) : '';
-    return root + pathname + search;
 }
 
 function series(fns) {
     return fns.reduce(function (promise, fn) {
         return promise.then(function () {
-            return fn(request.params);
+            return fn(request);
         });
     }, Promise.resolve());
 }
@@ -1181,10 +1270,14 @@ function invalid(p) {
     );
 }
 
-function invalidParams(p, params) {
-    var pathMap = parse$2(p);
+function invalidParams(p, obj) {
+    var pathMap = parse$2(p),
+        keys = Object.keys(pathMap);
+    if (keys.length && (is(obj, 'undefined') || !is(obj, 'object'))) {
+        return true;
+    }
     for (var key in pathMap) {
-        if (is(params[key], 'undefined')) {
+        if (is(obj[key], 'undefined')) {
             return true;
         }
     }
@@ -1192,11 +1285,13 @@ function invalidParams(p, params) {
 }
 
 var router = Object.freeze({
+    reset: reset,
     register: register,
     go: go,
     start: start,
     stop: stop,
-    started: started
+    started: started,
+    Request: Request
 });
 
 var ARRAY_MUTATOR_METHODS = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'];
@@ -2212,6 +2307,7 @@ var Bind = function () {
             } else {
                 observer = new Observer$1(function targetBindObserverCallback(mutation) {
                     if (mutation.type === target.key) {
+                        target.value = target.parent[target.key];
                         instance.transform.update && instance.transform.update(node, binding, mutation);
                     }
                 });

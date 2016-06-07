@@ -31,8 +31,5 @@ export function normalize(path){
     if(!is(path, 'string')){
         throw new Error('Parameter must be a string');
     }
-    if(path.indexOf('/') === 0){
-        path = path.replace('/','');
-    }
-    return path;
+    return path.replace(/^\/|\/$/g, '');
 }

@@ -39,6 +39,7 @@ export default class Bind{
         }else{
             observer = new Observer(function targetBindObserverCallback(mutation){
                 if(mutation.type === target.key){
+                    target.value = target.parent[target.key];
                     instance.transform.update && instance.transform.update(node, binding, mutation);
                 }
             });

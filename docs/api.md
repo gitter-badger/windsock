@@ -461,7 +461,7 @@ The `router` is a singleton object that exposes methods for registering and rout
 ## Methods
 
 ### `router.register(path, config)`
-Registers a state configuration obj at path on the states singleton registry
+Registers a state configuration obj at a path name on the states object. Will throw an error for invalid path or if the config is not an object.
 
 ``` javascript
 router.register('user/:id', state);
@@ -479,14 +479,56 @@ A string representing the desired url, supports parameters
 #### config `Object`
 - activate `Function`
 
-    A function to call when the state is activated or reactivated. Optionally return a promise to resolve or reject preventing the route request from completing.
+    A function to call when the state is activated or reactivated. Optionally return a `Promise` to resolve or reject preventing the route request from completing. It is passed the `request` object.
 
 - deactivate `Function`
 
-    A function to call when the state is deactivated. Optionally return a promise to resolve or reject preventing the route request from completing.
+    A function to call when the state is deactivated. Optionally return a `Promise` to resolve or reject preventing the route request from completing. It is passed the `request` object.
+
+##### request `Object`
+
+- segments `Array`
+
+    An array of the segments to activate
+
+- requested `String`
+
+    A string path that go was originally called with.
+
+ - resolved `String`
+
+    A string representing the path that was resolved.
+
+- target `String`
+
+   A string representing the current target of the request being handled.
+
+- previous `Request`
+
+    The previously activated request object.
+
+- path `Object`
+
+    An object map of the variable path segments.
+
+- query `Object`
+
+    An object map of the query parameters.
+
+- replace `Boolean`
+
+    A boolean value indicating whether or not the request is to replace the history state.
+
+- event `Event`
+
+    An event object if any is associated with the request.
+
+- promise `Promise`
+
+    A promise that is either resolved or rejected with the `request` object.
 
 ### `router.go(path, params)`
-Adds a state request with parameters to the queue to be processed. Will throw an error if starts or ends with a `/` or if the path has parameter(s) that are not defined in params object.
+Adds a state request with parameters to the queue to be processed. Returns a `Promise` that is either resolved or rejected when the requested path is handled. Will throw an error if starts or ends with a `/` or if the path has parameter(s) that are not defined in params object.
 
 #### path `String`
 A string representing the desired url, supports parameters.
@@ -523,13 +565,16 @@ Starts the router by adding event listeners to hashchange or popstate based on `
 
 - otherwise `String`
 
-    An otherwise path to route when popstate or hashchange are emitted with an invalid path.
+    An otherwise path to route when popstate or hashchange are emitted with an invalid path or go is called with an unregistered path.
 
 ### `router.stop()`
 Removes the event listener on the window. Will throw an error if not listening, please check if started `router.started()`.
 
 ### `router.started()`
 Returns a boolean value indicating if the router has been started.
+
+### `router.reset()`
+Resets all the initial values of the router.
 
 # Store
 
