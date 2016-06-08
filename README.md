@@ -6,4 +6,4 @@
 
 > Currently pre-alpha, please refer to the documentation for the latest api or check out the examples.
 
-[Documentation](http://bsawyer.github.io/windsock/)
+[Documentation](http://windsockjs.github.io/windsock/)
