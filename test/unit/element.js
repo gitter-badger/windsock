@@ -85,6 +85,12 @@ describe('Element', ()=>{
                 element.class.remove(className);
                 assert.strictEqual(element.attributes.class, 'one three');
             });
+            it('should remove class and trailing whitespace', ()=>{
+                let classList = `${className} one three`;
+                let element = new Element('span', {class:classList});
+                element.class.remove(className);
+                assert.strictEqual(element.attributes.class, 'one three');
+            });
             it('should throw an error on invalid classname', ()=>{
                 let classList = 'one two three',
                     invalid = 'one two';

@@ -712,12 +712,14 @@ var ClassList = function () {
     }, {
         key: 'remove',
         value: function remove(str) {
+            var i = void 0;
             if (invalidClassName(str)) {
                 throw new Error('Invalid classname \'' + str + '\' passed to remove method');
             }
-            if (this.contains(str)) {
+            i = this.index(str);
+            if (i !== -1) {
                 if (this.attributes.class.length > str.length) {
-                    str = ' ' + str;
+                    str = i === 0 ? str + ' ' : ' ' + str;
                 }
                 this.attributes.class = this.attributes.class.replace(str, '');
             }
