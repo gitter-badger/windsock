@@ -4,11 +4,11 @@
   "author": "Ben Sawyer",
   "description": "Flux inspired library for building web applications",
   "license": "MIT",
-  "homepage": "https://github.com/bsawyer/windsock",
-  "bugs": "https://github.com/bsawyer/windsock/issues",
+  "homepage": "https://github.com/windsockjs/windsock",
+  "bugs": "https://github.com/windsockjs/windsock/issues",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bsawyer/windsock.git"
+    "url": "https://github.com/windsockjs/windsock.git"
   },
   "main": "dist/windsock.common.js",
   "devDependencies": {
