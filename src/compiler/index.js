@@ -71,6 +71,13 @@ function childrenMutationCallback(record){
                 });
             });
             break;
+        case 'pop':
+            if(record.oldValue && record.oldValue.length){
+                batch.add(function batchedChildrenRemoveMutation(){
+                    DOMNode.removeChild(record.oldValue[0].DOMNode);
+                });
+            }
+            break;
         case 'unshift':
             record.newValue.forEach(function childrenMutationValueIterator(child){
                 batch.add(function batched(){
