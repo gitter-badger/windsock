@@ -5,6 +5,10 @@ export default function xhr(request){
                 response = {
                     request: request
                 },
+                abort = function(){
+                    client.abort();
+                    request.aborted = true;
+                },
                 handler = function(){
                     response.data = client.responseText;
                     response.status = client.status;
@@ -12,7 +16,7 @@ export default function xhr(request){
                     response.headers = client.getAllResponseHeaders();
                     resolve(response);
                 };
-            request.abort = client.abort;
+            request.abort = abort;
             client.timeout = 0;
             client.onload = handler;
             client.onabort = handler;

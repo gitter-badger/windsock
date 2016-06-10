@@ -1,82 +1,5 @@
 'use strict';
 
-var babelHelpers = {};
-
-babelHelpers.classCallCheck = function (instance, Constructor) {
-  if (!(instance instanceof Constructor)) {
-    throw new TypeError("Cannot call a class as a function");
-  }
-};
-
-babelHelpers.createClass = function () {
-  function defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  return function (Constructor, protoProps, staticProps) {
-    if (protoProps) defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) defineProperties(Constructor, staticProps);
-    return Constructor;
-  };
-}();
-
-babelHelpers.get = function get(object, property, receiver) {
-  if (object === null) object = Function.prototype;
-  var desc = Object.getOwnPropertyDescriptor(object, property);
-
-  if (desc === undefined) {
-    var parent = Object.getPrototypeOf(object);
-
-    if (parent === null) {
-      return undefined;
-    } else {
-      return get(parent, property, receiver);
-    }
-  } else if ("value" in desc) {
-    return desc.value;
-  } else {
-    var getter = desc.get;
-
-    if (getter === undefined) {
-      return undefined;
-    }
-
-    return getter.call(receiver);
-  }
-};
-
-babelHelpers.inherits = function (subClass, superClass) {
-  if (typeof superClass !== "function" && superClass !== null) {
-    throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
-  }
-
-  subClass.prototype = Object.create(superClass && superClass.prototype, {
-    constructor: {
-      value: subClass,
-      enumerable: false,
-      writable: true,
-      configurable: true
-    }
-  });
-  if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
-};
-
-babelHelpers.possibleConstructorReturn = function (self, call) {
-  if (!self) {
-    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-  }
-
-  return call && (typeof call === "object" || typeof call === "function") ? call : self;
-};
-
-babelHelpers;
-
 var paint;
 var cancelPaint;
 var tick = typeof process !== 'undefined' && process.nextTick ? process.nextTick : setTimeout;
@@ -145,14 +68,87 @@ var util = Object.freeze({
     noop: noop
 });
 
+var classCallCheck = function (instance, Constructor) {
+  if (!(instance instanceof Constructor)) {
+    throw new TypeError("Cannot call a class as a function");
+  }
+};
+
+var createClass = function () {
+  function defineProperties(target, props) {
+    for (var i = 0; i < props.length; i++) {
+      var descriptor = props[i];
+      descriptor.enumerable = descriptor.enumerable || false;
+      descriptor.configurable = true;
+      if ("value" in descriptor) descriptor.writable = true;
+      Object.defineProperty(target, descriptor.key, descriptor);
+    }
+  }
+
+  return function (Constructor, protoProps, staticProps) {
+    if (protoProps) defineProperties(Constructor.prototype, protoProps);
+    if (staticProps) defineProperties(Constructor, staticProps);
+    return Constructor;
+  };
+}();
+
+var get = function get(object, property, receiver) {
+  if (object === null) object = Function.prototype;
+  var desc = Object.getOwnPropertyDescriptor(object, property);
+
+  if (desc === undefined) {
+    var parent = Object.getPrototypeOf(object);
+
+    if (parent === null) {
+      return undefined;
+    } else {
+      return get(parent, property, receiver);
+    }
+  } else if ("value" in desc) {
+    return desc.value;
+  } else {
+    var getter = desc.get;
+
+    if (getter === undefined) {
+      return undefined;
+    }
+
+    return getter.call(receiver);
+  }
+};
+
+var inherits = function (subClass, superClass) {
+  if (typeof superClass !== "function" && superClass !== null) {
+    throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
+  }
+
+  subClass.prototype = Object.create(superClass && superClass.prototype, {
+    constructor: {
+      value: subClass,
+      enumerable: false,
+      writable: true,
+      configurable: true
+    }
+  });
+  if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
+};
+
+var possibleConstructorReturn = function (self, call) {
+  if (!self) {
+    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+  }
+
+  return call && (typeof call === "object" || typeof call === "function") ? call : self;
+};
+
 var Signal = function () {
     function Signal() {
-        babelHelpers.classCallCheck(this, Signal);
+        classCallCheck(this, Signal);
 
         this.listeners = [];
     }
 
-    babelHelpers.createClass(Signal, [{
+    createClass(Signal, [{
         key: "add",
         value: function add(listener) {
             this.listeners.push(listener);
@@ -184,7 +180,7 @@ var Signal = function () {
 
 var Node = function () {
     function Node() {
-        babelHelpers.classCallCheck(this, Node);
+        classCallCheck(this, Node);
 
         this.compiled = false;
         this.transclude = undefined;
@@ -194,7 +190,7 @@ var Node = function () {
         this.events = defineEventsParent(this);
     }
 
-    babelHelpers.createClass(Node, [{
+    createClass(Node, [{
         key: 'destroy',
         value: function destroy() {
             var _this = this;
@@ -303,12 +299,12 @@ function defineEventsParent(instance) {
 }
 
 var Text = function (_Node) {
-    babelHelpers.inherits(Text, _Node);
+    inherits(Text, _Node);
 
     function Text(value) {
-        babelHelpers.classCallCheck(this, Text);
+        classCallCheck(this, Text);
 
-        var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Text).call(this));
+        var _this = possibleConstructorReturn(this, Object.getPrototypeOf(Text).call(this));
 
         _this.value = {
             textContent: value
@@ -318,10 +314,10 @@ var Text = function (_Node) {
         return _this;
     }
 
-    babelHelpers.createClass(Text, [{
+    createClass(Text, [{
         key: 'destroy',
         value: function destroy() {
-            babelHelpers.get(Object.getPrototypeOf(Text.prototype), 'destroy', this).call(this);
+            get(Object.getPrototypeOf(Text.prototype), 'destroy', this).call(this);
             if (!is(this.parent, 'undefined')) {
                 this.remove();
             }
@@ -385,21 +381,21 @@ function defineAttributesParent(instance) {
 }
 
 var Fragment = function (_Node) {
-    babelHelpers.inherits(Fragment, _Node);
+    inherits(Fragment, _Node);
 
     function Fragment() {
-        babelHelpers.classCallCheck(this, Fragment);
+        classCallCheck(this, Fragment);
 
-        var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Fragment).call(this));
+        var _this = possibleConstructorReturn(this, Object.getPrototypeOf(Fragment).call(this));
 
         _this.children = defineChildrenParent(_this);
         return _this;
     }
 
-    babelHelpers.createClass(Fragment, [{
+    createClass(Fragment, [{
         key: 'destroy',
         value: function destroy() {
-            babelHelpers.get(Object.getPrototypeOf(Fragment.prototype), 'destroy', this).call(this);
+            get(Object.getPrototypeOf(Fragment.prototype), 'destroy', this).call(this);
             var i = this.children.length;
             while (i) {
                 i--;
@@ -551,18 +547,18 @@ function textFilter(node) {
 }
 
 var Element = function (_Fragment) {
-    babelHelpers.inherits(Element, _Fragment);
+    inherits(Element, _Fragment);
 
     function Element(name) {
         var attributes = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
         var empty = arguments.length <= 2 || arguments[2] === undefined ? false : arguments[2];
-        babelHelpers.classCallCheck(this, Element);
+        classCallCheck(this, Element);
 
         if (!name) {
             throw new Error('Failed to instantiate Element invalid name specified');
         }
 
-        var _this = babelHelpers.possibleConstructorReturn(this, Object.getPrototypeOf(Element).call(this));
+        var _this = possibleConstructorReturn(this, Object.getPrototypeOf(Element).call(this));
 
         _this.name = name;
         _this.attributes = defineAttributesParent$1(_this, attributes);
@@ -570,10 +566,10 @@ var Element = function (_Fragment) {
         return _this;
     }
 
-    babelHelpers.createClass(Element, [{
+    createClass(Element, [{
         key: 'destroy',
         value: function destroy() {
-            babelHelpers.get(Object.getPrototypeOf(Element.prototype), 'destroy', this).call(this);
+            get(Object.getPrototypeOf(Element.prototype), 'destroy', this).call(this);
             if (!is(this.parent, 'undefined')) {
                 this.remove();
             }
@@ -678,13 +674,13 @@ function defineAttributesParent$1(instance) {
 
 var ClassList = function () {
     function ClassList(attributes, compiled) {
-        babelHelpers.classCallCheck(this, ClassList);
+        classCallCheck(this, ClassList);
 
         this.compiled = compiled;
         this.attributes = attributes;
     }
 
-    babelHelpers.createClass(ClassList, [{
+    createClass(ClassList, [{
         key: 'toggle',
         value: function toggle(str) {
             if (invalidClassName(str)) {
@@ -1036,7 +1032,7 @@ var Request = function () {
         var _this = this;
 
         var params = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
-        babelHelpers.classCallCheck(this, Request);
+        classCallCheck(this, Request);
 
         if (!segments) {
             throw new Error('unspecified segments');
@@ -1059,7 +1055,7 @@ var Request = function () {
         });
     }
 
-    babelHelpers.createClass(Request, [{
+    createClass(Request, [{
         key: 'toString',
         value: function toString() {
             var p = this.segments.slice(1).join('/'),
@@ -1286,6 +1282,8 @@ function invalidParams(p, obj) {
     return false;
 }
 
+
+
 var router = Object.freeze({
     reset: reset,
     register: register,
@@ -1300,7 +1298,7 @@ var ARRAY_MUTATOR_METHODS = ['fill', 'pop', 'push', 'shift', 'splice', 'unshift'
 
 var Observer = function () {
     function Observer(callback) {
-        babelHelpers.classCallCheck(this, Observer);
+        classCallCheck(this, Observer);
 
         if (is(callback, 'undefined')) {
             throw new Error('Failed to instantiate missing callback');
@@ -1313,7 +1311,7 @@ var Observer = function () {
         this._config = undefined;
     }
 
-    babelHelpers.createClass(Observer, [{
+    createClass(Observer, [{
         key: 'observe',
         value: function observe(target) {
             var config = arguments.length <= 1 || arguments[1] === undefined ? { recursive: false } : arguments[1];
@@ -1348,7 +1346,7 @@ var Observer = function () {
 }();
 
 var MutationRecord = function MutationRecord(config) {
-    babelHelpers.classCallCheck(this, MutationRecord);
+    classCallCheck(this, MutationRecord);
 
     this.type = config.type; //prop or array indicies
     this.target = config.target; //parent object||array
@@ -1361,12 +1359,12 @@ var MutationRecord = function MutationRecord(config) {
 var ObserverList = function () {
     function ObserverList() {
         var observers = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
-        babelHelpers.classCallCheck(this, ObserverList);
+        classCallCheck(this, ObserverList);
 
         this.observers = observers;
     }
 
-    babelHelpers.createClass(ObserverList, [{
+    createClass(ObserverList, [{
         key: 'dispatch',
         value: function dispatch(record) {
             if (!record instanceof MutationRecord) {
@@ -1662,7 +1660,7 @@ var Store = function () {
 
         var mutations = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
         var post = arguments[2];
-        babelHelpers.classCallCheck(this, Store);
+        classCallCheck(this, Store);
 
         this.state = state;
         this.mutations = {};
@@ -1673,7 +1671,7 @@ var Store = function () {
         });
     }
 
-    babelHelpers.createClass(Store, [{
+    createClass(Store, [{
         key: 'dispatch',
         value: function dispatch() {
             for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
@@ -1716,7 +1714,7 @@ function request$2(request) {
 
 function response(response) {
     try {
-        response.data = JSON.parse(response.data);
+        response.data = response.data && JSON.parse(response.data);
     } catch (e) {
         console.warn(e);
     }
@@ -1771,6 +1769,10 @@ function xhr(request) {
             response = {
             request: request
         },
+            abort = function abort() {
+            client.abort();
+            request.aborted = true;
+        },
             handler = function handler() {
             response.data = client.responseText;
             response.status = client.status;
@@ -1778,7 +1780,7 @@ function xhr(request) {
             response.headers = client.getAllResponseHeaders();
             resolve(response);
         };
-        request.abort = client.abort;
+        request.abort = abort;
         client.timeout = 0;
         client.onload = handler;
         client.onabort = handler;
@@ -1804,7 +1806,7 @@ function client (request) {
 var Http = function () {
     function Http() {
         var config = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-        babelHelpers.classCallCheck(this, Http);
+        classCallCheck(this, Http);
 
         this.urlencode = !!config.urlencode;
         this.override = !!config.override;
@@ -1813,7 +1815,7 @@ var Http = function () {
         this._url = parse(config.url || '');
     }
 
-    babelHelpers.createClass(Http, [{
+    createClass(Http, [{
         key: 'GET',
         value: function GET(data) {
             return Http.method(this, 'GET', data);
@@ -1878,7 +1880,6 @@ var Http = function () {
         key: 'request',
         value: function request(_request) {
             Http.interceptors.request.dispatch(_request);
-            //might not do this here
             _request.url = format(_request.url);
             return client(_request).then(function clientRequestFulfilled(response) {
                 Http.interceptors.response.dispatch(response);
@@ -1906,7 +1907,7 @@ var ARRAY_MUTATOR_METHODS$1 = ['fill', 'pop', 'push', 'shift', 'splice', 'unshif
 
 var Observer$1 = function () {
     function Observer(callback) {
-        babelHelpers.classCallCheck(this, Observer);
+        classCallCheck(this, Observer);
 
         if (is(callback, 'undefined')) {
             throw new Error('Failed to instantiate missing callback');
@@ -1919,7 +1920,7 @@ var Observer$1 = function () {
         this._config = undefined;
     }
 
-    babelHelpers.createClass(Observer, [{
+    createClass(Observer, [{
         key: 'observe',
         value: function observe(target) {
             var config = arguments.length <= 1 || arguments[1] === undefined ? { recursive: false } : arguments[1];
@@ -1954,7 +1955,7 @@ var Observer$1 = function () {
 }();
 
 var MutationRecord$1 = function MutationRecord(config) {
-    babelHelpers.classCallCheck(this, MutationRecord);
+    classCallCheck(this, MutationRecord);
 
     this.type = config.type; //prop or array indicies
     this.target = config.target; //parent object||array
@@ -1967,12 +1968,12 @@ var MutationRecord$1 = function MutationRecord(config) {
 var ObserverList$1 = function () {
     function ObserverList() {
         var observers = arguments.length <= 0 || arguments[0] === undefined ? [] : arguments[0];
-        babelHelpers.classCallCheck(this, ObserverList);
+        classCallCheck(this, ObserverList);
 
         this.observers = observers;
     }
 
-    babelHelpers.createClass(ObserverList, [{
+    createClass(ObserverList, [{
         key: 'dispatch',
         value: function dispatch(record) {
             if (!record instanceof MutationRecord$1) {
@@ -2264,7 +2265,7 @@ var Bind = function () {
     function Bind() {
         var transform = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
         var recursive = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
-        babelHelpers.classCallCheck(this, Bind);
+        classCallCheck(this, Bind);
 
         if (is(transform, 'function')) {
             this.transform = {
@@ -2277,7 +2278,7 @@ var Bind = function () {
         this.recursive = recursive;
     }
 
-    babelHelpers.createClass(Bind, [{
+    createClass(Bind, [{
         key: 'render',
         value: function render(node, target) {
             var keypath = arguments.length <= 2 || arguments[2] === undefined ? '' : arguments[2];
@@ -2830,7 +2831,7 @@ var Component = function () {
         var query = _ref.query;
         var parse = _ref.parse;
         var compile$$ = _ref.compile;
-        babelHelpers.classCallCheck(this, Component);
+        classCallCheck(this, Component);
 
         this.root = root;
         this.components = {};
@@ -2842,7 +2843,7 @@ var Component = function () {
         init(this, components);
     }
 
-    babelHelpers.createClass(Component, null, [{
+    createClass(Component, null, [{
         key: 'selector',
         value: function selector(component, type) {
             if (is(component.selectors, 'string')) {

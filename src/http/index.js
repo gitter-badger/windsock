@@ -59,7 +59,6 @@ export default class Http{
     }
     static request(request){
         Http.interceptors.request.dispatch(request);
-        //might not do this here
         request.url = url.format(request.url);
         return client(request)
             .then(function clientRequestFulfilled(response){

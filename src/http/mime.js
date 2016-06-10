@@ -18,7 +18,7 @@ export function request(request){
 
 export function response(response){
     try{
-        response.data = JSON.parse(response.data);
+        response.data = response.data && JSON.parse(response.data);
     }catch(e){
         console.warn(e);
     }
