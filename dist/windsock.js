@@ -2268,7 +2268,13 @@ var url = Object.freeze({
   var Bind = function () {
       function Bind() {
           var transform = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
-          var recursive = arguments.length <= 1 || arguments[1] === undefined ? false : arguments[1];
+
+          var _ref = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
+
+          var _ref$recursive = _ref.recursive;
+          var recursive = _ref$recursive === undefined ? false : _ref$recursive;
+          var _ref$parsed = _ref.parsed;
+          var parsed = _ref$parsed === undefined ? false : _ref$parsed;
           classCallCheck(this, Bind);
 
           if (is(transform, 'function')) {
@@ -2280,6 +2286,7 @@ var url = Object.freeze({
               this.transform = transform;
           }
           this.recursive = recursive;
+          this.parsed = parsed;
       }
 
       createClass(Bind, [{
@@ -2681,6 +2688,13 @@ var url = Object.freeze({
                   });
               });
               break;
+          case 'pop':
+              if (record.oldValue && record.oldValue.length) {
+                  add(function batchedChildrenRemoveMutation() {
+                      DOMNode.removeChild(record.oldValue[0].DOMNode);
+                  });
+              }
+              break;
           case 'unshift':
               record.newValue.forEach(function childrenMutationValueIterator(child) {
                   add(function batched() {
@@ -2762,6 +2776,9 @@ var url = Object.freeze({
               instance: binding.instance,
               observer: undefined
           };
+          if (!binding.instance.parsed) {
+              binding.observer.disconnect();
+          }
           Bind.observer(node, node.bindings[key]);
       });
   }
@@ -2893,7 +2910,7 @@ var url = Object.freeze({
                   var template = void 0;
 
                   if (component.template) {
-                      template = is(component.template, 'function') ? component.template(node) : clone$1(component.template, true);
+                      template = is(component.template, 'function') ? component.template(node, component) : clone$1(component.template, true);
                       if (component.root) {
                           template.transclude = node;
                       } else {

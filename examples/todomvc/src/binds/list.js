@@ -1,15 +1,14 @@
 import {Bind} from 'windsock';
 
-//list bind must be instantiated with an extended Item
 export default class List extends Bind{
     constructor(Item){
         super({
             bind: (parent, target)=>{
                 let item;
-                target.value.forEach((data, i)=>{
+                target.value.forEach((data)=>{
                     item = new this.Item({
                         root: false
-                    }, data, i);
+                    }, data);
                     parent.append(item.render());
                 });
                 return{

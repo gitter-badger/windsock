@@ -161,6 +161,9 @@ export function compileBindings(node){
                 instance: binding.instance,
                 observer: undefined
             };
+            if(!binding.instance.parsed){
+                binding.observer.disconnect();
+            }
             Bind.observer(node, node.bindings[key]);
         });
 }

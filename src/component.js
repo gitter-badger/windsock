@@ -63,7 +63,7 @@ export default class Component{
             let template;
 
             if(component.template){
-                template = is(component.template, 'function') ? component.template(node) : clone(component.template, true);
+                template = is(component.template, 'function') ? component.template(node, component) : clone(component.template, true);
                 if(component.root){
                     template.transclude = node;
                 }else{

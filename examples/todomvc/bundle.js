@@ -55,7 +55,7 @@
   var Item = function (_Component) {
       inherits(Item, _Component);
 
-      function Item(options, data, index) {
+      function Item(options, data) {
           classCallCheck(this, Item);
 
           if (!options.template) {
@@ -65,7 +65,6 @@
           var _this = possibleConstructorReturn(this, Object.getPrototypeOf(Item).call(this, options));
 
           _this.data = data;
-          _this.index = index;
           return _this;
       }
 
@@ -76,7 +75,6 @@
 
               var vdom = windsock.clone(this.template, true);
               vdom = this.parse && this.parse(vdom, this) || vdom;
-              vdom.attributes['data-index'] = this.index;
               if (c) {
                   vdom = windsock.compile(vdom);
                   if (this.compile) {
@@ -374,8 +372,6 @@
       return Todo;
   }(Item);
 
-  //list bind must be instantiated with an extended Item
-
   var List = function (_Bind) {
       inherits(List, _Bind);
 
@@ -385,10 +381,10 @@
           var _this = possibleConstructorReturn(this, Object.getPrototypeOf(List).call(this, {
               bind: function bind(parent, target) {
                   var item = void 0;
-                  target.value.forEach(function (data, i) {
+                  target.value.forEach(function (data) {
                       item = new _this.Item({
                           root: false
-                      }, data, i);
+                      }, data);
                       parent.append(item.render());
                   });
                   return {

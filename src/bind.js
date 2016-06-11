@@ -2,7 +2,7 @@ import {is} from './util';
 import Observer from './Observer';
 
 export default class Bind{
-    constructor(transform = {}, recursive = false){
+    constructor(transform = {}, {recursive = false, parsed = false}={}){
         if(is(transform, 'function')){
             this.transform = {
                 bind: transform,
@@ -12,6 +12,7 @@ export default class Bind{
             this.transform = transform;
         }
         this.recursive = recursive;
+        this.parsed = parsed;
     }
     render(node, target, keypath = ''){
         let targetMap;
