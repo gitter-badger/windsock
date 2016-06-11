@@ -1,6 +1,6 @@
 {
   "name": "windsock",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "author": "Ben Sawyer",
   "description": "Flux inspired library for building web applications",
   "license": "MIT",
