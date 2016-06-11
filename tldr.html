@@ -1,0 +1,316 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    
+    <head>
+        
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <title>tl;dr | windsock.js</title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 2.6.7">
+        
+        
+        <meta name="HandheldFriendly" content="true"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <link rel="apple-touch-icon-precomposed" sizes="152x152" href="gitbook/images/apple-touch-icon-precomposed-152.png">
+        <link rel="shortcut icon" href="gitbook/images/favicon.ico" type="image/x-icon">
+        
+    <link rel="stylesheet" href="gitbook/style.css">
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-highlight/website.css">
+        
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-search/search.css">
+        
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-fontsettings/website.css">
+        
+    
+    
+
+        
+    
+    
+    <link rel="next" href="./api.html" />
+    
+    
+    <link rel="prev" href="./index.html" />
+    
+
+        
+    </head>
+    <body>
+        
+        
+    <div class="book"
+        data-level="1"
+        data-chapter-title="tl;dr"
+        data-filepath="tldr.md"
+        data-basepath="."
+        data-revision="Fri Jun 10 2016 23:20:19 GMT-0400 (EDT)"
+        data-innerlanguage="">
+    
+
+<div class="book-summary">
+    <nav role="navigation">
+        <ul class="summary">
+            
+            
+            
+            
+
+            
+
+            
+    
+        <li class="chapter " data-level="0" data-path="index.html">
+            
+                
+                    <a href="./index.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                        Introduction
+                    </a>
+            
+            
+        </li>
+    
+        <li class="chapter active" data-level="1" data-path="tldr.html">
+            
+                
+                    <a href="./tldr.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                            <b>1.</b>
+                        
+                        tl;dr
+                    </a>
+            
+            
+        </li>
+    
+        <li class="chapter " data-level="2" data-path="api.html">
+            
+                
+                    <a href="./api.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                            <b>2.</b>
+                        
+                        API
+                    </a>
+            
+            
+        </li>
+    
+
+
+            
+            <li class="divider"></li>
+            <li>
+                <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+                    Published with GitBook
+                </a>
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+
+    <div class="book-body">
+        <div class="body-inner">
+            <div class="book-header" role="navigation">
+    <!-- Actions Left -->
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href="./" >windsock.js</a>
+    </h1>
+</div>
+
+            <div class="page-wrapper" tabindex="-1" role="main">
+                <div class="page-inner">
+                
+                
+                    <section class="normal" id="section-">
+                    
+                        <h1 id="tldr">tl;dr</h1>
+<p>Source available in <a href="https://github.com/bsawyer/windsock/tree/master/examples/tldr" target="_blank">tl;dr example</a></p>
+<h2 id="creating-an-observable">Creating an observable</h2>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Observer <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> state = {
+    awesome: <span class="hljs-literal">true</span>
+}
+
+<span class="hljs-keyword">let</span> observer = <span class="hljs-keyword">new</span> Observer((mutation)=&gt;{
+    <span class="hljs-built_in">console</span>.log(mutation.newValue, mutation.oldValue);
+});
+
+observer.observe(state);
+</code></pre>
+<p>Later you can update the state object and the observers callback will be invoked synchronously for each mutation.</p>
+<pre><code class="lang-javascript">state.awesome = <span class="hljs-literal">false</span>; <span class="hljs-comment">//logs false, true</span>
+state.delete(<span class="hljs-string">&apos;awesome&apos;</span>); <span class="hljs-comment">//logs undefined, false</span>
+</code></pre>
+<h2 id="creating-a-store">Creating a store</h2>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Store <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">let</span> mutations = {
+    add: (state, id, user)=&gt;{
+        state.add(id, user);
+    }
+};
+
+
+<span class="hljs-keyword">let</span> store = <span class="hljs-keyword">new</span> Store(state, mutations);
+
+store.dispatch(<span class="hljs-string">&apos;add&apos;</span>, <span class="hljs-number">1</span>, {name:<span class="hljs-string">&apos;Mr. Meeseeks&apos;</span>});
+</code></pre>
+<p>Now you can define an asynchronous operation to retrieve some data and dispatch the mutation.</p>
+<blockquote>
+<p><strong>NOTE:</strong> Always keep mutation callbacks synchronous.</p>
+</blockquote>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Http <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">let</span> user = <span class="hljs-keyword">new</span> Http({
+    url: <span class="hljs-string">&apos;/user/:id&apos;</span>
+});
+
+user.path.id = <span class="hljs-number">1</span>;
+
+user.GET()
+    .then((data)=&gt;{
+        store.dispatch(<span class="hljs-string">&apos;add&apos;</span>, data);
+    });
+</code></pre>
+<h2 id="creating-a-component">Creating a Component</h2>
+<p>With your store and observable in place we can expose this to the user with a component. You can create a binding that observes the state model appending list items and attaching a click event that exposes a sample async method with a callback to dispatch the stores mutation.</p>
+<p>First we have our users custom element which will be replaced by the component somewhere in the document.</p>
+<pre><code class="lang-html"><span class="hljs-tag">&lt;<span class="hljs-title">users</span>&gt;</span><span class="hljs-tag">&lt;/<span class="hljs-title">users</span>&gt;</span>
+</code></pre>
+<p>Then we have our bind and instantiate our user component.</p>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Bind <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+<span class="hljs-keyword">import</span> Component <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+<span class="hljs-keyword">import</span> parse <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+<span class="hljs-keyword">import</span> clone <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> bind = <span class="hljs-keyword">new</span> Bind({
+    bind: (node, target)=&gt;{
+        <span class="hljs-keyword">let</span> li = node.children[<span class="hljs-number">0</span>],
+            c;
+
+        <span class="hljs-keyword">for</span>(<span class="hljs-keyword">let</span> id <span class="hljs-keyword">in</span> target.value){
+            c = clone(li, <span class="hljs-literal">true</span>);
+            c.children[<span class="hljs-number">0</span>].text = target.value[id].name;
+            node.append(c);
+        }
+    },
+    compile: (node, binding)=&gt;{
+        node.children[<span class="hljs-number">0</span>].on(<span class="hljs-string">&apos;click&apos;</span>, ()=&gt;{
+            setTimeout(()=&gt;{
+                store.dispatch(<span class="hljs-string">&apos;add&apos;</span>, node.children.length, {name:<span class="hljs-string">&apos;Mr. Meeseeks&apos;</span>});
+            }, <span class="hljs-number">1000</span>);
+        });
+    },
+    update: (node, binding, mutation)=&gt;{
+        <span class="hljs-keyword">let</span> c;
+
+        <span class="hljs-keyword">switch</span> (mutation.method) {
+            <span class="hljs-keyword">case</span> <span class="hljs-string">&apos;add&apos;</span>:
+                c = clone(node.children[<span class="hljs-number">0</span>], <span class="hljs-literal">true</span>);
+                c.children[<span class="hljs-number">0</span>].text = mutation.newValue.name;
+                node.append(c)
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> <span class="hljs-string">&apos;delete&apos;</span>:
+                <span class="hljs-keyword">break</span>;
+            <span class="hljs-keyword">case</span> <span class="hljs-string">&apos;set&apos;</span>:
+                <span class="hljs-keyword">break</span>;
+        }
+    }
+});
+
+<span class="hljs-keyword">const</span> template = <span class="hljs-string">&apos;&lt;ul&gt;&lt;li&gt;add user&lt;/li&gt;&lt;/ul&gt;&apos;</span>;
+
+<span class="hljs-keyword">const</span> parse = (template)=&gt;{
+    bind.render(template, state);
+};
+
+<span class="hljs-keyword">const</span> options = {
+    root: <span class="hljs-literal">true</span>,
+    selectors: {
+        name: <span class="hljs-string">&apos;users&apos;</span>,
+        compile: <span class="hljs-string">&apos;ul&apos;</span>
+    },
+    template,
+    parse,
+};
+
+<span class="hljs-class"><span class="hljs-keyword">class</span> <span class="hljs-title">Users</span> <span class="hljs-keyword">extends</span> <span class="hljs-title">Component</span></span>{
+    constructor({root}){
+        options.root = root;
+        <span class="hljs-keyword">super</span>(options);
+    }
+}
+
+<span class="hljs-keyword">let</span> users = <span class="hljs-keyword">new</span> Users();
+</code></pre>
+
+                    
+                    </section>
+                
+                
+                </div>
+            </div>
+        </div>
+
+        
+        <a href="./index.html" class="navigation navigation-prev " aria-label="Previous page: Introduction"><i class="fa fa-angle-left"></i></a>
+        
+        
+        <a href="./api.html" class="navigation navigation-next " aria-label="Next page: API"><i class="fa fa-angle-right"></i></a>
+        
+    </div>
+</div>
+
+        
+<script src="gitbook/app.js"></script>
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-search/lunr.min.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-search/search.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-sharing/buttons.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-fontsettings/buttons.js"></script>
+    
+
+<script>
+require(["gitbook"], function(gitbook) {
+    var config = {"highlight":{},"search":{"maxIndexSize":1000000},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"fontsettings":{"theme":"white","family":"sans","size":2}};
+    gitbook.start(config);
+});
+</script>
+
+        
+    </body>
+    
+</html>

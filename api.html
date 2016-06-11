@@ -1,0 +1,689 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    
+    <head>
+        
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <title>API | windsock.js</title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="generator" content="GitBook 2.6.7">
+        
+        
+        <meta name="HandheldFriendly" content="true"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black">
+        <link rel="apple-touch-icon-precomposed" sizes="152x152" href="gitbook/images/apple-touch-icon-precomposed-152.png">
+        <link rel="shortcut icon" href="gitbook/images/favicon.ico" type="image/x-icon">
+        
+    <link rel="stylesheet" href="gitbook/style.css">
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-highlight/website.css">
+        
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-search/search.css">
+        
+    
+        
+        <link rel="stylesheet" href="gitbook/plugins/gitbook-plugin-fontsettings/website.css">
+        
+    
+    
+
+        
+    
+    
+    
+    <link rel="prev" href="./tldr.html" />
+    
+
+        
+    </head>
+    <body>
+        
+        
+    <div class="book"
+        data-level="2"
+        data-chapter-title="API"
+        data-filepath="api.md"
+        data-basepath="."
+        data-revision="Fri Jun 10 2016 23:20:19 GMT-0400 (EDT)"
+        data-innerlanguage="">
+    
+
+<div class="book-summary">
+    <nav role="navigation">
+        <ul class="summary">
+            
+            
+            
+            
+
+            
+
+            
+    
+        <li class="chapter " data-level="0" data-path="index.html">
+            
+                
+                    <a href="./index.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                        Introduction
+                    </a>
+            
+            
+        </li>
+    
+        <li class="chapter " data-level="1" data-path="tldr.html">
+            
+                
+                    <a href="./tldr.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                            <b>1.</b>
+                        
+                        tl;dr
+                    </a>
+            
+            
+        </li>
+    
+        <li class="chapter active" data-level="2" data-path="api.html">
+            
+                
+                    <a href="./api.html">
+                
+                        <i class="fa fa-check"></i>
+                        
+                            <b>2.</b>
+                        
+                        API
+                    </a>
+            
+            
+        </li>
+    
+
+
+            
+            <li class="divider"></li>
+            <li>
+                <a href="https://www.gitbook.com" target="blank" class="gitbook-link">
+                    Published with GitBook
+                </a>
+            </li>
+            
+        </ul>
+    </nav>
+</div>
+
+    <div class="book-body">
+        <div class="body-inner">
+            <div class="book-header" role="navigation">
+    <!-- Actions Left -->
+    
+
+    <!-- Title -->
+    <h1>
+        <i class="fa fa-circle-o-notch fa-spin"></i>
+        <a href="./" >windsock.js</a>
+    </h1>
+</div>
+
+            <div class="page-wrapper" tabindex="-1" role="main">
+                <div class="page-inner">
+                
+                
+                    <section class="normal" id="section-">
+                    
+                        <h1 id="vdom">vdom</h1>
+<p>The <code>vdom</code> is a collection of classes that represent the basic nodes that comprise the DOM.</p>
+<blockquote>
+<p>Originally, windsock was just a library for structuring and manipulating a virtual DOM. At it&apos;s core the three main methods for working with virtual nodes have been unchanged. A virtual DOM is responsible for maintaining an in memory representation of the live DOM on the client, or an HTML/JSONML compliant string in a Nodejs environment.</p>
+</blockquote>
+<h1 id="parsesource"><code>parse(source)</code></h1>
+<p>The parse method is used to create and return an uncompiled virtual DOM fragment. It takes either an HTML string, JSONML Array, or DocumentElement.</p>
+<h1 id="compiletemplate"><code>compile(template)</code></h1>
+<p>The compile method is used for compiling a parsed virtual DOM node. It returns an observable, JSONML compliant deep clone of the virtual DOM and its events.</p>
+<h1 id="transcludecompiled"><code>transclude(compiled)</code></h1>
+<p>The transclude method is used to replace the original live node with the virtual compiled node.</p>
+<h1 id="clonevdom"><code>clone(vdom)</code></h1>
+<p>The clone method is used create a cloned instance of a node and determining whether or not to compile it.</p>
+<blockquote>
+<p>The main goal of a virtual DOM is once the nodes associated with a virtual node are live, changes to the virtual node can be observed and batch updated in the live DOM to have the smallest footprint. This coupled with the ability to manipulate your nodes prior to any actual document Node being instantiated makes having a virtual representation of the DOM a great performance optimization.</p>
+</blockquote>
+<h2 id="node">Node</h2>
+<p>The <code>Node</code> is the base virtual node extended by other nodes.</p>
+<h2 id="instance">Instance</h2>
+<blockquote>
+<p>Do not instantiate or extend this class as it is not intended to directly map to any specific document node but rather be extend from exclusively.</p>
+</blockquote>
+<h3 id="properties">Properties</h3>
+<h4 id="nodejsonml"><code>node.jsonml</code></h4>
+<p>Read-only property for returning the node as a formatted JSONML array</p>
+<h4 id="nodehtml"><code>node.html</code></h4>
+<p>Read-only property for returning the node as a formatted HTML string</p>
+<h3 id="methods">Methods</h3>
+<h4 id="nodedestroy"><code>node.destroy()</code></h4>
+<p>Reverts the nodes properties to their initial or undefined values. Disconnects any observers and removes events and bindings.</p>
+<h4 id="nodeclone"><code>node.clone()</code></h4>
+<p>A function for creating a new node with the same values.</p>
+<h4 id="nodeonevt-callback-capture"><code>node.on(evt, callback, capture)</code></h4>
+<p>A function for adding a callback that will be deeply cloned and added to the DOMNode event listeners once compiled.</p>
+<h4 id="nodeoffevt-callback"><code>node.off(evt, callback)</code></h4>
+<p>A function for removing a callback registered under and events namespace. If callback is missing all the callbacks registered with the event name will be removed.</p>
+<h2 id="text">Text</h2>
+<p>The <code>Text</code> is a virtual representation of a TextNode that extends Node.</p>
+<h2 id="instance">Instance</h2>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Text <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> text = <span class="hljs-keyword">new</span> Text(value);
+</code></pre>
+<h3 id="properties">Properties</h3>
+<h3 id="texttext"><code>text.text</code></h3>
+<p>Get/ set property for returning the text value of the node.</p>
+<h2 id="fragment">Fragment</h2>
+<p>The <code>Fragment</code> is a virtual representation of a DocumentFragment that extends Node.</p>
+<h2 id="instance">Instance</h2>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Fragment <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> fragment = <span class="hljs-keyword">new</span> Fragment();
+</code></pre>
+<h3 id="methods">Methods</h3>
+<h4 id="fragmentappendnode"><code>fragment.append(node)</code></h4>
+<p>A function for pushing the node onto the fragments children array</p>
+<h4 id="fragmentprependnode"><code>fragment.prepend(node)</code></h4>
+<p>A function for unshifting the node onto the fragments children array</p>
+<h4 id="fragmentinsertnode-i"><code>fragment.insert(node, i)</code></h4>
+<p>A function for splicing the node into the fragments children array at index <code>i</code></p>
+<h4 id="fragmentfindquery"><code>fragment.find(query)</code></h4>
+<p>A function for returning the first node that matches the queries criteria. The query is either a string which matches the elements name, an object that matches the elements attributes, or a function that evaluates against all nodes.</p>
+<h4 id="fragmentfilterquery"><code>fragment.filter(query)</code></h4>
+<p>A function returning a flat list of results from an in-order recursive traversal of the fragments children.</p>
+<h4 id="fragmenttext"><code>fragment.text()</code></h4>
+<p>A function for returning a concatenated string of all the children text nodes values.</p>
+<h2 id="element">Element</h2>
+<p>The <code>Element</code> is a virtual representation of a DocumentElement that extends Fragment.</p>
+<h2 id="instance">Instance</h2>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Element <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> element = <span class="hljs-keyword">new</span> Element(name, attributes, empty);
+</code></pre>
+<h3 id="properties">Properties</h3>
+<h4 id="elementname"><code>element.name</code></h4>
+<p>The name of the element</p>
+<h4 id="elementattributes"><code>element.attributes</code></h4>
+<p>An object map representing the elements attributes</p>
+<h4 id="elementempty"><code>element.empty</code></h4>
+<p>Boolean value indicating whether or not the element is empty/self closing</p>
+<h4 id="elementclass"><code>element.class</code></h4>
+<p>Read-only property for returning a <code>classList</code> object for manipulating the element classes</p>
+<h5 id="methods">Methods</h5>
+<ul>
+<li><p><code>element.class.toggle(str)</code></p>
+<p>  Toggles the existence of a single class name. Throws an error for invalid class name.</p>
+</li>
+<li><p><code>element.class.add(str)</code></p>
+<p>  Appends a single class name if it does not already exist. Throws an error for invalid class name.</p>
+</li>
+<li><p><code>element.class.remove(str)</code></p>
+<p>  Removes a single class name if it exists. Throws an error for invalid class name.</p>
+</li>
+<li><p><code>element.class.contains(str)</code></p>
+<p>  Returns a boolean value whether the class exists. Throws an error for invalid class name.</p>
+</li>
+<li><p><code>element.class.index(str)</code></p>
+<p>  Returns a index of class if exists otherwise -1. Throws an error for invalid class name.</p>
+</li>
+</ul>
+<h3 id="methods">Methods</h3>
+<h4 id="elementindex"><code>element.index()</code></h4>
+<p>Returns the current index of the node in the <code>parent.children</code> array</p>
+<h1 id="observer">Observer</h1>
+<p>The <code>Observer</code> class creates observable objects and binds accessor methods and properties based on the target.</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Observer <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">let</span> observer = <span class="hljs-keyword">new</span> Observer(callback);
+</code></pre>
+<h2 id="callback-function">callback <code>function</code></h2>
+<p>A function to invoke on mutation. Callback is passed the <code>MutationRecord</code>.</p>
+<h2 id="mutationrecord">MutationRecord</h2>
+<ul>
+<li><p>type <code>String|Number</code></p>
+<p>  Property on observable that was modified</p>
+</li>
+<li><p>target <code>Object|Array</code></p>
+<p>  The target observable object</p>
+</li>
+<li><p>method <code>String</code></p>
+<p>  The mutation method</p>
+</li>
+<li><p>args <code>Array</code></p>
+<p>  The arguments passed to the mutation method</p>
+</li>
+<li><p>newValue <code>Any</code></p>
+<p>  The new value assigned to the target at type</p>
+</li>
+<li><p>oldValue <code>Any</code></p>
+<p>  The old value on target at type</p>
+</li>
+</ul>
+<h2 id="methods">Methods</h2>
+<h3 id="observerobservetarget-recursive"><code>observer.observe(target, recursive)</code></h3>
+<p>Converts a target into an observable object</p>
+<ul>
+<li><p>target <code>Object|Array</code></p>
+<p>  The targets current properties are converted in to accessors and augmented with appropriate mutation methods.</p>
+</li>
+<li><p>recursive <code>Boolean</code></p>
+<p>  Whether or not to also observer child Objects|Arrays, defaults to false</p>
+</li>
+</ul>
+<h3 id="observerdisconnect"><code>observer.disconnect()</code></h3>
+<p>Removes itself from target observers list and removes reference to target.</p>
+<h2 id="observable">Observable</h2>
+<blockquote>
+<p>Some mutation methods must be defined on objects in order to track changes as accessor functions only work for existing properties.
+The array mutation methods simply forward their arguments to the associated method on the Array.prototype, windsock does not modify the Array.prototype.</p>
+</blockquote>
+<h3 id="observable-methods">Observable Methods</h3>
+<ul>
+<li><p><code>object.add(key, value)</code></p>
+<p>  Adds a value at the specific key on the object</p>
+</li>
+<li><p><code>object.delete(key)</code></p>
+<p>  Deletes a property on an object</p>
+</li>
+<li><p><code>array.fill(...)</code></p>
+<p>  Invokes Array.prototype.fill</p>
+</li>
+<li><p><code>array.pop(...)</code></p>
+<p>  Invokes Array.prototype.pop</p>
+</li>
+<li><p><code>array.push(...)</code></p>
+<p>  Invokes Array.prototype.push</p>
+</li>
+<li><p><code>array.shift(...)</code></p>
+<p>  Invokes Array.prototype.shift</p>
+</li>
+<li><p><code>array.splice(...)</code></p>
+<p>  Invokes Array.prototype.splice</p>
+</li>
+<li><p><code>array.unshift(...)</code></p>
+<p>  Invokes Array.prototype.unshift</p>
+</li>
+</ul>
+<h1 id="component">Component</h1>
+<p>The <code>Component</code> class can be used to encapsulate higher level application logic, providing lifecycle hooks for each stage in the process of composing a virtual DOM.</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Component <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">let</span> component = <span class="hljs-keyword">new</span> Component(options);
+</code></pre>
+<blockquote>
+<p>Creating a new <code>Component</code> will initialize it&apos;s query/parse/compile lifecycle as well as any child components registered with it.</p>
+</blockquote>
+<h2 id="options-object">options <code>Object</code></h2>
+<ul>
+<li><p>root <code>Boolean</code></p>
+<p>  Default <code>true</code>
+  Whether or not the component is to render in the DOM</p>
+</li>
+<li><p>components <code>Object</code></p>
+<p>  Default <code>{}</code> Registered components</p>
+</li>
+<li><p>selectors <code>String|Object</code></p>
+<p>  Default <code>&apos;&apos;</code> An element name selector or an object <code>{name:&apos;custom&apos;, compile:&apos;div&apos;}</code></p>
+</li>
+<li><p>template <code>String|Array|Node</code></p>
+<p>  Template to replace the source node</p>
+</li>
+<li><p>query <code>Function(component, DOMNode)</code></p>
+<p>  Read only callback</p>
+<p>  Avoid manipulating or attaching events to the DOM in this callback</p>
+</li>
+<li><p>parse <code>Function(template, component, node)</code></p>
+<p>  Read/write/replace callback</p>
+<p>  The parse method is the only callback that allows returning a value for replacing the template passed to it</p>
+</li>
+<li><p>compile <code>Function(compiledNode, component, template)</code></p>
+<p>  Read/write callback</p>
+</li>
+</ul>
+<h2 id="static-methods">Static Methods</h2>
+<h3 id="componentselectorcomponent-type"><code>Component.selector(component, type)</code></h3>
+<p>A function for mapping a selector given a contextual <code>type</code> string.</p>
+<pre><code class="lang-javascript"><span class="hljs-keyword">let</span> component = <span class="hljs-keyword">new</span> Component({
+    selector: {
+        name: <span class="hljs-string">&apos;div&apos;</span>,
+        compile: <span class="hljs-string">&apos;ul&apos;</span>
+    }
+});
+
+Component.selector(component); <span class="hljs-comment">//returns &apos;div&apos;</span>
+
+Component.selector(component, <span class="hljs-string">&apos;compile&apos;</span>); <span class="hljs-comment">//returns &apos;ul&apos;</span>
+</code></pre>
+<h3 id="componentquerycomponent-domnode"><code>Component.query(component, DOMNode)</code></h3>
+<p>A function for querying a DOM node using calling querySelectorAll with the components <code>selector.name</code> value.</p>
+<h3 id="componentparsecomponent-sources"><code>Component.parse(component, sources)</code></h3>
+<p>A function for iterating over a list of of either DOM nodes or parent parsed virtual DOM nodes filtered by the components <code>selector.name</code> value. Also queries the newly parsed virtual DOM for each registered component, invoking parse on them. This method calls the registered parse callback on the component if it exists.</p>
+<blockquote>
+<p>If a parent component&apos;s <code>parse</code> callback changes it&apos;s structure from that of the source the child will parse the newly queried parent templates. However, if the parents parse doesn&apos;t modify the structure at all, the child&apos;s source elements will be bound to the appropriate template and a query of the parent template will return the parsed templates of the child source nodes. The query selector used for querying the live DOM and the parent template will be the name selector. It is then up to the child whether or not to provide a new selector for compilation stage.</p>
+</blockquote>
+<h3 id="componentcompilecomponent-templates"><code>Component.compile(component, templates)</code></h3>
+<p>A function for iterating over a list of parsed nodes and compiling them. Also queries the newly compiled virtual DOM for each registered component, invoking compile on them. This method calls the registered compile callback on the component if it exists.</p>
+<blockquote>
+<p>The same process is repeated for compilation to provide the components a chance to do any further work in the templates prior to tranclusion into the DOM. The same scenario applies here where if the parent modifies the compiled DOM.</p>
+</blockquote>
+<h1 id="bind">Bind</h1>
+<p>The <code>Bind</code> class is responsible for defining data bindings between virtual nodes and observables</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Bind <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> bind = <span class="hljs-keyword">new</span> Bind(transform, recursive);
+</code></pre>
+<h2 id="transform-objectfunction">transform <code>Object|Function</code></h2>
+<blockquote>
+<p>If <code>transform</code> is a function it gets set to both bind and update</p>
+</blockquote>
+<ul>
+<li><p>bind <code>Function</code></p>
+<p>  A function that is invoked when the node is initially rendered with the target data. It can optionally return an object that defines what namespace to register the binding at on the node.</p>
+</li>
+<li><p>update <code>Function</code></p>
+<p>  A function that is invoked every time there is a mutation to the observed target. It is passed the <code>node</code>, <code>binding</code> and <code>mutation</code> objects.</p>
+</li>
+<li><p>compile <code>Function</code></p>
+<p>  A function that is invoked when the node is compiled. It is passed the compiled <code>node</code> and <code>binding</code> object.</p>
+</li>
+</ul>
+<h2 id="recursive-boolean">recursive <code>Boolean</code></h2>
+<p>A boolean value determining whether or not the target object it recursively observed. Defaults to <code>false</code>.</p>
+<h2 id="methods">Methods</h2>
+<h3 id="bindrendernode-target-keypath"><code>bind.render(node, target, keypath)</code></h3>
+<p>A function for creating the binding object and adding it to the list of bindings on the uncompiled node. Optionally observes the target at a period delimited <code>keypath</code>.</p>
+<pre><code class="lang-javascript"><span class="hljs-keyword">let</span> data = {
+    obj: {
+        arr: [{
+            prop: <span class="hljs-string">&apos;value&apos;</span>
+        }]
+    }
+};
+
+bind.render(node, data, <span class="hljs-string">&apos;obj.arr.0.prop&apos;</span>);
+</code></pre>
+<h1 id="http">Http</h1>
+<p>The <code>Http</code> class wraps an xhr client with template urls, promises, and exposes an interceptor pattern for all requests</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Http <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> http = <span class="hljs-keyword">new</span> Http(config);
+</code></pre>
+<h2 id="config">config</h2>
+<ul>
+<li><p>urlencode <code>Boolean</code></p>
+<p>  Defaults to false, whether or not to url encode data</p>
+</li>
+<li><p>override <code>Boolean</code></p>
+<p>  Defaults to false, whether or not to override PUT|PATCH|DELETE requests as POST with X-HTTP-Method-Override header</p>
+</li>
+<li><p>timeout <code>Number</code></p>
+<p>  Defaults to 0, time before a request is aborted, if 0, no request will be aborted</p>
+</li>
+<li><p>headers <code>Object</code></p>
+<p>  Object map of key/value pairs</p>
+</li>
+<li><p>url <code>String</code></p>
+<p>  Defaults to an empty string, parsed to a url object and passed to interceptors</p>
+</li>
+</ul>
+<h2 id="properties">Properties</h2>
+<h3 id="httpurl"><code>http.url</code></h3>
+<p>Read-only property, returns the formatted url</p>
+<h3 id="httpquery"><code>http.query</code></h3>
+<p>Get or set the url query parameters</p>
+<h3 id="httppath"><code>http.path</code></h3>
+<p>Get or set the url path parameters</p>
+<h2 id="methods">Methods</h2>
+<h3 id="httpgetdata"><code>http.GET(data)</code></h3>
+<p>A function for making a <code>GET</code> request with specified data</p>
+<h3 id="httppostdata"><code>http.POST(data)</code></h3>
+<p>A function for making a <code>POST</code> request with specified data</p>
+<h3 id="httpputdata"><code>http.PUT(data)</code></h3>
+<p>A function for making a <code>PUT</code> request with specified data</p>
+<h3 id="httppatchdata"><code>http.PATCH(data)</code></h3>
+<p>A function for making a <code>PATCH</code> request with specified data</p>
+<h3 id="httpdeletedata"><code>http.DELETE(data)</code></h3>
+<p>A function for making a <code>DELETE</code> request with specified data</p>
+<h2 id="static-methods">Static Methods</h2>
+<h3 id="httpmethodhttp-method-data"><code>Http.method(http, method, data)</code></h3>
+<p>A function that returns a request configuration object that can be used to executed a request with <code>Http.request()</code></p>
+<h3 id="httprequestrequest"><code>Http.request(request)</code></h3>
+<p>A function for executing a request with provided configuration object</p>
+<h2 id="static-properties">Static Properties</h2>
+<h3 id="httpinterceptorsrequest"><code>Http.interceptors.request</code></h3>
+<p>A <code>Signal</code> instance that is dispatched with every request</p>
+<h3 id="httpinterceptorsresponse"><code>Http.interceptors.response</code></h3>
+<p>A <code>Signal</code> instance that is dispatched with every response</p>
+<h1 id="router">router</h1>
+<p>The <code>router</code> is a singleton object that exposes methods for registering and routing the locations pathname.</p>
+<h2 id="methods">Methods</h2>
+<h3 id="routerregisterpath-config"><code>router.register(path, config)</code></h3>
+<p>Registers a state configuration obj at a path name on the states object. Will throw an error for invalid path or if the config is not an object.</p>
+<pre><code class="lang-javascript">router.register(<span class="hljs-string">&apos;user/:id&apos;</span>, state);
+
+router.go(<span class="hljs-string">&apos;user/:id&apos;</span>, {
+    path: {
+        id: <span class="hljs-number">1</span>
+    }
+});
+</code></pre>
+<h4 id="path-string">path <code>String</code></h4>
+<p>A string representing the desired url, supports parameters</p>
+<h4 id="config-object">config <code>Object</code></h4>
+<ul>
+<li><p>activate <code>Function</code></p>
+<p>  A function to call when the state is activated or reactivated. Optionally return a <code>Promise</code> to resolve or reject preventing the route request from completing. It is passed the <code>request</code> object.</p>
+</li>
+<li><p>deactivate <code>Function</code></p>
+<p>  A function to call when the state is deactivated. Optionally return a <code>Promise</code> to resolve or reject preventing the route request from completing. It is passed the <code>request</code> object.</p>
+</li>
+</ul>
+<h5 id="request-object">request <code>Object</code></h5>
+<ul>
+<li><p>segments <code>Array</code></p>
+<p>  An array of the segments to activate</p>
+</li>
+<li><p>requested <code>String</code></p>
+<p>  A string path that go was originally called with.</p>
+<ul>
+<li><p>resolved <code>String</code></p>
+<p>A string representing the path that was resolved.</p>
+</li>
+</ul>
+</li>
+<li><p>target <code>String</code></p>
+<p> A string representing the current target of the request being handled.</p>
+</li>
+<li><p>previous <code>Request</code></p>
+<p>  The previously activated request object.</p>
+</li>
+<li><p>path <code>Object</code></p>
+<p>  An object map of the variable path segments.</p>
+</li>
+<li><p>query <code>Object</code></p>
+<p>  An object map of the query parameters.</p>
+</li>
+<li><p>replace <code>Boolean</code></p>
+<p>  A boolean value indicating whether or not the request is to replace the history state.</p>
+</li>
+<li><p>event <code>Event</code></p>
+<p>  An event object if any is associated with the request.</p>
+</li>
+<li><p>promise <code>Promise</code></p>
+<p>  A promise that is either resolved or rejected with the <code>request</code> object.</p>
+</li>
+</ul>
+<h3 id="routergopath-params"><code>router.go(path, params)</code></h3>
+<p>Adds a state request with parameters to the queue to be processed. Returns a <code>Promise</code> that is either resolved or rejected when the requested path is handled. Will throw an error if starts or ends with a <code>/</code> or if the path has parameter(s) that are not defined in params object.</p>
+<h4 id="path-string">path <code>String</code></h4>
+<p>A string representing the desired url, supports parameters.</p>
+<h4 id="params-object">params <code>Object</code></h4>
+<ul>
+<li><p>path <code>Object</code></p>
+<p>  An object map that will populate the path parameter with values.</p>
+</li>
+<li><p>query <code>Object</code></p>
+<p>  An object map that will populate the query parameters with values.</p>
+<ul>
+<li><p>replace <code>Boolean</code></p>
+<p>A boolean value indicating whether or not replace the previous history entry.</p>
+</li>
+</ul>
+</li>
+</ul>
+<h3 id="routerstartconfig"><code>router.start(config)</code></h3>
+<p>Starts the router by adding event listeners to hashchange or popstate based on <code>config.hash</code>. Will throw an error if already listening, please check if started <code>router.started()</code>.</p>
+<h4 id="config-object">config <code>Object</code></h4>
+<ul>
+<li><p>hash <code>Boolean</code></p>
+<p>  A boolean value indicating whether or not use hashed paths. Defaults to true.</p>
+</li>
+<li><p>root <code>String</code></p>
+<p>  A string value to register root paths at. Defaults to &apos;root&apos;.</p>
+</li>
+<li><p>reactivate <code>Boolean</code></p>
+<p>  A boolean value indicating whether or not to call activate on states already activated on a new request.</p>
+</li>
+<li><p>otherwise <code>String</code></p>
+<p>  An otherwise path to route when popstate or hashchange are emitted with an invalid path or go is called with an unregistered path.</p>
+</li>
+</ul>
+<h3 id="routerstop"><code>router.stop()</code></h3>
+<p>Removes the event listener on the window. Will throw an error if not listening, please check if started <code>router.started()</code>.</p>
+<h3 id="routerstarted"><code>router.started()</code></h3>
+<p>Returns a boolean value indicating if the router has been started.</p>
+<h3 id="routerreset"><code>router.reset()</code></h3>
+<p>Resets all the initial values of the router.</p>
+<h1 id="store">Store</h1>
+<p>The <code>Store</code> class is responsible for providing structure to the process of mutating models.</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Store <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> store = <span class="hljs-keyword">new</span> Store(state, mutations, post);
+</code></pre>
+<h2 id="properties">Properties</h2>
+<h3 id="storestate"><code>store.state</code></h3>
+<p>A target object or array to mutate</p>
+<h3 id="storemutations"><code>store.mutations</code></h3>
+<p>A registry of methods(synchronous operations only) that mutate the state</p>
+<h3 id="storepost"><code>store.post</code></h3>
+<p>A callback function that is called whenever a mutation is performed</p>
+<h1 id="signal">Signal</h1>
+<p>The <code>Signal</code> class retains a list of listener methods that are called whenever the signal is dispatched.</p>
+<h1 id="instance">Instance</h1>
+<pre><code class="lang-javascript"><span class="hljs-keyword">import</span> Signal <span class="hljs-keyword">from</span> <span class="hljs-string">&apos;windsock&apos;</span>;
+
+<span class="hljs-keyword">const</span> signal = <span class="hljs-keyword">new</span> Signal();
+</code></pre>
+<h2 id="methods">Methods</h2>
+<h3 id="signaladdlistener"><code>signal.add(listener)</code></h3>
+<p>Pushes the listener method onto the array of listeners</p>
+<h3 id="signalremovelistener"><code>signal.remove(listener)</code></h3>
+<p>Removes a method from the listeners array, if no listener is provided, sets the listeners to an empty array</p>
+<h3 id="signaldispatchargs"><code>signal.dispatch(...args)</code></h3>
+<p>Iterates over the listeners and invokes them with the arguments passed to dispatch</p>
+<h2 id="properties">Properties</h2>
+<h3 id="signallisteners"><code>signal.listeners</code></h3>
+<p>An array of methods</p>
+<h1 id="url">url</h1>
+<p>Utility methods for parsing and formatting urls including template paths and query string mapping</p>
+<h2 id="methods">Methods</h2>
+<h3 id="urlparsestr"><code>url.parse(str)</code></h3>
+<p>Returns an object map of the url</p>
+<h3 id="urlformatobj"><code>url.format(obj)</code></h3>
+<p>Returns a formatted url string</p>
+<h3 id="urlpathparsestr"><code>url.path.parse(str)</code></h3>
+<p>Returns an object map of the path string</p>
+<h3 id="urlpathformatobj"><code>url.path.format(obj)</code></h3>
+<p>Returns a formatted path string</p>
+<h3 id="urlqueryparsestr"><code>url.query.parse(str)</code></h3>
+<p>Returns an object map of the query string</p>
+<h3 id="urlqueryformatobj"><code>url.query.format(obj)</code></h3>
+<p>Returns a formatted query string</p>
+<h1 id="util">util</h1>
+<p>Utility methods used internally by windsock</p>
+<h1 id="methods">Methods</h1>
+<p>The <code>util</code> module has the following methods:</p>
+<h3 id="utilpaintfn"><code>util.paint(fn)</code></h3>
+<p>References requestAnimationFrame with a fallback to setTimeout</p>
+<h3 id="utilcancelpaintfn"><code>util.cancelPaint(fn)</code></h3>
+<p>References cancelAnimationFrame with a fallback to clearTimeout</p>
+<h3 id="utiltickfn"><code>util.tick(fn)</code></h3>
+<p>References process.nextTick with a fallback to setTimeout</p>
+<h3 id="utilcapitalizestr"><code>util.capitalize(str)</code></h3>
+<p>Returns a new string with the first character converted toUpperCase</p>
+<h3 id="utilistarget-type"><code>util.is(target, type)</code></h3>
+<p>Returns a boolean value whether a target is of type</p>
+<h3 id="utilextendobj-args"><code>util.extend(obj, ...args)</code></h3>
+<p>Iterates enumerable properties including the prototype on each object and sets them equal to their value on obj</p>
+<h3 id="utilcloneobj"><code>util.clone(obj)</code></h3>
+<p>Recursively iterates enumerable properties not including prototype and nested objects creating new objects and assigning the values</p>
+<h3 id="utilmatchobj-query"><code>util.match(obj, query)</code></h3>
+<p>Returns a boolean value whether all the enumerable properties including the prototype on the query object strictly equal the obj properties</p>
+<h3 id="utilnoop"><code>util.noop()</code></h3>
+
+                    
+                    </section>
+                
+                
+                </div>
+            </div>
+        </div>
+
+        
+        <a href="./tldr.html" class="navigation navigation-prev navigation-unique" aria-label="Previous page: tl;dr"><i class="fa fa-angle-left"></i></a>
+        
+        
+    </div>
+</div>
+
+        
+<script src="gitbook/app.js"></script>
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-search/lunr.min.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-search/search.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-sharing/buttons.js"></script>
+    
+
+    
+    <script src="gitbook/plugins/gitbook-plugin-fontsettings/buttons.js"></script>
+    
+
+<script>
+require(["gitbook"], function(gitbook) {
+    var config = {"highlight":{},"search":{"maxIndexSize":1000000},"sharing":{"facebook":true,"twitter":true,"google":false,"weibo":false,"instapaper":false,"vk":false,"all":["facebook","google","twitter","weibo","instapaper"]},"fontsettings":{"theme":"white","family":"sans","size":2}};
+    gitbook.start(config);
+});
+</script>
+
+        
+    </body>
+    
+</html>
