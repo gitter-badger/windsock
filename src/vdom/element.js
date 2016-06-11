@@ -9,7 +9,7 @@ export default class Element extends Fragment{
         }
         super();
         this.name = name;
-        this.attributes = defineAttributesParent(this, attributes);
+        this.attributes = defineAttributesParent(this, clone(attributes));
         this.empty = empty;
     }
     get jsonml(){

@@ -1,4 +1,4 @@
-import {Node} from './vdom/index';
+import Node from './vdom/node';
 import compile from './compiler/compile';
 
 export default function clone(node, deep = false){

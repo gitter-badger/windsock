@@ -1,5 +1,5 @@
 import * as compiler from './index';
-import {Node} from '../vdom/index';
+import Node from '../vdom/node';
 
 export default function compile(template){
     if(!template instanceof Node){

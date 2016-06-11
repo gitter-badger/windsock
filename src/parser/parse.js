@@ -1,5 +1,7 @@
 import {is} from '../util';
-import {Text, Fragment, Element} from '../vdom/index';
+import Text from '../vdom/text';
+import Fragment from '../vdom/fragment';
+import Element from '../vdom/element';
 import * as parser from './index';
 
 export default function parse(source){

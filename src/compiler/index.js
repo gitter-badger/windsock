@@ -1,5 +1,7 @@
-import {Text, Fragment, Element} from '../vdom/index';
 import Observer from '../observer';
+import Text from '../vdom/text';
+import Fragment from '../vdom/fragment';
+import Element from '../vdom/element';
 import * as batch from '../batch';
 import Bind from '../bind';
 
