@@ -363,7 +363,7 @@ function go(p) {
     req = new Request(segments, params);
     queue.push(req);
     if (!routing) {
-        next();
+        tick(next);
     }
     return req.promise;
 }
@@ -568,7 +568,7 @@ function deactivate() {
                 deactivate();
             }).catch(function (e) {
                 request.reject(e);
-                next();
+                tick(next);
             });
         } else {
             active.pop();
@@ -602,7 +602,7 @@ function reactivate() {
             })).then(reactivate).catch(function (e) {
                 request.reject(e);
                 re = [];
-                next();
+                tick(next);
             });
             return;
         }
@@ -622,7 +622,7 @@ function activate() {
                 return h.activate || noop;
             })).then(activate).catch(function (e) {
                 request.reject(e);
-                next();
+                tick(next);
             });
         } else {
             activate();
@@ -638,7 +638,7 @@ function activate() {
         }
         request.resolve(request);
         config.post && config.post(request);
-        next();
+        tick(next);
     }
 }
 
@@ -2828,26 +2828,34 @@ Http.interceptors.response.add(response$1);
 Http.interceptors.response.add(response);
 
 var Component = function () {
-    function Component(_ref) {
+    function Component() {
+        var _ref = arguments.length <= 0 || arguments[0] === undefined ? {} : arguments[0];
+
         var _ref$root = _ref.root;
         var root = _ref$root === undefined ? true : _ref$root;
         var _ref$components = _ref.components;
         var components = _ref$components === undefined ? {} : _ref$components;
         var _ref$selectors = _ref.selectors;
         var selectors = _ref$selectors === undefined ? '' : _ref$selectors;
-        var template = _ref.template;
-        var query = _ref.query;
-        var parse = _ref.parse;
-        var compile$$ = _ref.compile;
+        var _ref$template = _ref.template;
+        var template = _ref$template === undefined ? '' : _ref$template;
         classCallCheck(this, Component);
+
+        if (!is(components, 'object')) {
+            throw new Error('Invalid components type must be an object map');
+        }
+        if (!is(template, 'string') && !is(template, 'object')) {
+            throw new Error('Invalid selectors type must be a string or object');
+        }
+        if (!is(template, 'string') && !is(template, 'function')) {
+            throw new Error('Invalid template type must be a string or function');
+        }
 
         this.root = root;
         this.components = {};
         this.selectors = selectors;
         this.template = template;
-        this.query = query;
-        this.parse = parse;
-        this.compile = compile$$;
+
         init(this, components);
     }
 
@@ -2869,11 +2877,11 @@ var Component = function () {
         key: 'query',
         value: function query(component, DOMNode) {
             var sources = DOMNode.querySelectorAll(Component.selector(component, 'name'));
+
             sources = Array.prototype.slice.call(sources);
             sources.forEach(function componentQueryIterator(node) {
                 var child = void 0;
-                //this hook should be read only!
-                //don't do anything to the node here pls
+                //read-only hook
                 component.query && component.query(node, component);
                 for (var name in component.components) {
                     child = component.components[name];
@@ -2885,15 +2893,14 @@ var Component = function () {
     }, {
         key: 'parse',
         value: function parse(component, sources) {
+            //a root node will call this with (component, [DOMNodes])
+            //subsequent children will invoke this method with already parsed sources
             var templates = [],
                 child = void 0,
                 selector = void 0,
                 results = void 0;
 
-            //a root node will call this with (component, [DOMNodes])
-            //subsequent children will invoke this method with already parsed sources
             sources.forEach(function componentParseIterator(node) {
-                //node is either a DOMNode or a virtualDOM node
                 var template = void 0;
 
                 if (component.template) {
@@ -2951,22 +2958,41 @@ var Component = function () {
     return Component;
 }();
 
-function init(c, components) {
+function init(component, components) {
     var sources = void 0,
         parsed = void 0,
         compiled = void 0;
-    c.template = is(c.template, 'function') ? c.template : c.template && parse$4(c.template);
+
+    if (is(component.template, 'string')) {
+        component.template = parse$4(component.template);
+    }
+
     for (var name in components) {
-        c.components[name] = new components[name]({
+        component.components[name] = new components[name]({
             root: false,
             selectors: name
         });
     }
-    if (c.root) {
-        sources = Component.query(c, document);
-        parsed = Component.parse(c, sources);
-        compiled = Component.compile(c, parsed);
-        compiled.forEach(transclude); //could append to instead of transclude
+
+    if (component.root) {
+        if (typeof document !== 'undefined') {
+            sources = Component.query(component, document);
+        } else {
+            if (!component.root instanceof Node) {
+                throw new Error('Unspecified virtual root node');
+            }
+            sources = [component.root];
+        }
+
+        parsed = Component.parse(component, sources);
+        compiled = Component.compile(component, parsed);
+
+        if (typeof document !== 'undefined') {
+            compiled.forEach(transclude);
+        } else {
+            component.parsed = parsed;
+            component.compiled = compiled;
+        }
     }
 }
 

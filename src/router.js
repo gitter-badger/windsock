@@ -1,4 +1,4 @@
-import {is,noop,match} from './util';
+import {is,noop,match,tick} from './util';
 import * as query from './url/query';
 import * as path from './url/path';
 
@@ -75,7 +75,7 @@ export function go(p, params = {}){
     req = new Request(segments, params);
     queue.push(req);
     if(!routing){
-        next();
+        tick(next);
     }
     return req.promise;
 }
@@ -263,7 +263,7 @@ function deactivate(){
                 })
                 .catch((e)=>{
                     request.reject(e);
-                    next();
+                    tick(next);
                 });
         }else{
             active.pop();
@@ -297,7 +297,7 @@ function reactivate(){
                 .catch((e)=>{
                     request.reject(e);
                     re = [];
-                    next();
+                    tick(next);
                 });
             return;
         }
@@ -317,7 +317,7 @@ function activate(){
                 .then(activate)
                 .catch((e)=>{
                     request.reject(e);
-                    next();
+                    tick(next);
                 });
         }else{
             activate();
@@ -333,7 +333,7 @@ function activate(){
         }
         request.resolve(request);
         config.post && config.post(request);
-        next();
+        tick(next);
     }
 }
 

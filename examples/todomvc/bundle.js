@@ -346,12 +346,6 @@
 
   var template$2 = '\n<li class="completed">    <div class="view">        <input class="toggle" type="checkbox" checked>        <label>Taste JavaScript</label>        <button class="destroy"></button>    </div>    <input class="edit" value="Create a TodoMVC template"></li>';
 
-  var parse$2 = function parse(template, component) {
-      item.render(template, component.data);
-      completed.render(template, state, 'route');
-      editing.render(template, state, 'editing');
-  };
-
   var Todo = function (_Item) {
       inherits(Todo, _Item);
 
@@ -359,16 +353,23 @@
           var root = _ref.root;
           classCallCheck(this, Todo);
           return possibleConstructorReturn(this, Object.getPrototypeOf(Todo).call(this, {
+              root: root,
               selectors: {
                   name: 'todo',
                   compile: 'li'
               },
-              template: template$2,
-              parse: parse$2,
-              root: root
+              template: template$2
           }, data));
       }
 
+      createClass(Todo, [{
+          key: 'parse',
+          value: function parse(template) {
+              item.render(template, this.data);
+              completed.render(template, state, 'route');
+              editing.render(template, state, 'editing');
+          }
+      }]);
       return Todo;
   }(Item);
 
@@ -417,12 +418,7 @@
 
   var template$1 = '<ul class="todo-list"></ul>';
 
-  var parse$1 = function parse(template, component) {
-      var list = new List(Todo);
-      list.render(template, state, 'todos');
-  };
-
-  var compile$2 = function compile(compiled, component) {};
+  var list = new List(Todo);
 
   var components$1 = {
       todo: Todo
@@ -437,6 +433,7 @@
           var root = _ref.root;
           classCallCheck(this, Todos);
           return possibleConstructorReturn(this, Object.getPrototypeOf(Todos).call(this, {
+              root: root,
               selectors: {
                   name: 'todos',
                   compile: {
@@ -444,13 +441,16 @@
                   }
               },
               components: components$1,
-              template: template$1,
-              parse: parse$1,
-              compile: compile$2,
-              root: root
+              template: template$1
           }));
       }
 
+      createClass(Todos, [{
+          key: 'parse',
+          value: function parse(template) {
+              list.render(template, state, 'todos');
+          }
+      }]);
       return Todos;
   }(windsock.Component);
 
@@ -494,30 +494,6 @@
 
   var template = '\n<section class="todoapp">\n    <header class="header">\n        <h1>todos</h1>\n        <input class="new-todo" placeholder="What needs to be done?" autofocus>\n    </header>\n    <section class="main">\n        <input class="toggle-all" type="checkbox">\n        <label for="toggle-all">Mark all as complete</label>\n        <todos></todos>\n    </section>\n    <footer class="footer">\n    <span class="todo-count"><strong>0</strong> item left</span>\n    <ul class="filters">\n      <li>\n        <a class="selected" href="#/">All</a>\n      </li>\n      <li>\n        <a href="#/active">Active</a>\n      </li>\n      <li>\n        <a href="#/completed">Completed</a>\n      </li>\n    </ul>\n    <button class="clear-completed">Clear completed</button>\n    </footer>\n</section>\n<footer class="info">\n    <p>Double-click to edit a todo</p>\n    <p>Created by <a href="github.com/bsawyer/windsock">Ben Sawyer</a></p>\n    <p>Part of <a href="http://todomvc.com">TodoMVC</a></p>\n</footer>';
 
-  var parse = function parse(template, component) {
-      var footer = template.find('footer');
-      length.render(footer, state, 'todos');
-      link.render(footer.filter('a'), state, 'route');
-      clear.render(footer.find({ class: 'clear-completed' }), state);
-      text.render(footer.find('strong'), state, 'active');
-      toggle.render(template.find({ class: 'toggle-all' }), state, 'active');
-  };
-
-  var compile$1 = function compile(compiled, component) {
-      compiled.find({ class: 'new-todo' }).on('keyup', function (e, input) {
-          if (e.keyCode === 13 && input.DOMNode.value) {
-              store.dispatch('add', input.DOMNode.value);
-              input.DOMNode.value = '';
-          }
-      });
-      compiled.find({ class: 'clear-completed' }).on('click', function () {
-          store.dispatch('clear', true);
-      });
-      compiled.find({ class: 'toggle-all' }).on('change', function (e, node) {
-          store.dispatch('toggle', true, node.DOMNode.checked);
-      });
-  };
-
   var components = {
       todos: Todos
   };
@@ -525,8 +501,6 @@
   var options = {
       selectors: 'app',
       template: template,
-      parse: parse,
-      compile: compile$1,
       components: components
   };
 
@@ -538,6 +512,33 @@
           return possibleConstructorReturn(this, Object.getPrototypeOf(App).call(this, options));
       }
 
+      createClass(App, [{
+          key: 'parse',
+          value: function parse(template) {
+              var footer = template.find('footer');
+              length.render(footer, state, 'todos');
+              link.render(footer.filter('a'), state, 'route');
+              clear.render(footer.find({ class: 'clear-completed' }), state);
+              text.render(footer.find('strong'), state, 'active');
+              toggle.render(template.find({ class: 'toggle-all' }), state, 'active');
+          }
+      }, {
+          key: 'compile',
+          value: function compile(compiled) {
+              compiled.find({ class: 'new-todo' }).on('keyup', function (e, input) {
+                  if (e.keyCode === 13 && input.DOMNode.value) {
+                      store.dispatch('add', input.DOMNode.value);
+                      input.DOMNode.value = '';
+                  }
+              });
+              compiled.find({ class: 'clear-completed' }).on('click', function () {
+                  store.dispatch('clear', true);
+              });
+              compiled.find({ class: 'toggle-all' }).on('change', function (e, node) {
+                  store.dispatch('toggle', true, node.DOMNode.checked);
+              });
+          }
+      }]);
       return App;
   }(windsock.Component);
 

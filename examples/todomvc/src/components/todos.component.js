@@ -1,18 +1,11 @@
 import {Component} from 'windsock';
-import Todo from './todo/todo';
+import Todo from './todo/todo.component';
 import List from '../binds/list';
 import state from '../core/state';
 
 const template = '<ul class="todo-list"></ul>';
 
-const parse = (template, component)=>{
-    let list = new List(Todo);
-    list.render(template, state, 'todos');
-};
-
-const compile = (compiled, component)=>{
-
-};
+let list = new List(Todo);
 
 const components = {
     todo: Todo
@@ -23,6 +16,7 @@ const components = {
 export default class Todos extends Component{
     constructor({root}){
         super({
+            root,
             selectors: {
                 name: 'todos',
                 compile: {
@@ -31,9 +25,9 @@ export default class Todos extends Component{
             },
             components,
             template,
-            parse,
-            compile,
-            root,
         });
+    }
+    parse(template){
+        list.render(template, state, 'todos');
     }
 }

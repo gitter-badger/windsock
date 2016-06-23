@@ -3,24 +3,30 @@ import parse from './parser/parse';
 import compile from './compiler/compile';
 import transclude from './transclude';
 import clone from './clone';
+import Node from './vdom/node';
 
 export default class Component{
     constructor({
         root = true,
         components = {},
         selectors = '',
-        template,
-        query,
-        parse,
-        compile
-    }){
+        template = ''
+    } = {}){
+        if(!is(components, 'object')){
+            throw new Error('Invalid components type must be an object map');
+        }
+        if(!is(template, 'string') && !is(template, 'object')){
+            throw new Error('Invalid selectors type must be a string or object');
+        }
+        if(!is(template, 'string') && !is(template, 'function')){
+            throw new Error('Invalid template type must be a string or function');
+        }
+
         this.root = root;
         this.components = {};
         this.selectors = selectors;
         this.template = template;
-        this.query = query;
-        this.parse = parse;
-        this.compile = compile;
+
         init(this, components);
     }
     static selector(component, type){
@@ -37,11 +43,11 @@ export default class Component{
     }
     static query(component, DOMNode){
         let sources = DOMNode.querySelectorAll(Component.selector(component, 'name'));
+
         sources = Array.prototype.slice.call(sources);
         sources.forEach(function componentQueryIterator(node){
             let child;
-            //this hook should be read only!
-            //don't do anything to the node here pls
+            //read-only hook
             component.query && component.query(node, component);
             for(let name in component.components){
                 child = component.components[name];
@@ -51,15 +57,14 @@ export default class Component{
         return sources;
     }
     static parse(component, sources){
+        //a root node will call this with (component, [DOMNodes])
+        //subsequent children will invoke this method with already parsed sources
         let templates = [],
             child,
             selector,
             results;
 
-        //a root node will call this with (component, [DOMNodes])
-        //subsequent children will invoke this method with already parsed sources
         sources.forEach(function componentParseIterator(node){
-            //node is either a DOMNode or a virtualDOM node
             let template;
 
             if(component.template){
@@ -113,21 +118,40 @@ export default class Component{
     }
 }
 
-function init(c, components){
+function init(component, components){
     let sources,
         parsed,
         compiled;
-    c.template = is(c.template, 'function') ? c.template : c.template && parse(c.template);
+
+    if(is(component.template, 'string')){
+        component.template = parse(component.template);
+    }
+
     for(let name in components){
-        c.components[name] = new components[name]({
+        component.components[name] = new components[name]({
             root: false,
             selectors: name
         });
     }
-    if(c.root){
-        sources = Component.query(c, document);
-        parsed = Component.parse(c, sources);
-        compiled = Component.compile(c, parsed);
-        compiled.forEach(transclude); //could append to instead of transclude
+
+    if(component.root){
+        if(typeof document !== 'undefined'){
+            sources = Component.query(component, document);
+        }else{
+            if(!component.root instanceof Node){
+                throw new Error('Unspecified virtual root node');
+            }
+            sources = [component.root];
+        }
+
+        parsed = Component.parse(component, sources);
+        compiled = Component.compile(component, parsed);
+        
+        if(typeof document !== 'undefined'){
+            compiled.forEach(transclude);
+        }else{
+            component.parsed = parsed;
+            component.compiled = compiled;
+        }
     }
 }

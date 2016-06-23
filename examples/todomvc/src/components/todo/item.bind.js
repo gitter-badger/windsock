@@ -1,6 +1,6 @@
 import {Bind} from 'windsock';
-import state from '../../../core/state';
-import store from '../../../core/store';
+import state from '../../core/state';
+import store from '../../core/store';
 
 export default new Bind({
     bind: (node, target)=>{

@@ -1,4 +1,4 @@
-import App from './components/app/app';
+import App from './components/app/app.component';
 import store from './core/store';
 import {router} from 'windsock';
 

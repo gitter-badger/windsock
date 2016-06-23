@@ -10,6 +10,24 @@
     }
   };
 
+  var createClass = function () {
+    function defineProperties(target, props) {
+      for (var i = 0; i < props.length; i++) {
+        var descriptor = props[i];
+        descriptor.enumerable = descriptor.enumerable || false;
+        descriptor.configurable = true;
+        if ("value" in descriptor) descriptor.writable = true;
+        Object.defineProperty(target, descriptor.key, descriptor);
+      }
+    }
+
+    return function (Constructor, protoProps, staticProps) {
+      if (protoProps) defineProperties(Constructor.prototype, protoProps);
+      if (staticProps) defineProperties(Constructor, staticProps);
+      return Constructor;
+    };
+  }();
+
   var inherits = function (subClass, superClass) {
     if (typeof superClass !== "function" && superClass !== null) {
       throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
@@ -94,18 +112,12 @@
 
   var template = '<ul><li>add user</li></ul>';
 
-  var parse = function parse(template) {
-      bind.render(template, state);
-  };
-
   var options = {
-      root: true,
       selectors: {
           name: 'users',
           compile: 'ul'
       },
-      template: template,
-      parse: parse
+      template: template
   };
 
   var Users = function (_Component) {
@@ -116,6 +128,12 @@
           return possibleConstructorReturn(this, Object.getPrototypeOf(Users).call(this, options));
       }
 
+      createClass(Users, [{
+          key: 'parse',
+          value: function parse(template) {
+              bind.render(template, state);
+          }
+      }]);
       return Users;
   }(windsock.Component);
 

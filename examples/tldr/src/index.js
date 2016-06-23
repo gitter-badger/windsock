@@ -66,23 +66,20 @@ const bind = new Bind({
 
 const template = '<ul><li>add user</li></ul>';
 
-const parse = (template)=>{
-    bind.render(template, state);
-};
-
 const options = {
-    root: true,
     selectors: {
         name: 'users',
         compile: 'ul'
     },
     template,
-    parse,
 };
 
 class Users extends Component{
     constructor(){
         super(options);
+    }
+    parse(template){
+        bind.render(template, state);
     }
 }
 
